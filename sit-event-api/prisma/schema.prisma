@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
   output   = "../generated/prisma"
@@ -12,4 +6,281 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+enum Role {
+  STUDENT
+  TEACHER
+}
+
+enum TargetAudience {
+  EXTERNAL_STUDENT
+  INTERNAL_STUDENT
+  TEACHER
+  PUBLIC
+}
+
+enum EventTag {
+  SPEAK
+  EDUCATION
+  WORKSHOP
+  SEMINAR
+  COMPETITION
+  SOCIAL
+  CAREER
+}
+
+enum FormFieldType {
+  TEXT
+  RATING_SCALE
+  CHECKBOX
+  RADIO
+}
+
+enum FieldName {
+  FULL_USER_NAME
+  EVENT_NAME
+}
+
+enum StaffStatus {
+  PENDING
+  ACCEPTED
+  REFUSED
+}
+
+model User {
+  id                      String   @id @default(uuid())
+  email                   String   @unique
+  firstName               String
+  lastName                String
+  phoneNumber             String?
+  age                     Int?
+  school                  String?
+  roleInSchool            Role     @default(STUDENT)
+  province                String?
+  dietaryRequirements     String?
+  notificationPreferences Boolean  @default(false)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  // Relations
+  eventRegistrations EventRegistration[]
+  eventsAsStaff      EventStaff[]
+  formSubmissions    EventFormSubmission[]
+  createdEvents      Event[]               @relation("EventCreator")
+
+  @@map("users")
+}
+
+model Event {
+  id                   String           @id @default(uuid())
+  name                 String
+  description          String           @db.Text
+  images               String[] //MinIO S3
+  thumbnail            String
+  registrationOpenDate DateTime
+  registrationEndDate  DateTime
+  eventStartDate       DateTime
+  eventEndDate         DateTime
+  allowOnSiteRegister  Boolean          @default(false)
+  targetAudience       TargetAudience[]
+  tags                 EventTag[]
+  activityHours        Int?
+  invitation           String?          @db.Text
+  website              String?
+  needWifi             Boolean          @default(false)
+  certificateCriteria  String?          @db.Text
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+
+  // Relations
+  sessions      EventSession[]
+  registrations EventRegistration[]
+  staff         EventStaff[]
+  faqs          EventFAQ[]
+  badges        EventBadge[]
+  form          EventForm?
+  creator       User?                 @relation("EventCreator", fields: [creatorId], references: [id])
+  creatorId     String?
+  certificated  CertificateTemplate[]
+
+  @@map("events")
+}
+
+model EventSession {
+  id             String   @id @default(uuid())
+  eventId        String
+  name           String
+  description    String?  @db.Text
+  startTime      DateTime
+  endTime        DateTime
+  location       String?
+  maxSeats       Int
+  availableSeats Int
+  pointsAwarded  Int?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  event         Event               @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  registrations EventRegistration[]
+
+  @@map("event_sessions")
+}
+
+model EventRegistration {
+  id                String    @id @default(uuid())
+  userId            String
+  eventId           String
+  sessionId         String?
+  registeredAt      DateTime  @default(now())
+  attended          Boolean   @default(false)
+  checkedInAt       DateTime?
+  certificateIssued Boolean   @default(false)
+  pointsEarned      Int?
+  notes             String?   @db.Text
+
+  // Relations
+  user    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event   Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  session EventSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, eventId, sessionId])
+  @@map("event_registrations")
+}
+
+model EventStaff {
+  id        String   @id @default(uuid())
+  eventId   String
+  userId    String
+  role      String
+  status    StaffStatus
+  createdAt DateTime @default(now())
+
+  // Relations
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId])
+  @@map("event_staff")
+}
+
+model EventFAQ {
+  id        String   @id @default(uuid())
+  eventId   String
+  question  String   @db.Text
+  answer    String   @db.Text
+  order     Int      @default(0) // For priority of question
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@map("event_faqs")
+}
+
+model EventForm {
+  id          String   @id @default(uuid())
+  eventId     String   @unique // 1 Event มีได้ 1 Form
+  title       String
+  description String?  @db.Text
+  isActive    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  event       Event                 @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  fields      EventFormField[]
+  submissions EventFormSubmission[]
+
+  @@map("event_forms")
+}
+
+model EventFormField {
+  id         String        @id @default(uuid())
+  formId     String
+  question   String
+  fieldType  FormFieldType
+  options    String[] // สำหรับ CHECKBOX และ RADIO
+  isRequired Boolean       @default(false)
+  order      Int           @default(0)
+
+  // Relations
+  form    EventForm         @relation(fields: [formId], references: [id], onDelete: Cascade)
+  answers EventFormAnswer[]
+
+  @@map("event_form_fields")
+}
+
+model EventFormSubmission {
+  id          String   @id @default(uuid())
+  formId      String
+  userId      String
+  submittedAt DateTime @default(now())
+
+  // Relations
+  form    EventForm         @relation(fields: [formId], references: [id], onDelete: Cascade)
+  user    User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  answers EventFormAnswer[]
+
+  @@unique([formId, userId]) // 1 User ส่งได้ 1 ครั้งต่อ 1 Form
+  @@map("event_form_submissions")
+}
+
+model EventFormAnswer {
+  id           String  @id @default(uuid())
+  submissionId String
+  fieldId      String
+  answer       String? @db.Text // เก็บคำตอบเป็น Text, ตัวเลข, หรือค่าที่เลือก
+
+  // Relations
+  submission EventFormSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  field      EventFormField      @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+
+  @@map("event_form_answers")
+}
+
+model EventBadge {
+  id             String   @id @default(uuid())
+  eventId        String
+  name           String
+  description    String?
+  imageUrl       String?
+  pointsRequired Int      @default(0)
+  createdAt      DateTime @default(now())
+
+  // Relations
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@map("event_badges")
+}
+
+model CertificateTemplate {
+  id                String  @id @default(uuid())
+  eventId           String
+  templateFilepath  String
+  signatureFilepath String?
+  signatureX        Int?
+  signatureY        Int?
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  element CertificateElement[]
+}
+
+model CertificateElement {
+  id                   String    @id @default(uuid())
+  templateId           String
+  CertificateFieldName FieldName
+  placeHolder          String
+  x                    Int
+  y                    Int
+  fontSize             Int
+  fontFamily           String
+  color                String
+  fontWeight           String
+  textAlign            String
+
+  certificateTemplate CertificateTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
 }
