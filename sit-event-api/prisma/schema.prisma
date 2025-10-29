@@ -60,8 +60,8 @@ model User {
   province                String?
   dietaryRequirements     String?
   notificationPreferences Boolean  @default(false)
-  createdAt               DateTime @default(now())
-  updatedAt               DateTime @updatedAt
+  createdAt               DateTime @default(now()) @db.Timestamptz
+  updatedAt               DateTime @updatedAt @db.Timestamptz
 
   // Relations
   eventRegistrations EventRegistration[]
@@ -78,10 +78,10 @@ model Event {
   description          String           @db.Text
   images               String[] //MinIO S3
   thumbnail            String
-  registrationOpenDate DateTime
-  registrationEndDate  DateTime
-  eventStartDate       DateTime
-  eventEndDate         DateTime
+  registrationOpenDate DateTime         @db.Timestamptz
+  registrationEndDate  DateTime         @db.Timestamptz
+  eventStartDate       DateTime         @db.Timestamptz
+  eventEndDate         DateTime         @db.Timestamptz
   allowOnSiteRegister  Boolean          @default(false)
   targetAudience       TargetAudience[]
   tags                 EventTag[]
@@ -90,8 +90,8 @@ model Event {
   website              String?
   needWifi             Boolean          @default(false)
   certificateCriteria  String?          @db.Text
-  createdAt            DateTime         @default(now())
-  updatedAt            DateTime         @updatedAt
+  createdAt            DateTime         @default(now()) @db.Timestamptz
+  updatedAt            DateTime         @updatedAt @db.Timestamptz
 
   // Relations
   sessions      EventSession[]
@@ -112,14 +112,14 @@ model EventSession {
   eventId        String
   name           String
   description    String?  @db.Text
-  startTime      DateTime
-  endTime        DateTime
+  startTime      DateTime @db.Timestamptz
+  endTime        DateTime @db.Timestamptz
   location       String?
   maxSeats       Int
   availableSeats Int
   pointsAwarded  Int?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt      DateTime @default(now()) @db.Timestamptz
+  updatedAt      DateTime @updatedAt @db.Timestamptz
 
   // Relations
   event         Event               @relation(fields: [eventId], references: [id], onDelete: Cascade)
@@ -133,9 +133,9 @@ model EventRegistration {
   userId            String
   eventId           String
   sessionId         String?
-  registeredAt      DateTime  @default(now())
+  registeredAt      DateTime  @default(now()) @db.Timestamptz
   attended          Boolean   @default(false)
-  checkedInAt       DateTime?
+  checkedInAt       DateTime? @db.Timestamptz
   certificateIssued Boolean   @default(false)
   pointsEarned      Int?
   notes             String?   @db.Text
@@ -150,12 +150,12 @@ model EventRegistration {
 }
 
 model EventStaff {
-  id        String   @id @default(uuid())
+  id        String      @id @default(uuid())
   eventId   String
   userId    String
   role      String
   status    StaffStatus
-  createdAt DateTime @default(now())
+  createdAt DateTime    @default(now()) @db.Timestamptz
 
   // Relations
   event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
@@ -171,8 +171,8 @@ model EventFAQ {
   question  String   @db.Text
   answer    String   @db.Text
   order     Int      @default(0) // For priority of question
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
 
   // Relations
   event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
@@ -186,8 +186,8 @@ model EventForm {
   title       String
   description String?  @db.Text
   isActive    Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now()) @db.Timestamptz
+  updatedAt   DateTime @updatedAt @db.Timestamptz
 
   // Relations
   event       Event                 @relation(fields: [eventId], references: [id], onDelete: Cascade)
@@ -217,7 +217,7 @@ model EventFormSubmission {
   id          String   @id @default(uuid())
   formId      String
   userId      String
-  submittedAt DateTime @default(now())
+  submittedAt DateTime @default(now()) @db.Timestamptz
 
   // Relations
   form    EventForm         @relation(fields: [formId], references: [id], onDelete: Cascade)
@@ -248,7 +248,8 @@ model EventBadge {
   description    String?
   imageUrl       String?
   pointsRequired Int      @default(0)
-  createdAt      DateTime @default(now())
+  createdAt      DateTime @default(now()) @db.Timestamptz
+  updatedAt      DateTime @updatedAt @db.Timestamptz
 
   // Relations
   event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)

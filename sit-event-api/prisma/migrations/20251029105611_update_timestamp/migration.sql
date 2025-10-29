@@ -1,0 +1,45 @@
+/*
+  Warnings:
+
+  - Added the required column `updatedAt` to the `event_badges` table without a default value. This is not possible if the table is not empty.
+
+*/
+-- AlterTable
+ALTER TABLE "event_badges" ADD COLUMN     "updatedAt" TIMESTAMPTZ NOT NULL,
+ALTER COLUMN "createdAt" SET DATA TYPE TIMESTAMPTZ;
+
+-- AlterTable
+ALTER TABLE "event_faqs" ALTER COLUMN "createdAt" SET DATA TYPE TIMESTAMPTZ,
+ALTER COLUMN "updatedAt" SET DATA TYPE TIMESTAMPTZ;
+
+-- AlterTable
+ALTER TABLE "event_form_submissions" ALTER COLUMN "submittedAt" SET DATA TYPE TIMESTAMPTZ;
+
+-- AlterTable
+ALTER TABLE "event_forms" ALTER COLUMN "createdAt" SET DATA TYPE TIMESTAMPTZ,
+ALTER COLUMN "updatedAt" SET DATA TYPE TIMESTAMPTZ;
+
+-- AlterTable
+ALTER TABLE "event_registrations" ALTER COLUMN "registeredAt" SET DATA TYPE TIMESTAMPTZ,
+ALTER COLUMN "checkedInAt" SET DATA TYPE TIMESTAMPTZ;
+
+-- AlterTable
+ALTER TABLE "event_sessions" ALTER COLUMN "startTime" SET DATA TYPE TIMESTAMPTZ,
+ALTER COLUMN "endTime" SET DATA TYPE TIMESTAMPTZ,
+ALTER COLUMN "createdAt" SET DATA TYPE TIMESTAMPTZ,
+ALTER COLUMN "updatedAt" SET DATA TYPE TIMESTAMPTZ;
+
+-- AlterTable
+ALTER TABLE "event_staff" ALTER COLUMN "createdAt" SET DATA TYPE TIMESTAMPTZ;
+
+-- AlterTable
+ALTER TABLE "events" ALTER COLUMN "registrationOpenDate" SET DATA TYPE TIMESTAMPTZ,
+ALTER COLUMN "registrationEndDate" SET DATA TYPE TIMESTAMPTZ,
+ALTER COLUMN "eventStartDate" SET DATA TYPE TIMESTAMPTZ,
+ALTER COLUMN "eventEndDate" SET DATA TYPE TIMESTAMPTZ,
+ALTER COLUMN "createdAt" SET DATA TYPE TIMESTAMPTZ,
+ALTER COLUMN "updatedAt" SET DATA TYPE TIMESTAMPTZ;
+
+-- AlterTable
+ALTER TABLE "users" ALTER COLUMN "createdAt" SET DATA TYPE TIMESTAMPTZ,
+ALTER COLUMN "updatedAt" SET DATA TYPE TIMESTAMPTZ;
