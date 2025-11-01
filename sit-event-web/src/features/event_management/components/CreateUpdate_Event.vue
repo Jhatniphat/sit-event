@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import TextField from '@/components/ui/commons/TextField.vue'
 import TextArea from '@/components/ui/commons/TextArea.vue'
-import BaseButton from '@/components/ui/commons/BaseButton.vue'
+import BaseButton from '@/components/ui/button/BaseButton.vue'
 </script>
 
 <template>
