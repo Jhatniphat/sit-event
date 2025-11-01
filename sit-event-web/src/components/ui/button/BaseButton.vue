@@ -2,25 +2,24 @@
 const props = withDefaults(
   defineProps<{
     label: string
-    primary?: boolean
-    type?: 'button' | 'submit' | 'reset'
+    color?: 'blue' | 'red' | 'grey'
   }>(),
   {
     primary: true,
-    type: 'button',
+    color: 'blue',
   },
 )
 
-const buttonClass = props.primary
-  ? 'bg-blue-500 hover:bg-blue-600 text-white'
-  : 'bg-slate-100 hover:bg-slate-200 text-black'
+const buttonClass =
+  props.color == 'blue'
+    ? 'bg-blue-500 hover:bg-blue-600 text-white'
+    : props.color == 'red'
+      ? 'bg-red-500 hover:bg-red-600 text-white'
+      : 'bg-slate-100 hover:bg-slate-200 text-black'
 </script>
 
 <template>
-  <button
-    :type="props.type"
-    :class="`${buttonClass} px-4 py-2 rounded-lg font-semibold transition-colors`"
-  >
+  <button :class="`${buttonClass} px-4 py-2 rounded-lg font-semibold transition-colors`">
     {{ props.label }}
   </button>
 </template>

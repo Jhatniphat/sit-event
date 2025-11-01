@@ -1,23 +1,31 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
-import BaseButton from '@/components/ui/button/BaseButton.vue'
 
 const router = useRouter()
 
 const backToHome = () => {
   router.push(`/`)
 }
+
+const props = defineProps({
+  HeadText: {
+    type: String,
+    required: true,
+  },
+})
 </script>
 
 <template>
   <div>
-    <div class="p-2">
-      <div class="flex flex-row justify-between pb-3">
-        <div class="text-xl font-bold">EventView</div>
-        <BaseButton class="m-5" @click="backToHome" label="Back" />
+    <div class="p-4 mb-4">
+      <div class="flex flex-row justify-between">
+        <div class="text-xl font-bold">
+          <button @click="backToHome">{{ props.HeadText }}</button>
+        </div>
+        <slot></slot>
       </div>
-      <hr />
     </div>
+    <div class="bg-slate-100 h-0.5"></div>
   </div>
 </template>
 
