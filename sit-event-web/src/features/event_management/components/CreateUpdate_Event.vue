@@ -3,12 +3,11 @@ import TextField from '@/components/ui/commons/TextField.vue'
 import TextArea from '@/components/ui/commons/TextArea.vue'
 import BaseButton from '@/components/ui/button/BaseButton.vue'
 import { ref } from 'vue'
-import { useEventStore } from '@/features/event_management/store/EventStore';
-import { useDateTimeInputAdapter } from '@/shared/useDateTimeInput';
+import NavBar from '@/components/ui/commons/NavBar.vue'
+import { useEventStore } from '@/features/event_management/store/EventStore'
+import { useDateTimeInputAdapter } from '@/shared/useDateTimeInput'
 
-import {
-  type CreateEventDto,
-} from '@/features/event_management/services/EventServices';
+import { type CreateEventDto } from '@/features/event_management/services/EventServices'
 
 const EventManagementStore = useEventStore()
 const eventForm = ref<CreateEventDto>({
@@ -36,18 +35,27 @@ const regEndInput = useDateTimeInputAdapter(eventForm, 'registrationEndDate')
 const eventStartInput = useDateTimeInputAdapter(eventForm, 'eventStartDate')
 const eventEndInput = useDateTimeInputAdapter(eventForm, 'eventEndDate')
 
-
 const onSubmit = () => {
-  console.log('Event Form Data:', eventForm.value);
+  console.log('Event Form Data:', eventForm.value)
   // Here you would typically call a service to submit the form data
   // For example:
   // EventManagementStore.createEvent(eventForm.value);
-  EventManagementStore.createEvent(eventForm.value);
-};
+  EventManagementStore.createEvent(eventForm.value)
+}
 </script>
 
 <template>
   <div>
+    <div>
+      <NavBar HeadText="Event View"
+        ><div class="flex flex-row gap-4">
+          <div>test 1</div>
+          <div>test 2</div>
+          <div>test 3</div>
+          <div>test 4</div>
+        </div></NavBar
+      >
+    </div>
     <div class="flex justify-between p-5">
       <div class="container flex-1">
         <!-- <div>SpaceLeft</div> -->
@@ -61,11 +69,17 @@ const onSubmit = () => {
           <div class="py-3"></div>
           <div class="flex flex-row">
             <div class="container">
-              <div><TextField label="Event Name" placeholder="Enter event name" v-model="eventForm.name"/></div>
+              <div>
+                <TextField
+                  label="Event Name"
+                  placeholder="Enter event name"
+                  v-model="eventForm.name"
+                />
+              </div>
               <div class="py-2"></div>
-              <div><TextArea label="Event Description" v-model="eventForm.description"/></div>
+              <div><TextArea label="Event Description" v-model="eventForm.description" /></div>
               <div class="py-2"></div>
-              <div><TextField label="Event Location" placeholder="Enter event location"/></div> 
+              <div><TextField label="Event Location" placeholder="Enter event location" /></div>
               <!-- todo : location -->
             </div>
             <div class="container"></div>
@@ -86,7 +100,7 @@ const onSubmit = () => {
             <img class="w-full h-64" src="@/assets/images/mock_sub_session2.png" alt="mock1" />
           </div>
           <div class="py-2"></div>
-          <div><BaseButton label="Add Sub-sessions" :primary="false"></BaseButton></div>
+          <div><BaseButton label="Add Sub-sessions" color="grey"></BaseButton></div>
           <!-- todo : subsessions -->
         </div>
         <div class="py-3"></div>
@@ -254,12 +268,10 @@ const onSubmit = () => {
         <div class="py-3"></div>
         <!-- Create Button -->
         <div class="container flex justify-end">
-          <BaseButton label="Create Event" :primary="true" @click="onSubmit"></BaseButton>
+          <BaseButton label="Create Event" color="blue" @click="onSubmit"></BaseButton>
         </div>
       </div>
-      <div class="container flex-1">
-        <!-- <div>SpaceRight</div> -->
-      </div>
+      <div class="container flex-1"></div>
     </div>
   </div>
 </template>

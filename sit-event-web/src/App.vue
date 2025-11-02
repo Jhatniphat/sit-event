@@ -91,16 +91,6 @@ import NavBar from './components/ui/commons/NavBar.vue'
 <template>
   <div>
     <div>
-      <NavBar HeadText="Event View"
-        ><div class="flex flex-row gap-4">
-          <div>test 1</div>
-          <div>test 2</div>
-          <div>test 3</div>
-          <div>test 4</div>
-        </div></NavBar
-      >
-    </div>
-    <div>
       <RouterView />
     </div>
   </div>

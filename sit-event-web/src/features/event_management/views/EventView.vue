@@ -1,56 +1,113 @@
 <script setup lang="ts">
 import BaseButton from '@/components/ui/button/BaseButton.vue'
-import Modal from '@/components/ui/commons/ModalBox.vue'
 import { ref, computed, onMounted } from 'vue'
+import EventListing from '@/features/event_management/components/EventListing.vue'
 import { useRouter } from 'vue-router'
-import { useEventStore } from '@/features/event_management/store/EventStore';
+import { useEventStore } from '@/features/event_management/store/EventStore'
+
 const eventStore = useEventStore()
 const router = useRouter()
-const modalOpen = ref(false)
+const sideBarMenu = ref('Dashboard')
 
 const ChangeEventView = (page: string) => {
   router.push(`/event/${page}`)
 }
-const modalDeleteOpen = () => {
-  modalOpen.value = true
+
+const changeSideBarMenu = (menu: string) => {
+  sideBarMenu.value = menu
 }
 
-const events = computed(() => eventStore.events);
-const isLoading = computed(() => eventStore.isLoadingList);
-const error = computed(() => eventStore.error);
+const events = computed(() => eventStore.events)
+const isLoading = computed(() => eventStore.isLoadingList)
+const error = computed(() => eventStore.error)
 
 onMounted(() => {
-  eventStore.fetchAllEvents();
-});
+  eventStore.fetchAllEvents()
+})
 </script>
 
 <template>
-  <div>
-    <div class="px-2">
-      <div class="flex flex-row py-2">
-        <div class="container"></div>
-        <div class="container align-middle">
-          <div class="container flex flex-row justify-between">
-            <div class="mx-2"><BaseButton @click="ChangeEventView('create')" label="Create" /></div>
-            <div class="mx-2">
-              <BaseButton @click="ChangeEventView('view')" label="Detail" color="grey" />
+  <div class="flex flex-col h-screen">
+    <div class="flex flex-row p-8 mx-3 h-full">
+      <div class="flex-3 container">
+        <div class="flex flex-col justify-between h-full">
+          <div>
+            <div class="text-xl">Evently</div>
+            <div class="h-8"></div>
+            <div class="flex flex-col gap-2">
+              <div>
+                <button
+                  class="w-full px-3 py-2 rounded-md focus:bg-slate-100 hover:bg-slate-100"
+                  @click="changeSideBarMenu('Dashboard')"
+                >
+                  <div class="flex flex-row">
+                    <img src="../../../assets/icons/home_icon.svg" />
+                    <div class="w-3"></div>
+                    <div class="focus:font-semibold">Dashboard</div>
+                  </div>
+                </button>
+              </div>
+              <div>
+                <button
+                  class="w-full px-3 py-2 rounded-md focus:bg-slate-100 hover:bg-slate-100"
+                  @click="changeSideBarMenu('Events')"
+                >
+                  <div class="flex flex-row">
+                    <img src="../../../assets/icons/calendar_icon.svg" />
+                    <div class="w-3"></div>
+                    <div class="focus:font-semibold">Events</div>
+                  </div>
+                </button>
+              </div>
+              <div>
+                <button
+                  class="w-full px-3 py-2 rounded-md focus:bg-slate-100 hover:bg-slate-100"
+                  @click="changeSideBarMenu('Participants')"
+                >
+                  <div class="flex flex-row">
+                    <img src="../../../assets/icons/participant_icon.svg" />
+                    <div class="w-3"></div>
+                    <div class="focus:font-semibold">Participants</div>
+                  </div>
+                </button>
+              </div>
+              <div>
+                <button
+                  class="w-full px-3 py-2 rounded-md focus:bg-slate-100 hover:bg-slate-100"
+                  @click="changeSideBarMenu('Staff')"
+                >
+                  <div class="flex flex-row">
+                    <img src="../../../assets/icons/staff_icon.svg" />
+                    <div class="w-3"></div>
+                    <div class="focus:font-semibold">Staff</div>
+                  </div>
+                </button>
+              </div>
+              <div>
+                <button
+                  class="w-full px-3 py-2 rounded-md focus:bg-slate-100 hover:bg-slate-100"
+                  @click="changeSideBarMenu('Setting')"
+                >
+                  <div class="flex flex-row">
+                    <img src="../../../assets/icons/setting_icon.svg" />
+                    <div class="w-3"></div>
+                    <div class="focus:font-semibold">Setting</div>
+                  </div>
+                </button>
+              </div>
             </div>
+          </div>
+          <div class="container">
             <div class="mx-2">
-              <BaseButton @click="ChangeEventView('update')" label="Update" color="grey" />
-            </div>
-            <div class="mx-2">
-              <BaseButton @click="modalDeleteOpen" label="Delete" color="red" />
-              <Modal v-model="modalOpen">
-                <h2 class="text-xl font-bold mb-4">Delete Modal</h2>
-                <p>Test Modal</p>
-                <div class="flex justify-end">
-                  <BaseButton @click="modalOpen = false" color="red" label="Close" />
-                </div>
-              </Modal>
+              <BaseButton @click="ChangeEventView('create')" label="New Event" class="w-full" />
             </div>
           </div>
         </div>
-        <div class="container"></div>
+      </div>
+      <div class="flex-8 p-2 mx-3">
+        <div v-if="sideBarMenu == 'Events'">
+          <EventListing />
+        </div>
       </div>
     </div>
   </div>
