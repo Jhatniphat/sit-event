@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import BaseButton from '@/components/ui/button/BaseButton.vue'
 import Modal from '@/components/ui/commons/ModalBox.vue'
-import { ref } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-
+import { useEventStore } from '@/features/event_management/store/EventStore';
+const eventStore = useEventStore()
 const router = useRouter()
 const modalOpen = ref(false)
 
@@ -13,6 +14,14 @@ const ChangeEventView = (page: string) => {
 const modalDeleteOpen = () => {
   modalOpen.value = true
 }
+
+const events = computed(() => eventStore.events);
+const isLoading = computed(() => eventStore.isLoadingList);
+const error = computed(() => eventStore.error);
+
+onMounted(() => {
+  eventStore.fetchAllEvents();
+});
 </script>
 
 <template>
