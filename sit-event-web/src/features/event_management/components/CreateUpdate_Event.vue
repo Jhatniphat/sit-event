@@ -2,31 +2,26 @@
 import TextField from '@/components/ui/commons/TextField.vue'
 import TextArea from '@/components/ui/commons/TextArea.vue'
 import BaseButton from '@/components/ui/button/BaseButton.vue'
-import { ref } from 'vue'
 import NavBar from '@/components/ui/commons/NavBar.vue'
+import { ref, computed, onMounted } from 'vue' // ⬅️ เพิ่ม computed และ onMounted
 import { useEventStore } from '@/features/event_management/store/EventStore'
 import { useDateTimeInputAdapter } from '@/shared/useDateTimeInput'
-
 import { type CreateEventDto } from '@/features/event_management/services/EventServices'
 
-const EventManagementStore = useEventStore()
+const props = defineProps<{
+  id?: string 
+}>()
+
+const eventStore = useEventStore()
 const eventForm = ref<CreateEventDto>({
   name: '',
   description: '',
   thumbnail: '',
-  // location: '',
   registrationOpenDate: new Date(),
   registrationEndDate: new Date(),
   eventStartDate: new Date(),
   eventEndDate: new Date(),
-  // staffRequired: 0,
-  // responsiblePerson: '',
   targetAudience: [],
-  // activityHours: '',
-  // invitationMessage: '',
-  // websiteUrl: '',
-  // certificateTemplate: '',
-  // certificateIssuer: '',
   tags: [],
 })
 
@@ -35,12 +30,48 @@ const regEndInput = useDateTimeInputAdapter(eventForm, 'registrationEndDate')
 const eventStartInput = useDateTimeInputAdapter(eventForm, 'eventStartDate')
 const eventEndInput = useDateTimeInputAdapter(eventForm, 'eventEndDate')
 
+const isEditMode = computed(() => !!props.id)
+console.log('isEditMode:', isEditMode.value)
+console.log('Event ID:', props.id)
+
+onMounted(async () => {
+  if (isEditMode.value) {
+    // 1. (สมมติ) เรียก action ใน store เพื่อดึงข้อมูล event 
+    // คุณต้องสร้าง action 'fetchEventById' ใน store ของคุณ
+    await eventStore.fetchEventById(props.id!)
+    
+    // 2. (สมมติ) Store จะเก็บข้อมูลที่ดึงมาไว้ใน state (เช่น 'currentEvent')
+    const eventToEdit = eventStore.currentEvent 
+    
+    if (eventToEdit) {
+      // 3. [สำคัญมาก] ตั้งค่า eventForm.value
+      // เราต้องแปลง Date strings (จาก API) กลับเป็น Date objects
+      // ให้ composable 'useDateTimeInputAdapter' ใช้งานได้
+      eventForm.value = {
+        ...eventToEdit, // คัดลอก field อื่นๆ (name, description...)
+        
+        // 🚨 แปลง ISO string (จาก API/DB) กลับเป็น Date object
+        registrationOpenDate: new Date(eventToEdit.registrationOpenDate),
+        registrationEndDate: new Date(eventToEdit.registrationEndDate),
+        eventStartDate: new Date(eventToEdit.eventStartDate),
+        eventEndDate: new Date(eventToEdit.eventEndDate),
+      }
+    }
+  }
+})
+
+// 7. แก้ไข onSubmit ให้รองรับทั้ง Create และ Edit
 const onSubmit = () => {
-  console.log('Event Form Data:', eventForm.value)
-  // Here you would typically call a service to submit the form data
-  // For example:
-  // EventManagementStore.createEvent(eventForm.value);
-  EventManagementStore.createEvent(eventForm.value)
+  if (isEditMode.value) {
+    // ---- EDIT MODE ----
+    console.log('Updating Event:', props.id, eventForm.value)
+    eventStore.updateEvent(props.id!, eventForm.value)
+
+  } else {
+    // ---- CREATE MODE ----
+    console.log('Creating Event:', eventForm.value)
+    eventStore.createEvent(eventForm.value)
+  }
 }
 </script>
 
@@ -64,7 +95,7 @@ const onSubmit = () => {
         <!-- Event Name, Description, Location -->
         <div>
           <div>
-            <div class="text-3xl font-bold">Create New Event</div>
+            <div class="text-3xl font-bold">{{ isEditMode ? 'Edit Event' : 'Create New Event' }}</div>
           </div>
           <div class="py-3"></div>
           <div class="flex flex-row">
@@ -268,7 +299,7 @@ const onSubmit = () => {
         <div class="py-3"></div>
         <!-- Create Button -->
         <div class="container flex justify-end">
-          <BaseButton label="Create Event" color="blue" @click="onSubmit"></BaseButton>
+          <BaseButton :label="isEditMode ? 'Edit Event' : 'Create New Event'" color="blue" @click="onSubmit"></BaseButton>
         </div>
       </div>
       <div class="container flex-1"></div>

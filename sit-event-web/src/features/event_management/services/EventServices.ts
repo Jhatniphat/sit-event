@@ -159,7 +159,7 @@ export const EventService = {
    */
   async updateEvent(id: string, eventData: UpdateEventDto): Promise<Event> {
     try {
-      const updatedEvent = await apiClient.put<Event, Event>(
+      const updatedEvent = await apiClient.patch<Event, Event>(
         `/events/${id}`,
         eventData
       );
