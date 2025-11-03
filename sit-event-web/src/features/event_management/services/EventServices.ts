@@ -27,14 +27,14 @@ export interface Event {
   name: string;
   description: string;
   thumbnail: string; // uri
-  registrationOpenDate: string; // date-time [cite: 9, 10]
-  registrationEndDate: string; // date-time [cite: 10]
-  eventStartDate: string; // date-time [cite: 10]
-  eventEndDate: string; // date-time [cite: 10]
+  registrationOpenDate: Date; // date-time [cite: 9, 10]
+  registrationEndDate: Date; // date-time [cite: 10]
+  eventStartDate: Date; // date-time [cite: 10]
+  eventEndDate: Date; // date-time [cite: 10]
   targetAudience: TargetAudience[]; 
   tags: EventTag[]; 
-  creatorId: string; // uuid, readOnly [cite: 11, 12]
-  createdAt: string; // date-time, readOnly [cite: 12]
+  creatorId: Date; // uuid, readOnly [cite: 11, 12]
+  createdAt: Date; // date-time, readOnly [cite: 12]
 }
 
 /**
@@ -45,14 +45,13 @@ export interface CreateEventDto {
   name: string; // required [cite: 18]
   description: string; // required [cite: 18]
   thumbnail?: string; // uri
-  registrationOpenDate: string; // date-time, required [cite: 18, 19]
-  registrationEndDate: string; // date-time, required [cite: 18, 19]
-  eventStartDate: string; // date-time, required [cite: 18, 19]
-  eventEndDate: string; // date-time, required [cite: 18, 20]
+  registrationOpenDate: Date; // date-time, required [cite: 18, 19]
+  registrationEndDate: Date; // date-time, required [cite: 18, 19]
+  eventStartDate: Date; // date-time, required [cite: 18, 19]
+  eventEndDate: Date; // date-time, required [cite: 18, 20]
   targetAudience?: TargetAudience[]; 
   tags?: EventTag[]; 
 }
-
 /**
  * DTO สำหรับการ "อัปเดต" Event
  * (api spec ระบุให้ใช้ PUT และ schema เดียวกับ EventCreate)
@@ -122,7 +121,7 @@ export const EventService = {
   async getAllEvents(tag?: EventTag): Promise<Event[]> {
     try {
       const params = tag ? { tag: tag } : {};
-      const events = await apiClient.get<Event[], Event[]>('/evenets', { params });
+      const events = await apiClient.get<Event[], Event[]>('/events', { params });
       return events;
     } catch (error: unknown) {
       if (isApiError(error)) {
@@ -160,7 +159,7 @@ export const EventService = {
    */
   async updateEvent(id: string, eventData: UpdateEventDto): Promise<Event> {
     try {
-      const updatedEvent = await apiClient.put<Event, Event>(
+      const updatedEvent = await apiClient.patch<Event, Event>(
         `/events/${id}`,
         eventData
       );

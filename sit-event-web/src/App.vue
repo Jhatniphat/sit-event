@@ -85,11 +85,13 @@ nav a:first-of-type {
 </style> -->
 
 <script setup lang="ts">
-import CreateUpdateEvent from './features/event_management/components/CreateUpdate_Event.vue'
+import NavBar from './components/ui/commons/NavBar.vue'
 </script>
 
 <template>
   <div>
-    <CreateUpdateEvent />
+    <div>
+      <RouterView />
+    </div>
   </div>
 </template>
