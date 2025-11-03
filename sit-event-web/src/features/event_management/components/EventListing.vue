@@ -11,6 +11,39 @@ const ChangeEventView = (page: string) => {
 const modalDeleteOpen = () => {
   modalOpen.value = true
 }
+
+const mockEventData = [
+  {
+    eventName: 'Campus Fest',
+    date: '2024-09-15',
+    location: 'Main Quad',
+    status: 'Active',
+  },
+  {
+    eventName: 'Career Fair',
+    date: '2024-10-20',
+    location: 'Student Union',
+    status: 'Upcoming',
+  },
+  {
+    eventName: 'Alumni Reunion',
+    date: '2024-11-05',
+    location: 'Alumni Hall',
+    status: 'Completed',
+  },
+  {
+    eventName: 'Research Symposium',
+    date: '2024-12-10',
+    location: 'Science Building',
+    status: 'Active',
+  },
+  {
+    eventName: 'Holiday Gala',
+    date: '2025-01-15',
+    location: 'Grand Ballroom',
+    status: 'Upcoming',
+  },
+]
 </script>
 
 <template>
@@ -21,9 +54,6 @@ const modalDeleteOpen = () => {
       <div class="container"></div>
       <div class="container">
         <div class="container flex flex-row justify-between">
-          <div class="mx-2">
-            <BaseButton @click="ChangeEventView('view')" label="Detail" color="grey" />
-          </div>
           <div class="mx-2">
             <BaseButton @click="ChangeEventView('update')" label="Update" color="grey" />
           </div>
@@ -40,6 +70,41 @@ const modalDeleteOpen = () => {
         </div>
       </div>
       <div class="container"></div>
+    </div>
+    <div class="h-4"></div>
+    <div class="container rounded-xl border border-slate-200">
+      <table class="w-full py-3">
+        <thead>
+          <tr class="font-semibold">
+            <th class="text-start py-3 px-5">Event Name</th>
+            <th class="text-start py-3 px-5">Date</th>
+            <th class="text-start py-3 px-5">Location</th>
+            <th class="text-start py-3 px-5">Status</th>
+            <th class="text-start py-3 px-5">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr
+            v-for="(event, index) in mockEventData"
+            :key="index"
+            class="border border-slate-200 border-y-1 border-x-0 rounded-xl"
+          >
+            <td class="p-4 py-5">{{ event.eventName }}</td>
+            <td class="p-4 py-5 text-slate-400">{{ event.date }}</td>
+            <td class="p-4 py-5 text-slate-400">{{ event.location }}</td>
+            <td class="p-4 py-5">
+              <div class="bg-slate-100 text-black p-1 rounded-lg font-semibold text-center">
+                {{ event.status }}
+              </div>
+            </td>
+            <td class="pp-4 py-5 text-center">
+              <button @click="ChangeEventView('view')" class="text-slate-600 font-semibold">
+                View Detail
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   </div>
 </template>
