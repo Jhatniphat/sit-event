@@ -19,8 +19,8 @@ const router = createRouter({
     // },
     {
       path: '/',
-      name: 'eventView',
-      component: () => import('../features/event_management/views/EventView.vue'),
+      name: 'OrgEventView',
+      component: () => import('../features/event_management/views/OrgEventView.vue'),
     },
     {
       path: '/event/create',
@@ -31,8 +31,14 @@ const router = createRouter({
       path: '/event/edit/:id',
       name: 'editEvent',
       component: () => import('../features/event_management/components/CreateUpdate_Event.vue'),
-      props: true
-    }
+      props: true,
+    },
+    {
+      path: '/event/listing',
+      name: 'PartiEventView',
+      component: () => import('../features/event_management/views/PartiEventView.vue'),
+      props: true,
+    },
   ],
 })
 
