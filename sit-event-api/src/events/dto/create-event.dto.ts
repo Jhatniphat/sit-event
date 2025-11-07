@@ -73,9 +73,4 @@ export class CreateEventDto {
   @IsString()
   @IsOptional()
   certificateCriteria?: string;
-
-  @IsString()
-  @IsUUID()
-  @IsOptional()
-  creatorId?: string;
 }

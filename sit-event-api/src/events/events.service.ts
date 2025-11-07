@@ -3,23 +3,30 @@ import { PrismaService } from 'src/prisma.service';
 import { Event, Prisma } from 'generated/prisma';
 import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
+import { UsersService } from '../users/users.service';
+import { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 
 @Injectable()
 export class EventsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private usersService: UsersService,
+  ) {}
 
-  async create(createEventDto: CreateEventDto): Promise<Event> {
-    const { creatorId, ...eventData } = createEventDto;
+  async create(createEventDto: CreateEventDto, authenticatedUser: AuthenticatedUser): Promise<Event> {
+    const user = await this.usersService.findByEmail(authenticatedUser.email);
+    if (!user) {
+      throw new NotFoundException(`User with email '${authenticatedUser.email}' not found in database.`);
+    }
+
     return this.prisma.event.create({
       data: {
-        ...eventData,
-        ...(creatorId && {
-          creator: {
-            connect: {
-              id: creatorId,
-            },
+        ...createEventDto,
+        creator: {
+          connect: {
+            id: user.id,
           },
-        }),
+        },
       },
     });
   }
