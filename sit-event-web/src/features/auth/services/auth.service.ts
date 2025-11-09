@@ -14,7 +14,6 @@ interface AuthUser {
   lastName: string;
 }
 
-// นี่คือ Type ที่ NestJS จะส่งกลับมา
 interface AuthResponse {
   message: string;
   user: AuthUser;
@@ -22,6 +21,30 @@ interface AuthResponse {
 }
 
 class AuthService {
+
+  // * -------------------------------------------------------------------------- Auth Callback --------------------------------------------------------------------------
+  
+  async handleAuthCallback(code: string): Promise<AuthResponse> { 
+    try {
+      const response = await apiClient.get(
+        '/auth/callback', 
+        {
+          params: {
+            code: code 
+          }
+        }
+      ) as AuthResponse; 
+
+      return response; 
+      
+    } catch (error) {
+      console.error('Error handling auth callback:', error);
+      throw new Error('Authentication failed');
+    }
+  }
+
+  // * -------------------------------------------------------------------------- Login Flow --------------------------------------------------------------------------
+  
   async getLoginUrl(): Promise<string> {
     try {
       const response = await apiClient.get<{ loginUrl: string , message: string }>(
@@ -38,8 +61,6 @@ class AuthService {
 
   async startLoginRedirect(): Promise<void> {
     try {
-      // [FIX] เราจะใช้ 'as' เพื่อบอก TypeScript ว่า
-      // ผลลัพธ์ที่ได้จาก await "คือ" object ที่มี loginUrl
       const response = await apiClient.get(
         '/auth/login-url',
         {
@@ -49,15 +70,13 @@ class AuthService {
             'Expires': '0',
           }
         }
-      ) as { loginUrl: string }; // <--- นี่คือส่วนที่เพิ่มเข้ามา
+      ) as { loginUrl: string };
 
-      // [FIX] เช็ค response.loginUrl โดยตรง
       if (!response || !response.loginUrl) {
         console.error('❌ Server OK, but loginUrl is missing!', response);
         throw new Error('Server responded OK, but loginUrl data is missing.');
       }
       
-      // [FIX] เข้าถึง .loginUrl โดยตรง
       const loginUrl = response.loginUrl;
       console.log('✅ Success! Login URL:', loginUrl);
       
@@ -69,45 +88,47 @@ class AuthService {
     }
   }
 
-  /**
-   * 3. ส่ง Authorization Code ที่ได้จาก Keycloak กลับไปให้ Backend
-   */
-  async handleAuthCallback(code: string): Promise<AuthResponse> { // <--- เปลี่ยน any เป็น AuthResponse
+  // * -------------------------------------------------------------------------- Logout Flow --------------------------------------------------------------------------
+  
+  async getLogoutUrl(): Promise<{ logoutUrl: string }> {
     try {
-      // [FIX] เราต้องส่ง 'code' เป็น 'params' ใน GET Request
-      const response = await apiClient.get(
-        '/auth/callback', // <-- Path นี้ถูกต้อง ตรงกับ @Get('callback')
-        {
-          // บอก Axios ให้สร้าง URL query string
-          params: {
-            code: code 
-          }
+      const response = await apiClient.get('/auth/logout-url', {
+        headers: {
+          'Cache-Control': 'no-cache', // (กัน 304)
         }
-      ) as AuthResponse; // [FIX] ใช้ 'as' เพราะเรารู้ว่า Interceptor แกะ .data ให้แล้ว
-
-      // [FIX] คืนค่า response ที่แกะแล้วโดยตรง
-      return response; 
-      
+      }) as { logoutUrl: string };
+      return response;
     } catch (error) {
-      console.error('Error handling auth callback:', error);
-      throw new Error('Authentication failed');
+      console.error('Failed to get logout URL:', error);
+      throw new Error('Failed to get logout URL');
     }
   }
 
-
-
-  // (Optional) เพิ่มฟังก์ชันเช็คสถานะ, logout ฯลฯ
-  // async getProfile(): Promise<any> { ... }
-  async logout(): Promise<{ logoutUrl: string }> {
+  async startLogoutRedirect(): Promise<void> {
     try {
-      // (สำคัญ) ให้เปลี่ยน Endpoint นี้เป็น Endpoint จริงของ NestJS ที่คุณสร้างไว้
-      const response = await apiClient.post<{ logoutUrl: string }>('/auth/logout-url');
-      return response.data;
+      const response = await this.getLogoutUrl();
+      window.location.href = response.logoutUrl;
     } catch (error) {
-      console.error('Error during logout:', error);
-      throw new Error('Could not logout');
+      console.error('Error during logout redirect:', error);
+      throw new Error('Could not start logout process');
+    } 
+  }
+
+  // * -------------------------------------------------------------------------- Get Me --------------------------------------------------------------------------
+  async getMe(): Promise<AuthResponse> {
+    try {
+      const response = await apiClient.get('/auth/me', {
+        headers: {
+          'Cache-Control': 'no-cache', // (กัน 304)
+        }
+      }) as AuthResponse;
+      return response;
+    } catch (error) {
+      console.error('Failed to fetch user profile:', error);
+      throw new Error('Not authenticated');
     }
   }
+  
 }
 
 export default new AuthService();

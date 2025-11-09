@@ -122,18 +122,10 @@ const handleLogout = async () => {
   isLoading.value = true;
   errorMessage.value = '';
   try {
-    // 1. เรียก service 
-    const { logoutUrl } = await authService.logout();
-
-    // 2. (Optional) เคลียร์ State ใน Pinia
-    // authStore.clearUser();
-
-    // 3. ส่งผู้ใช้ไปที่ Keycloak เพื่อ Logout (สำคัญมาก)
-    window.location.href = logoutUrl;
-    
+    await authService.startLogoutRedirect();
   } catch (error) {
-    errorMessage.value = 'เกิดข้อผิดพลาดในการ Logout';
     console.error('Logout Error:', error);
+    errorMessage.value = 'เกิดข้อผิดพลาดในการเริ่มระบบ Logout';
     isLoading.value = false;
   }
 };
