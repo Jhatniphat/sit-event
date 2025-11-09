@@ -6,7 +6,7 @@ import 'swiper/css/pagination'
 import { Swiper, SwiperSlide } from 'swiper/vue'
 import { Pagination, Autoplay } from 'swiper/modules'
 import { useEventStore } from '../store/EventStore'
-import authService from '@/features/auth/services/auth.service';
+import authService from '@/features/auth/services/auth.service'
 
 const AppLang = ref('EN')
 const isOpenMenu = ref(false)
@@ -44,6 +44,10 @@ const handleClickOutside = (event: MouseEvent) => {
 onMounted(() => document.addEventListener('click', handleClickOutside))
 onBeforeUnmount(() => document.removeEventListener('click', handleClickOutside))
 
+onMounted(() => {
+  eventStore.fetchAllEvents()
+})
+
 const slides = [
   {
     title: 'Welcome to "SIT Event"',
@@ -68,27 +72,30 @@ const slides = [
 // const eventsMock = ref([
 //   {
 //     image: new URL('../../../assets/images/mock_sub_session1.png', import.meta.url).href,
-//     eventName: 'Loy Krathong Festival 2025',
-//     eventDesc:
+//     name: 'Loy Krathong Festival 2025',
+//     eventStartDate: '2025-10-10',
+//     description:
 //       'ksfsjkdfkshdkfjhskjdfhsjkhfkshdfkjhskjdfhjksdhfkjshdjkfhsjkdfhkjsdfjkhssdfsdfsdfsjsdfjkhssdfsdfsjsdfjkhssdfsdfsjsdfjkhssdfsdfsjsdfjkhssdfsdfsjsdfjkhssdfsdfsjsdfjkhssdfsdfs',
 //   },
 //   {
 //     image: new URL('../../../assets/images/mock_sub_session2.png', import.meta.url).href,
-//     eventName: 'Sit Sport Day 2025',
-//     eventDesc:
+//     name: 'Sit Sport Day 2025',
+//     eventStartDate: '2025-10-10',
+//     description:
 //       'ksfsjkdfkshdkfjhskjdfhsjkhfkshdfkjhskjdfhjksdhfkjshdjkfhsjkdfhkjsdfjkhssdfsdfsdfsjsdfjkhssdfsdfsjsdfjkhssdfsdfsjsdfjkhssdfsdfsjsdfjkhssdfsdfsjsdfjkhssdfsdfsjsdfjkhssdfsdfs',
 //   },
 //   {
 //     image: new URL('../../../assets/images/mock_sub_session1.png', import.meta.url).href,
-//     eventName: 'Sit Open House 2025',
-//     eventDesc:
+//     name: 'Sit Open House 2025',
+//     eventStartDate: '2025-10-10',
+//     description:
 //       'ksfsjkdfkshdkfjhskjdfhsjkhfkshdfkjhskjdfhjksdhfkjshdjkfhsjkdfhkjsdfjkhssdfsdfsdfsjsdfjkhssdfsdfsjsdfjkhssdfsdfsjsdfjkhssdfsdfsjsdfjkhssdfsdfsjsdfjkhssdfsdfsjsdfjkhssdfsdfs',
 //   },
 // ])
 
-const isLoading = ref(false);
-const errorMessage = ref('');
-const isLogin = ref(false); 
+const isLoading = ref(false)
+const errorMessage = ref('')
+const isLogin = ref(false)
 
 // const handleLogin = async () => {
 //   isLoading.value = true;
@@ -107,28 +114,36 @@ const isLogin = ref(false);
 // };
 
 const handleLogin = async () => {
-  isLoading.value = true;
-  errorMessage.value = '';
+  isLoading.value = true
+  errorMessage.value = ''
   try {
-    await authService.startLoginRedirect();
+    await authService.startLoginRedirect()
   } catch (error) {
-    console.error('Login Error:', error);
-    errorMessage.value = 'เกิดข้อผิดพลาดในการเริ่มระบบ Login';
-    isLoading.value = false;
+    console.error('Login Error:', error)
+    errorMessage.value = 'เกิดข้อผิดพลาดในการเริ่มระบบ Login'
+    isLoading.value = false
   }
-};
+}
 
 const handleLogout = async () => {
-  isLoading.value = true;
-  errorMessage.value = '';
+  isLoading.value = true
+  errorMessage.value = ''
   try {
-    await authService.startLogoutRedirect();
+    await authService.startLogoutRedirect()
   } catch (error) {
-    console.error('Logout Error:', error);
-    errorMessage.value = 'เกิดข้อผิดพลาดในการเริ่มระบบ Logout';
-    isLoading.value = false;
+    console.error('Logout Error:', error)
+    errorMessage.value = 'เกิดข้อผิดพลาดในการเริ่มระบบ Logout'
+    isLoading.value = false
   }
-};
+}
+
+function formatDate(date: string | number | Date) {
+  return new Date(date).toLocaleDateString('en-US', {
+    month: 'short',
+    day: '2-digit',
+    year: 'numeric',
+  })
+}
 </script>
 
 <template>
@@ -199,22 +214,22 @@ const handleLogout = async () => {
                     <span class="ml-3 font-medium">Help</span>
                   </button>
 
-                  <button v-if="isLogin"
+                  <button
+                    v-if="isLogin"
                     @click="handleLogout"
                     class="flex flex-row items-center w-full hover:bg-slate-100 rounded-lg p-2 text-red-600"
                   >
                     <img src="../../../assets/icons/logout_icon.svg" alt="Logout" class="w-5 h-5" />
                     <span class="ml-3 font-medium">Logout</span>
                   </button>
-                  <button v-else
+                  <button
+                    v-else
                     @click="handleLogin"
                     class="flex flex-row items-center w-full hover:bg-slate-100 rounded-lg p-2"
                   >
                     <img src="../../../assets/icons/login_icon.svg" alt="Login" class="w-5 h-5" />
                     <span class="ml-3 font-medium">Login</span>
                   </button>
-
-                  
                 </div>
               </transition>
             </div>
@@ -258,34 +273,42 @@ const handleLogout = async () => {
         </swiper>
       </div>
       <!-- Upcoming Events Section -->
-      <div class="p-2 mt-3 ml-2">
+      <div>
         <div class="flex flex-col">
-          <div class="text-lg font-semibold">Upcoming Events</div>
-          <div class="h-5"></div>
+          <div class="text-lg font-semibold mt-4 ml-3">Upcoming Events</div>
+          <div class="h-3"></div>
           <div>
-            <div
-              v-for="(event, index) in events"
-              :key="index"
-              class="h-auto rounded-lg shadow-lg mb-5"
-            >
-              <!-- <img :src="event.image" class="w-full h-44 object-cover rounded-sm" /> -->
-               <!-- todo : bring back when image URLs are available -->
-              <div class="p-2">
-                <div class="flex flex-col justify-between h-40">
-                  <div>
-                    <div class="text-xl font-semibold mb-3">
-                      {{ event.name }}
+            <div v-for="(event, index) in events" :key="index" class="h-auto rounded-lg mb-3">
+              <div>
+                <div class="p-3">
+                  <img :src="event.image" class="w-full h-52 object-cover rounded-lg" />
+                </div>
+
+                <!-- todo : bring back when image URLs are available -->
+                <div>
+                  <div class="flex flex-col h-44">
+                    <div>
+                      <div class="p-3 pt-0 pb-0">
+                        <div class="text-xl font-semibold mb-2">
+                          {{ event.name }}
+                        </div>
+                        <div class="text-slate-500 desc-clamp">
+                          {{ event.description }}
+                        </div>
+                      </div>
+                      <div class="flex justify-between pt-3 pl-3 items-center">
+                        <div class="text-lg text-slate-500">
+                          {{ formatDate(event.eventStartDate) }}
+                        </div>
+                        <div>
+                          <!-- <button
+                            class="mx-auto my-2 p-1 px-3 w-full text-white text-sm rounded-l-md bg-blue-500"
+                          >
+                            Apply as Staff
+                          </button> -->
+                        </div>
+                      </div>
                     </div>
-                    <div class="text-slate-600 desc-clamp">
-                      {{ event.description }}
-                    </div>
-                  </div>
-                  <div>
-                    <button
-                      class="mx-auto my-2 py-1 w-full text-white rounded-sm bg-gradient-to-b from-blue-400 to-blue-500"
-                    >
-                      Register Now
-                    </button>
                   </div>
                 </div>
               </div>
@@ -349,7 +372,7 @@ const handleLogout = async () => {
 
 .desc-clamp {
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
   text-overflow: ellipsis;

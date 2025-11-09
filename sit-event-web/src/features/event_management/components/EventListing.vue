@@ -111,7 +111,7 @@ const formatDate = (dateStr: string | number | Date) => {
             <th class="text-start py-3 px-5">Action</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody v-if="events && events.length">
           <tr
             v-for="(event, index) in events"
             :key="index"
@@ -128,10 +128,20 @@ const formatDate = (dateStr: string | number | Date) => {
               </div>
             </td>
             <!-- ChangeEventView('view') -->
-            <td class="pp-4 py-5 text-center">
+            <td class="p-4 py-5 text-center">
               <button @click="console.log(event)" class="text-slate-600 font-semibold">
                 View Detail
               </button>
+            </td>
+          </tr>
+        </tbody>
+        <tbody v-else>
+          <tr>
+            <td
+              colspan="5"
+              class="border border-slate-200 border-y-1 border-x-0 rounded-xl text-center py-10 text-slate-400 italic"
+            >
+              No events found.
             </td>
           </tr>
         </tbody>

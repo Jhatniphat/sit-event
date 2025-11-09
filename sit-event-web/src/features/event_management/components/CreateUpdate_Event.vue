@@ -3,6 +3,7 @@ import TextField from '@/components/ui/commons/TextField.vue'
 import TextArea from '@/components/ui/commons/TextArea.vue'
 import BaseButton from '@/components/ui/button/BaseButton.vue'
 import NavBar from '@/components/ui/commons/NavBar.vue'
+import Modal from '@/components/ui/commons/ModalBox.vue'
 import TagInput from '@/components/ui/commons/TagInput.vue'
 import { ref, computed, onMounted } from 'vue'
 import { useEventStore } from '@/features/event_management/store/EventStore'
@@ -31,13 +32,13 @@ const regEndInput = useDateTimeInputAdapter(eventForm, 'registrationEndDate')
 const eventStartInput = useDateTimeInputAdapter(eventForm, 'eventStartDate')
 const eventEndInput = useDateTimeInputAdapter(eventForm, 'eventEndDate')
 
-const ALL_EVENT_TARGET_AUDIENCE = [
-  'STUDENTS', 'PROFESSORS', 'GENERAL_PUBLIC'
-]
+const ALL_EVENT_TARGET_AUDIENCE = ['EXTERNAL_STUDENT', 'INTERNAL_STUDENT', 'TEACHER', 'PUBLIC']
 
 const isEditMode = computed(() => !!props.id)
 console.log('isEditMode:', isEditMode.value)
 console.log('Event ID:', props.id)
+
+const modalOpen = ref(false)
 
 onMounted(async () => {
   if (isEditMode.value) {
@@ -46,7 +47,7 @@ onMounted(async () => {
 
     if (eventToEdit) {
       eventForm.value = {
-        ...eventToEdit, 
+        ...eventToEdit,
 
         registrationOpenDate: new Date(eventToEdit.registrationOpenDate),
         registrationEndDate: new Date(eventToEdit.registrationEndDate),
@@ -61,9 +62,19 @@ const onSubmit = () => {
   if (isEditMode.value) {
     console.log('Updating Event:', props.id, eventForm.value)
     eventStore.updateEvent(props.id!, eventForm.value)
+    if (eventStore.error != '' || eventStore.error != null) {
+      console.log('No error')
+    } else {
+      modalOpen.value = true
+    }
   } else {
     console.log('Creating Event:', eventForm.value)
     eventStore.createEvent(eventForm.value)
+    if (eventStore.error != '' || eventStore.error != null) {
+      console.log('No error')
+    } else {
+      modalOpen.value = true
+    }
   }
 }
 </script>
@@ -305,6 +316,22 @@ const onSubmit = () => {
             color="blue"
             @click="onSubmit"
           ></BaseButton>
+          <Modal v-model="modalOpen">
+            <div class="flex flex-row justify-center">
+              <img
+                src="../../../assets/icons/success_icon.svg"
+                alt="Suscess Icon"
+                class="w-24 h-24 my-4"
+              />
+            </div>
+            <div class="flex flex-row justify-center">
+              <h2 class="text-xl font-bold my-4">Create Event Suscessfull!!</h2>
+            </div>
+
+            <div class="flex justify-center my-4">
+              <BaseButton @click="modalOpen = false" color="blue" label="Close" />
+            </div>
+          </Modal>
         </div>
       </div>
       <div class="container flex-1"></div>
