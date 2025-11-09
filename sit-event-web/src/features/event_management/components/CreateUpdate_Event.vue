@@ -41,21 +41,13 @@ console.log('Event ID:', props.id)
 
 onMounted(async () => {
   if (isEditMode.value) {
-    // 1. (สมมติ) เรียก action ใน store เพื่อดึงข้อมูล event
-    // คุณต้องสร้าง action 'fetchEventById' ใน store ของคุณ
     await eventStore.fetchEventById(props.id!)
-
-    // 2. (สมมติ) Store จะเก็บข้อมูลที่ดึงมาไว้ใน state (เช่น 'currentEvent')
     const eventToEdit = eventStore.currentEvent
 
     if (eventToEdit) {
-      // 3. [สำคัญมาก] ตั้งค่า eventForm.value
-      // เราต้องแปลง Date strings (จาก API) กลับเป็น Date objects
-      // ให้ composable 'useDateTimeInputAdapter' ใช้งานได้
       eventForm.value = {
-        ...eventToEdit, // คัดลอก field อื่นๆ (name, description...)
+        ...eventToEdit, 
 
-        // 🚨 แปลง ISO string (จาก API/DB) กลับเป็น Date object
         registrationOpenDate: new Date(eventToEdit.registrationOpenDate),
         registrationEndDate: new Date(eventToEdit.registrationEndDate),
         eventStartDate: new Date(eventToEdit.eventStartDate),
@@ -65,14 +57,11 @@ onMounted(async () => {
   }
 })
 
-// 7. แก้ไข onSubmit ให้รองรับทั้ง Create และ Edit
 const onSubmit = () => {
   if (isEditMode.value) {
-    // ---- EDIT MODE ----
     console.log('Updating Event:', props.id, eventForm.value)
     eventStore.updateEvent(props.id!, eventForm.value)
   } else {
-    // ---- CREATE MODE ----
     console.log('Creating Event:', eventForm.value)
     eventStore.createEvent(eventForm.value)
   }

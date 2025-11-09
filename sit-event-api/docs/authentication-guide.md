@@ -19,7 +19,7 @@ GET /auth/login-url
 
 ### 2. Redirect to Login (Direct Redirect)
 ```
-GET /auth/login
+GET c
 ```
 จะ redirect ไปหน้า login ของ Keycloak โดยตรง
 

@@ -5,7 +5,6 @@ import { Logger, ValidationPipe } from '@nestjs/common';
 async function bootstrap() {
   // Ignore self-signed certificates globally
   process.env['NODE_TLS_REJECT_UNAUTHORIZED'] = '0';
-  
   const app = await NestFactory.create(AppModule);
   const logger = new Logger('Bootstrap');
 
@@ -19,7 +18,14 @@ async function bootstrap() {
     ],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'Accept',
+      'Cache-Control',
+      'Pragma',
+      'Expires',
+    ],
   });
 
   // Global validation pipe
@@ -33,7 +39,6 @@ async function bootstrap() {
 
   const port = process.env.PORT ?? 3000;
   await app.listen(port);
-  
   logger.log(`SIT Event API is running on: http://localhost:${port}`);
   logger.log(`Keycloak Login: http://localhost:${port}/auth/login`);
 }

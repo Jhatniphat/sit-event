@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import NavBar from '@/components/ui/commons/NavBar.vue'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { Swiper, SwiperSlide } from 'swiper/vue'
-import { Pagination, Autoplay } from 'swiper/modules'
 import 'swiper/css'
 import 'swiper/css/pagination'
+import { Swiper, SwiperSlide } from 'swiper/vue'
+import { Pagination, Autoplay } from 'swiper/modules'
 import { useEventStore } from '../store/EventStore'
+import authService from '@/features/auth/services/auth.service';
 
 const AppLang = ref('EN')
 const isOpenMenu = ref(false)
@@ -84,6 +85,58 @@ const slides = [
 //       'ksfsjkdfkshdkfjhskjdfhsjkhfkshdfkjhskjdfhjksdhfkjshdjkfhsjkdfhkjsdfjkhssdfsdfsdfsjsdfjkhssdfsdfsjsdfjkhssdfsdfsjsdfjkhssdfsdfsjsdfjkhssdfsdfsjsdfjkhssdfsdfsjsdfjkhssdfsdfs',
 //   },
 // ])
+
+const isLoading = ref(false);
+const errorMessage = ref('');
+const isLogin = ref(false); 
+
+// const handleLogin = async () => {
+//   isLoading.value = true;
+//   errorMessage.value = '';
+//   try {
+//     // 1. เรียก Service เพื่อเอา Login URL
+//     const loginUrl = await authService.getLoginUrl();
+//     console.log('Login URL:', loginUrl);
+//     // 2. ส่งผู้ใช้ไปที่ Keycloak
+//     window.location.href = loginUrl;
+//   } catch (error) {
+//     errorMessage.value = 'เกิดข้อผิดพลาดในการเริ่มระบบ Login';
+//     console.error('Login Error:', error);
+//     isLoading.value = false;
+//   }
+// };
+
+const handleLogin = async () => {
+  isLoading.value = true;
+  errorMessage.value = '';
+  try {
+    await authService.startLoginRedirect();
+  } catch (error) {
+    console.error('Login Error:', error);
+    errorMessage.value = 'เกิดข้อผิดพลาดในการเริ่มระบบ Login';
+    isLoading.value = false;
+  }
+};
+
+const handleLogout = async () => {
+  isLoading.value = true;
+  errorMessage.value = '';
+  try {
+    // 1. เรียก service 
+    const { logoutUrl } = await authService.logout();
+
+    // 2. (Optional) เคลียร์ State ใน Pinia
+    // authStore.clearUser();
+
+    // 3. ส่งผู้ใช้ไปที่ Keycloak เพื่อ Logout (สำคัญมาก)
+    window.location.href = logoutUrl;
+    
+  } catch (error) {
+    errorMessage.value = 'เกิดข้อผิดพลาดในการ Logout';
+    console.error('Logout Error:', error);
+    isLoading.value = false;
+  }
+};
 </script>
 
 <template>
@@ -154,13 +207,22 @@ const slides = [
                     <span class="ml-3 font-medium">Help</span>
                   </button>
 
-                  <button
-                    @click="console.log('Logout')"
+                  <button v-if="isLogin"
+                    @click="handleLogout"
                     class="flex flex-row items-center w-full hover:bg-slate-100 rounded-lg p-2 text-red-600"
                   >
                     <img src="../../../assets/icons/logout_icon.svg" alt="Logout" class="w-5 h-5" />
                     <span class="ml-3 font-medium">Logout</span>
                   </button>
+                  <button v-else
+                    @click="handleLogin"
+                    class="flex flex-row items-center w-full hover:bg-slate-100 rounded-lg p-2"
+                  >
+                    <img src="../../../assets/icons/login_icon.svg" alt="Login" class="w-5 h-5" />
+                    <span class="ml-3 font-medium">Login</span>
+                  </button>
+
+                  
                 </div>
               </transition>
             </div>
@@ -214,7 +276,8 @@ const slides = [
               :key="index"
               class="h-auto rounded-lg shadow-lg mb-5"
             >
-              <img :src="event.image" class="w-full h-44 object-cover rounded-sm" />
+              <!-- <img :src="event.image" class="w-full h-44 object-cover rounded-sm" /> -->
+               <!-- todo : bring back when image URLs are available -->
               <div class="p-2">
                 <div class="flex flex-col justify-between h-40">
                   <div>
