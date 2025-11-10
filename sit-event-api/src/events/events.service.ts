@@ -6,6 +6,23 @@ import { UpdateEventDto } from './dto/update-event.dto';
 import { UsersService } from '../users/users.service';
 import { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 
+export interface PaginationParams {
+  page?: number;
+  limit?: number;
+}
+
+export interface PaginatedResult<T> {
+  data: T[];
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+    hasNext: boolean;
+    hasPrev: boolean;
+  };
+}
+
 @Injectable()
 export class EventsService {
   constructor(
@@ -31,12 +48,36 @@ export class EventsService {
     });
   }
 
-  async findAll(): Promise<Event[]> {
-    return this.prisma.event.findMany({
+  async findAll(params?: PaginationParams): Promise<PaginatedResult<Event>> {
+    const page = params?.page || 1;
+    const limit = params?.limit || 10;
+    const skip = (page - 1) * limit;
+
+    // Get total count for pagination metadata
+    const total = await this.prisma.event.count();
+
+    // Get paginated results
+    const events = await this.prisma.event.findMany({
+      skip,
+      take: limit,
       orderBy: {
         createdAt: 'desc',
       },
     });
+
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      data: events,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrev: page > 1,
+      },
+    };
   }
 
   async findOne(id: string) {

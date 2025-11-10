@@ -6,6 +6,8 @@ import {
   Patch,
   Param,
   Delete,
+  Query,
+  ParseIntPipe,
 } from '@nestjs/common';
 import { EventsService } from './events.service';
 import { CreateEventDto } from './dto/create-event.dto';
@@ -36,8 +38,11 @@ export class EventsController {
 
   @Get()
   @Public()
-  async getAllEvent() {
-    return this.eventService.findAll();
+  async getAllEvent(
+    @Query('page', new ParseIntPipe({ optional: true })) page?: number,
+    @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
+  ) {
+    return this.eventService.findAll({ page, limit });
   }
 
   
