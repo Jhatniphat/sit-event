@@ -1,14 +1,19 @@
-import { Controller, Get, Query, Res, HttpStatus, Logger } from '@nestjs/common';
-import type { Response } from 'express';
+import { Controller, Get, Query, Res, HttpStatus, Logger, Req, UnauthorizedException } from '@nestjs/common';
+import type { Response, Request } from 'express';
 import { AuthService } from './auth.service';
+import { SessionService } from './session.service';
 import { Public } from 'nest-keycloak-connect';
 import { CurrentUser, type AuthenticatedUser } from '../common/decorators/current-user.decorator';
+import { LoginCallbackResponseDto, SessionValidationResponseDto } from './dto/session.dto';
 
 @Controller('auth')
 export class AuthController {
   private readonly logger = new Logger(AuthController.name);
 
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly sessionService: SessionService,
+  ) {}
 
   @Public()
   @Get('login')
@@ -49,50 +54,55 @@ export class AuthController {
 
   @Public()
   @Get('callback')
-  async callback(@Query('code') code: string, @Query('error') error: string, @Res() res: Response) {
+  async callback(@Query('code') code: string, @Query('error') error: string, @Res() res: Response): Promise<void> {
     try {
-      // if (error) {
-      //   this.logger.error(`Keycloak callback error: ${error}`);
-      //   return res.status(HttpStatus.BAD_REQUEST).json({
-      //     message: 'Authentication failed',
-      //     error,
-      //   });
-      // }
-
       if (!code) {
         this.logger.error('No authorization code received');
-        return res.status(HttpStatus.BAD_REQUEST).json({
+        res.status(HttpStatus.BAD_REQUEST).json({
           message: 'No authorization code received',
         });
+        return;
       }
 
       this.logger.log(`Processing callback with code: ${code.substring(0, 10)}...`);
       
       const result = await this.authService.handleCallback(code);
       
-      this.logger.log(`User authenticated successfully: ${result.user.email}`);
+      // Create session and get signed cookie
+      const { sessionId, cookieValue } = await this.sessionService.createSession(
+        result.user,
+        result.tokens,
+      );
 
-      // You can redirect to frontend with tokens or return JSON
-      // For now, returning JSON response
-      return res.status(HttpStatus.OK).json({
+      // Set session cookie
+      res.cookie('session', cookieValue, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production', // Use secure cookies in production
+        sameSite: 'lax',
+        maxAge: 24 * 60 * 60 * 1000, // 24 hours in milliseconds
+        path: '/',
+      });
+
+      this.logger.log(`User authenticated and session created: ${result.user.email}`);
+
+      // Return success response
+      const response: LoginCallbackResponseDto = {
         message: 'Authentication successful',
         user: {
           id: result.user.id,
           email: result.user.email,
           firstName: result.user.firstName,
           lastName: result.user.lastName,
+          userRole: result.user.userRole,
         },
-        tokens: {
-          accessToken: result.tokens.access_token,
-          refreshToken: result.tokens.refresh_token,
-          tokenType: result.tokens.token_type,
-          expiresIn: result.tokens.expires_in,
-        },
-      });
+        sessionCreated: true,
+      };
+
+      res.status(HttpStatus.OK).json(response);
 
     } catch (error) {
       this.logger.error('Callback processing error:', error);
-      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+      res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
         message: 'Authentication callback failed',
         error: error.message,
       });
@@ -100,17 +110,88 @@ export class AuthController {
   }
 
   @Public()
-  @Get('logout')
-  logout(@Res() res: Response) {
+  @Get('session')
+  async getSession(@Req() req: Request): Promise<SessionValidationResponseDto> {
     try {
-      const logoutUrl = this.authService.getLogoutUrl();
-      this.logger.log(`Redirecting to Keycloak logout: ${logoutUrl}`);
+      const sessionCookie = req.cookies?.session;
       
-      return res.status(HttpStatus.FOUND).redirect(logoutUrl);
+      if (!sessionCookie) {
+        throw new UnauthorizedException('No session cookie found');
+      }
+
+      const sessionData = await this.sessionService.validateSessionFromCookie(sessionCookie);
+      
+      if (!sessionData) {
+        throw new UnauthorizedException('Invalid or expired session');
+      }
+      
+      this.logger.log(`Session validated for user: ${sessionData.email}`);
+      
+      return {
+        valid: true,
+        session: {
+          sessionId: sessionData.sessionId,
+          userId: sessionData.userId,
+          email: sessionData.email,
+          firstName: sessionData.firstName,
+          lastName: sessionData.lastName,
+          userRole: sessionData.userRole,
+          accessToken: sessionData.accessToken,
+          refreshToken: sessionData.refreshToken,
+          expiresIn: sessionData.expiresIn,
+          tokenType: sessionData.tokenType,
+          createdAt: sessionData.createdAt,
+          expiresAt: sessionData.expiresAt,
+        },
+        message: 'Session is valid',
+      };
+
     } catch (error) {
-      this.logger.error('Error getting logout URL:', error);
-      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
-        message: 'Failed to get logout URL',
+      this.logger.error('Session validation failed:', error);
+      
+      if (error instanceof UnauthorizedException) {
+        return {
+          valid: false,
+          message: error.message,
+        };
+      }
+
+      return {
+        valid: false,
+        message: 'Session validation failed',
+      };
+    }
+  }
+
+  @Public()
+  @Get('logout')
+  async logout(@Req() req: Request, @Res() res: Response): Promise<void> {
+    try {
+      const sessionCookie = req.cookies?.session;
+      
+      // Clear session from Redis if cookie exists
+      if (sessionCookie) {
+        await this.sessionService.logout(sessionCookie);
+      }
+
+      // Clear the session cookie
+      res.clearCookie('session', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+      });
+
+      // Get Keycloak logout URL and redirect
+      const logoutUrl = this.authService.getLogoutUrl();
+      this.logger.log(`User logged out and redirecting to: ${logoutUrl}`);
+      
+      res.status(HttpStatus.FOUND).redirect(logoutUrl);
+      
+    } catch (error) {
+      this.logger.error('Logout error:', error);
+      res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+        message: 'Logout failed',
         error: error.message,
       });
     }
