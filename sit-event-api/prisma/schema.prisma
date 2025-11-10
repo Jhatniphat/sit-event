@@ -8,9 +8,11 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum Role {
-  STUDENT
-  TEACHER
+enum UserRole {
+  ADMIN
+  ORGANIZER
+  INTERNAL_STUDENT
+  EXTERNAL_STUDENT
 }
 
 enum TargetAudience {
@@ -18,6 +20,12 @@ enum TargetAudience {
   INTERNAL_STUDENT
   TEACHER
   PUBLIC
+}
+
+enum RoleInSchool {
+  STUDENT
+  TEACHER
+  STAFF
 }
 
 enum EventTag {
@@ -49,19 +57,20 @@ enum StaffStatus {
 }
 
 model User {
-  id                      String   @id @default(uuid())
-  email                   String   @unique
+  id                      String    @id @default(uuid())
+  email                   String    @unique
   firstName               String
   lastName                String
   phoneNumber             String?
   age                     Int?
   school                  String?
-  roleInSchool            Role     @default(STUDENT)
+  roleInSchool            RoleInSchool?
+  userRole                UserRole  @default(EXTERNAL_STUDENT)
   province                String?
   dietaryRequirements     String?
-  notificationPreferences Boolean  @default(false)
-  createdAt               DateTime @default(now()) @db.Timestamptz
-  updatedAt               DateTime @updatedAt @db.Timestamptz
+  notificationPreferences Boolean   @default(false)
+  createdAt               DateTime  @default(now()) @db.Timestamptz
+  updatedAt               DateTime  @updatedAt @db.Timestamptz
 
   // Relations
   eventRegistrations EventRegistration[]
@@ -153,7 +162,7 @@ model EventStaff {
   id        String      @id @default(uuid())
   eventId   String
   userId    String
-  role      String
+  eventRole String
   status    StaffStatus
   createdAt DateTime    @default(now()) @db.Timestamptz
 

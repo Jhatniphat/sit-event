@@ -1,9 +1,21 @@
 import { computed, isRef, type Ref } from 'vue'
 
 /**
- * Creates a v-model adapter for <input type="datetime-local">.
- * @param state - The reactive state object (can be a ref() or reactive()).
- * @param key - The key in the state object that holds the Date.
+ * สร้าง Vue computed property (adapter) เพื่อใช้ `v-model` กับ `<input type="datetime-local">`
+ * โดยเชื่อมต่อกับค่า `Date` object ที่อยู่ใน state (ref หรือ reactive)
+ *
+ * - `get`: แปลง `Date` object จาก state ให้เป็น string 'YYYY-MM-DDTHH:mm' (Local Time)
+ * เพื่อให้ `<input type="datetime-local">` แสดงผลได้ถูกต้อง
+ * - `set`: แปลง string 'YYYY-MM-DDTHH:mm' (Local Time) จาก input กลับเป็น `Date` object
+ * แล้วอัปเดตค่าใน state
+ *
+ * @template T - Type ของ state object (เช่น CreateEventDto)
+ * @template K - Key (ชื่อ property) ใน state object ที่มีค่าเป็น Date
+ *
+ * @param {T | Ref<T>} state - state object ที่เป็น `ref()` หรือ `reactive()`
+ * @param {K} key - ชื่อ property (key) ใน state object ที่ต้องการเชื่อมต่อ (ต้องเป็นค่า Date)
+ *
+ * @returns {import('vue').ComputedRef<string>} - Computed ref (adapter) ที่สามารถใช้กับ `v-model` ของ input ได้โดยตรง
  */
 export function useDateTimeInputAdapter<
   T extends object,
@@ -13,15 +25,11 @@ export function useDateTimeInputAdapter<
   key: K
 ) {
   const stateObject = isRef(state) ? state.value : state;
-
-  // Runtime check (good practice)
   if (!(stateObject[key] instanceof Date)) {
     console.warn(`[useDateTimeInputAdapter] Property "${String(key)}" is not an instance of Date.`)
   }
 
   return computed<string>({
-    
-    // GET: Date -> string (for input)
     get() {
       const dateValue = stateObject[key] as unknown as Date
       if (!dateValue) return ''
@@ -31,12 +39,7 @@ export function useDateTimeInputAdapter<
       return d.toISOString().slice(0, 16) // YYYY-MM-DDTHH:mm
     },
 
-    // SET: string -> Date (for state)
     set(value: string) {
-      // value is the 'YYYY-MM-DDTHH:mm' string or ''
-      
-      // Based on your DTO, the field *must* be a Date.
-      // So if the input is empty, we default to 'now'.
       const newDate = value ? new Date(value) : new Date();
       stateObject[key] = newDate as T[K];
     }

@@ -7,7 +7,7 @@ import { useEventStore } from '@/features/event_management/store/EventStore'
 
 const eventStore = useEventStore()
 const router = useRouter()
-const sideBarMenu = ref('Dashboard')
+const sideBarMenu = ref('Events')
 
 const ChangeEventView = (page: string) => {
   router.push(`/event/${page}`)
@@ -37,7 +37,7 @@ onMounted(() => {
             <div class="flex flex-col gap-2">
               <div>
                 <button
-                  class="w-full px-3 py-2 rounded-md focus:bg-slate-100 hover:bg-slate-100"
+                  class="w-full px-3 py-2 rounded-md focus:bg-slate-100 focus:font-semibold hover:bg-slate-100"
                   @click="changeSideBarMenu('Dashboard')"
                 >
                   <div class="flex flex-row">
@@ -49,19 +49,19 @@ onMounted(() => {
               </div>
               <div>
                 <button
-                  class="w-full px-3 py-2 rounded-md focus:bg-slate-100 hover:bg-slate-100"
+                  class="w-full px-3 py-2 rounded-md focus:bg-slate-100 focus:font-semibold hover:bg-slate-100"
                   @click="changeSideBarMenu('Events')"
                 >
                   <div class="flex flex-row">
                     <img src="../../../assets/icons/calendar_icon.svg" />
                     <div class="w-3"></div>
-                    <div class="focus:font-semibold">Events</div>
+                    <div>Events</div>
                   </div>
                 </button>
               </div>
               <div>
                 <button
-                  class="w-full px-3 py-2 rounded-md focus:bg-slate-100 hover:bg-slate-100"
+                  class="w-full px-3 py-2 rounded-md focus:bg-slate-100 focus:font-semibold hover:bg-slate-100"
                   @click="changeSideBarMenu('Participants')"
                 >
                   <div class="flex flex-row">
@@ -73,7 +73,7 @@ onMounted(() => {
               </div>
               <div>
                 <button
-                  class="w-full px-3 py-2 rounded-md focus:bg-slate-100 hover:bg-slate-100"
+                  class="w-full px-3 py-2 rounded-md focus:bg-slate-100 focus:font-semibold hover:bg-slate-100"
                   @click="changeSideBarMenu('Staff')"
                 >
                   <div class="flex flex-row">
@@ -85,7 +85,7 @@ onMounted(() => {
               </div>
               <div>
                 <button
-                  class="w-full px-3 py-2 rounded-md focus:bg-slate-100 hover:bg-slate-100"
+                  class="w-full px-3 py-2 rounded-md focus:bg-slate-100 focus:font-semibold hover:bg-slate-100"
                   @click="changeSideBarMenu('Setting')"
                 >
                   <div class="flex flex-row">
@@ -98,6 +98,15 @@ onMounted(() => {
             </div>
           </div>
           <div class="container">
+            <div class="mx-2">
+              <BaseButton
+                @click="ChangeEventView('listing')"
+                label="Event Listing"
+                class="w-full"
+                color="grey"
+              />
+            </div>
+            <div class="h-4"></div>
             <div class="mx-2">
               <BaseButton @click="ChangeEventView('create')" label="New Event" class="w-full" />
             </div>

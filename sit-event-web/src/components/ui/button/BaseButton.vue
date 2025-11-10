@@ -19,7 +19,7 @@ const buttonClass =
 </script>
 
 <template>
-  <button :class="`${buttonClass} px-4 py-2 rounded-lg font-semibold transition-colors`">
+  <button :class="`${buttonClass} px-4 py-2 rounded-lg font-normal transition-colors`">
     {{ props.label }}
   </button>
 </template>

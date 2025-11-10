@@ -2,6 +2,7 @@
 
 # Node modules
 node_modules/
+generated/
 
 # Logs
 logs/

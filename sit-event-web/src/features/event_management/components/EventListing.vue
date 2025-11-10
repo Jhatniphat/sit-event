@@ -1,10 +1,21 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import BaseButton from '@/components/ui/button/BaseButton.vue'
 import Modal from '@/components/ui/commons/ModalBox.vue'
+import Pagination from '@/components/ui/commons/pagination.vue'
 import { useRouter } from 'vue-router'
+import { useEventStore } from '../store/EventStore'
 const router = useRouter()
 const modalOpen = ref(false)
+const currentPage = ref(1)
+const eventStore = useEventStore()
+
+const events = computed(() => eventStore.events)
+
+const handlePageChange = (page: number) => {
+  currentPage.value = page
+}
+
 const ChangeEventView = (page: string) => {
   router.push(`/event/${page}`)
 }
@@ -12,38 +23,55 @@ const modalDeleteOpen = () => {
   modalOpen.value = true
 }
 
-const mockEventData = [
-  {
-    eventName: 'Campus Fest',
-    date: '2024-09-15',
-    location: 'Main Quad',
-    status: 'Active',
-  },
-  {
-    eventName: 'Career Fair',
-    date: '2024-10-20',
-    location: 'Student Union',
-    status: 'Upcoming',
-  },
-  {
-    eventName: 'Alumni Reunion',
-    date: '2024-11-05',
-    location: 'Alumni Hall',
-    status: 'Completed',
-  },
-  {
-    eventName: 'Research Symposium',
-    date: '2024-12-10',
-    location: 'Science Building',
-    status: 'Active',
-  },
-  {
-    eventName: 'Holiday Gala',
-    date: '2025-01-15',
-    location: 'Grand Ballroom',
-    status: 'Upcoming',
-  },
-]
+// id: string;
+// name: string;
+// description: string;
+// thumbnail: string;
+// registrationOpenDate: Date;
+// registrationEndDate: Date;
+// eventStartDate: Date;
+// eventEndDate: Date;
+// targetAudience: TargetAudience[];
+// tags: EventTag[];
+// creatorId: Date;
+// createdAt: Date;
+
+// const mockEventData = [
+//   {
+//     eventName: 'Campus Fest',
+//     date: '2024-09-15',
+//     location: 'Main Quad',
+//     status: 'Active',
+//   },
+//   {
+//     eventName: 'Career Fair',
+//     date: '2024-10-20',
+//     location: 'Student Union',
+//     status: 'Upcoming',
+//   },
+//   {
+//     eventName: 'Alumni Reunion',
+//     date: '2024-11-05',
+//     location: 'Alumni Hall',
+//     status: 'Completed',
+//   },
+//   {
+//     eventName: 'Research Symposium',
+//     date: '2024-12-10',
+//     location: 'Science Building',
+//     status: 'Active',
+//   },
+//   {
+//     eventName: 'Holiday Gala',
+//     date: '2025-01-15',
+//     location: 'Grand Ballroom',
+//     status: 'Upcoming',
+//   },
+// ]
+
+const formatDate = (dateStr: string | number | Date) => {
+  return new Date(dateStr).toLocaleDateString('en-CA') // หรือ 'th-TH'
+}
 </script>
 
 <template>
@@ -83,28 +111,47 @@ const mockEventData = [
             <th class="text-start py-3 px-5">Action</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody v-if="events && events.length">
           <tr
-            v-for="(event, index) in mockEventData"
+            v-for="(event, index) in events"
             :key="index"
             class="border border-slate-200 border-y-1 border-x-0 rounded-xl"
           >
-            <td class="p-4 py-5">{{ event.eventName }}</td>
-            <td class="p-4 py-5 text-slate-400">{{ event.date }}</td>
+            <td class="p-4 py-5">{{ event.name }}</td>
+            <td class="p-4 py-5 text-slate-400">
+              {{ formatDate(event.eventStartDate) }}
+            </td>
             <td class="p-4 py-5 text-slate-400">{{ event.location }}</td>
             <td class="p-4 py-5">
               <div class="bg-slate-100 text-black p-1 rounded-lg font-semibold text-center">
                 {{ event.status }}
               </div>
             </td>
-            <td class="pp-4 py-5 text-center">
-              <button @click="ChangeEventView('view')" class="text-slate-600 font-semibold">
+            <!-- ChangeEventView('view') -->
+            <td class="p-4 py-5 text-center">
+              <button @click="console.log(event)" class="text-slate-600 font-semibold">
                 View Detail
               </button>
             </td>
           </tr>
         </tbody>
+        <tbody v-else>
+          <tr>
+            <td
+              colspan="5"
+              class="border border-slate-200 border-y-1 border-x-0 rounded-xl text-center py-10 text-slate-400 italic"
+            >
+              No events found.
+            </td>
+          </tr>
+        </tbody>
       </table>
+    </div>
+    <div class="h-4"></div>
+    <div class="flex flex-row justify-end">
+      <div>
+        <Pagination v-model="currentPage" :count="4" @page-change="handlePageChange" />
+      </div>
     </div>
   </div>
 </template>

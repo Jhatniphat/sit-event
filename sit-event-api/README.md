@@ -21,78 +21,195 @@
   <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
   [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
 
-## Description
+# SIT Event Management API
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+API สำหรับระบบจัดการอีเวนต์ SIT ที่ใช้ NestJS, Prisma, และ Keycloak Authentication
 
-## Project setup
+## Features
 
-```bash
-$ npm install
-```
+- 🔐 **Keycloak Authentication Integration**
+- 👥 **Automatic User Role Assignment** (INTERNAL_STUDENT สำหรับอีเมล @kmutt, EXTERNAL_STUDENT สำหรับอื่นๆ)
+- 📅 **Event Management** (Create, Read, Update, Delete)
+- 🛡️ **Role-based Access Control**
+- 🏗️ **Automatic Creator Assignment** เมื่อสร้าง Event
+- 📚 **Comprehensive API Documentation**
 
-## Compile and run the project
+## Quick Start
 
-```bash
-# development
-$ npm run start
+### Prerequisites
+- Node.js (v18+)
+- PostgreSQL Database
+- Keycloak Server
 
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
-```
-
-## Run tests
+### Installation
 
 ```bash
-# unit tests
-$ npm run test
+# Clone repository
+git clone <repository-url>
+cd sit-event-api
 
-# e2e tests
-$ npm run test:e2e
+# Install dependencies
+npm install
 
-# test coverage
-$ npm run test:cov
+# Set up environment variables
+cp .env.example .env
+# Edit .env with your configuration
+
+# Set up database
+npx prisma migrate dev
+
+# Start development server
+npm run start:dev
 ```
 
-## Deployment
+## API Documentation
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+### 📖 Complete Guides
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+- **[Authentication Guide](docs/authentication-guide.md)** - Keycloak integration, login flow, และ user management
+- **[Events API Guide](docs/events-api-guide.md)** - Events management, automatic creator assignment
+- **[Global Roles Guide](docs/global-roles-guide.md)** - Role-based access control
+
+### 🚀 Key Features
+
+#### Automatic User Role Assignment
+```typescript
+// Email ที่มี 'kmutt' ใน domain → INTERNAL_STUDENT
+user@kmutt.ac.th → INTERNAL_STUDENT
+student@mail.kmutt.ac.th → INTERNAL_STUDENT
+
+// Email อื่นๆ → EXTERNAL_STUDENT  
+user@gmail.com → EXTERNAL_STUDENT
+student@university.edu → EXTERNAL_STUDENT
+```
+
+#### Automatic Event Creator Assignment
+```javascript
+// ✅ ไม่ต้องส่ง creatorId - ระบบจัดการอัตโนมัติ
+const eventData = {
+  name: "Tech Conference 2024",
+  description: "Annual tech event",
+  // ... other fields
+  // ❌ creatorId: "some-id" <- ไม่ต้องส่ง!
+};
+
+fetch('/events', {
+  method: 'POST',
+  headers: {
+    'Authorization': `Bearer ${accessToken}`,
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify(eventData)
+});
+```
+
+## Project Structure
+
+```
+src/
+├── auth/              # Keycloak authentication
+├── users/             # User management
+├── events/            # Event management  
+├── common/            # Shared utilities
+│   ├── decorators/    # Custom decorators (@CurrentUser, @Roles)
+│   ├── enums/         # Role enums
+│   └── guards/        # Authorization guards
+├── prisma/            # Database schema & migrations
+└── docs/              # API documentation
+```
+
+## Environment Configuration
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+# Database
+DATABASE_URL="postgresql://username:password@localhost:5432/sit_event_db"
+
+# Keycloak
+KC_AUTH_SERVER_URL="http://localhost:8080/auth"
+KC_REALM="sit-event-realm"
+KC_CLIENT_ID="sit-event-client"
+KC_CLIENT_SECRET="your-client-secret"
+KC_REDIRECT_URI="http://localhost:3000/auth/callback"
+KC_LOGOUT_REDIRECT_URI="http://localhost:3000"
+
+# Application
+PORT=3000
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+## Development Commands
 
-## Resources
+### Project Setup
+```bash
+# Install dependencies
+npm install
 
-Check out a few resources that may come in handy when working with NestJS:
+# Set up database schema
+npx prisma migrate dev
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+# Generate Prisma client
+npx prisma generate
 
-## Support
+# Start development server
+npm run start:dev
+```
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+### Database Commands
+```bash
+# Apply migrations
+npx prisma migrate dev
 
-## Stay in touch
+# Reset database (development only)
+npx prisma migrate reset
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+# View database in Prisma Studio
+npx prisma studio
+```
+
+### Build & Test
+```bash
+# Development
+npm run start:dev
+
+# Production build
+npm run build
+npm run start:prod
+
+# Tests
+npm run test
+npm run test:e2e
+npm run test:cov
+```
+
+## API Endpoints Overview
+
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
+| GET | `/auth/login-url` | Get Keycloak login URL | No |
+| GET | `/auth/callback` | Handle Keycloak callback | No |
+| GET | `/auth/me` | Get current user info | Yes |
+| GET | `/events` | Get all events | No |
+| POST | `/events` | Create event (auto-assign creator) | Yes |
+| GET | `/events/:id` | Get event by ID | Yes |
+| PATCH | `/events/:id` | Update event | Yes |
+| DELETE | `/events/:id` | Delete event (Admin only) | Yes |
+
+## Technology Stack
+
+- **Framework**: NestJS (Node.js)
+- **Database**: PostgreSQL with Prisma ORM  
+- **Authentication**: Keycloak (OpenID Connect)
+- **Language**: TypeScript
+- **Validation**: class-validator
+- **Testing**: Jest
+
+## Contributing
+
+1. Fork the repository
+2. Create feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit changes (`git commit -m 'Add amazing feature'`)
+4. Push to branch (`git push origin feature/amazing-feature`)
+5. Open Pull Request
 
 ## License
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+This project is [MIT licensed](LICENSE).
