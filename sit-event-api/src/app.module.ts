@@ -19,6 +19,7 @@ import { AuthModule } from './auth/auth.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { SessionMiddleware } from './common/middleware/session.middleware';
 import { SessionService } from './auth/session.service';
+import { EventRegistrationsModule } from './event-registrations/event-registrations.module';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { SessionService } from './auth/session.service';
     EventsModule,
     UsersModule,
     AuthModule,
+    EventRegistrationsModule,
   ],
   controllers: [AppController],
   providers: [

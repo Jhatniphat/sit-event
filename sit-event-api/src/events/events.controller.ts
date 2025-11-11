@@ -53,8 +53,9 @@ export class EventsController {
   }
 
   // Only event organizers and admins can update events
-  @EventOrganizerAccess()
+  
   @Patch(':id')
+  @EventOrganizerAccess()
   updateEventById(
     @Param('id') id: string,
     @Body() updateEventDto: UpdateEventDto,

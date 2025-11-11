@@ -38,3 +38,10 @@ export const EventOrganizerAccess = () => Roles(UserRole.ADMIN, UserRole.ORGANIZ
 export const InternalStudent = () => Roles(UserRole.ADMIN, UserRole.INTERNAL_STUDENT);
 
 export const ExternalStudent = () => Roles(UserRole.ADMIN, UserRole.EXTERNAL_STUDENT);
+
+export const AllRoleAccess = () => Roles(
+  UserRole.ADMIN,
+  UserRole.ORGANIZER,
+  UserRole.INTERNAL_STUDENT,
+  UserRole.EXTERNAL_STUDENT
+);
