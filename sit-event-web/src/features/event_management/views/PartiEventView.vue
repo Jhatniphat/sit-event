@@ -5,6 +5,7 @@ import 'swiper/css'
 import 'swiper/css/pagination'
 import { Swiper, SwiperSlide } from 'swiper/vue'
 import { Pagination, Autoplay } from 'swiper/modules'
+import paginationComponent from '@/components/ui/commons/pagination.vue'
 import { useEventStore } from '../store/EventStore'
 import authService from '@/features/auth/services/auth.service'
 
@@ -14,6 +15,9 @@ const menuRef = ref<HTMLElement | null>(null)
 const menuButton = ref<HTMLElement | null>(null)
 const eventStore = useEventStore()
 const events = computed(() => eventStore.events)
+const paginations = computed(() => eventStore.pagination)
+const currentPage = ref(1)
+const currentLimit = ref(5)
 
 const ChangeLng = () => {
   if (AppLang.value === 'EN') {
@@ -41,11 +45,22 @@ const handleClickOutside = (event: MouseEvent) => {
   }
 }
 
+const handlePageChange = async (page: number) => {
+  await eventStore.fetchAllEvents(page, currentLimit.value)
+  currentPage.value = page
+}
+
+const handleLimitChange = async (newLimit: number) => {
+  currentLimit.value = newLimit
+  currentPage.value = 1
+  await eventStore.fetchAllEvents(1, newLimit)
+}
+
 onMounted(() => document.addEventListener('click', handleClickOutside))
 onBeforeUnmount(() => document.removeEventListener('click', handleClickOutside))
 
 onMounted(() => {
-  eventStore.fetchAllEvents()
+  eventStore.fetchAllEvents(currentPage.value, currentLimit.value)
 })
 
 const slides = [
@@ -312,6 +327,17 @@ function formatDate(date: string | number | Date) {
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+          <div>
+            <div class="flex flex-row justify-center mb-4">
+              <paginationComponent
+                v-model="currentPage"
+                :count="paginations?.totalPages"
+                responsive
+                @page-change="handlePageChange"
+                @limit-change="handleLimitChange"
+              />
             </div>
           </div>
         </div>
