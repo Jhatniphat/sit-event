@@ -1,39 +1,61 @@
-import apiClient from '@/shared/utils/FetchUtils';
-// --- (แนะนำ) สร้าง Type Definitions สำหรับการตอบกลับ ---
-interface AuthToken {
-  accessToken: string;
-  refreshToken: string;
-  tokenType: string;
-  expiresIn: number;
-}
+import apiClient from '@/shared/utils/FetchUtils'; 
 
+// --- 1. อัปเดต Type Definitions ---
 interface AuthUser {
   id: string;
   email: string;
   firstName: string;
   lastName: string;
+  userRole: string;
 }
 
-interface AuthResponse {
+interface LoginCallbackResponse {
   message: string;
   user: AuthUser;
-  tokens: AuthToken;
+  sessionCreated: boolean;
 }
+
+interface SessionData {
+  sessionId: string;
+  userId: string; // 👈 [FIX] เพิ่ม userId
+  email: string;
+  firstName: string;
+  lastName: string;
+  userRole: string;
+}
+
+interface SessionValidationResponse {
+  valid: boolean;
+  message: string;
+  session?: SessionData; 
+}
+
+interface LoginUrlResponse {
+  loginUrl: string;
+  message: string;
+}
+
+interface LogoutUrlResponse {
+  logoutUrl: string;
+  message: string;
+}
+
 
 class AuthService {
 
   // * -------------------------------------------------------------------------- Auth Callback --------------------------------------------------------------------------
   
-  async handleAuthCallback(code: string): Promise<AuthResponse> { 
+  /**
+   * (B) จัดการ Callback (เรียกโดย Store)
+   */
+  async handleAuthCallback(code: string): Promise<LoginCallbackResponse> { 
     try {
       const response = await apiClient.get(
         '/auth/callback', 
         {
-          params: {
-            code: code 
-          }
+          params: { code: code }
         }
-      ) as AuthResponse; 
+      ) as LoginCallbackResponse; // [FIX] ใช้ Type ใหม่
 
       return response; 
       
@@ -45,20 +67,9 @@ class AuthService {
 
   // * -------------------------------------------------------------------------- Login Flow --------------------------------------------------------------------------
   
-  async getLoginUrl(): Promise<string> {
-    try {
-      const response = await apiClient.get<{ loginUrl: string , message: string }>(
-        '/auth/login-url', 
-      ); 
-      
-      console.log('Fetched login URL from backend:', response.data.loginUrl);
-      return response.data.loginUrl;
-    } catch (error) {
-      console.error('Error fetching login URL:', error);
-      throw new Error('Could not get login URL');
-    }
-  }
-
+  /**
+   * (A) เริ่มกระบวนการ Login (เรียกโดย Store)
+   */
   async startLoginRedirect(): Promise<void> {
     try {
       const response = await apiClient.get(
@@ -70,7 +81,7 @@ class AuthService {
             'Expires': '0',
           }
         }
-      ) as { loginUrl: string };
+      ) as LoginUrlResponse; 
 
       if (!response || !response.loginUrl) {
         console.error('❌ Server OK, but loginUrl is missing!', response);
@@ -90,13 +101,20 @@ class AuthService {
 
   // * -------------------------------------------------------------------------- Logout Flow --------------------------------------------------------------------------
   
-  async getLogoutUrl(): Promise<{ logoutUrl: string }> {
+  /**
+   * (D) ดึง URL สำหรับ Logout (เรียกโดย Store)
+   */
+  async getLogoutUrl(): Promise<LogoutUrlResponse> {
     try {
-      const response = await apiClient.get('/auth/logout-url', {
-        headers: {
-          'Cache-Control': 'no-cache', // (กัน 304)
+      const response = await apiClient.get(
+        '/auth/logout-url', 
+        {
+          headers: {
+            'Cache-Control': 'no-cache',
+          }
         }
-      }) as { logoutUrl: string };
+      ) as LogoutUrlResponse;
+      
       return response;
     } catch (error) {
       console.error('Failed to get logout URL:', error);
@@ -104,27 +122,27 @@ class AuthService {
     }
   }
 
-  async startLogoutRedirect(): Promise<void> {
-    try {
-      const response = await this.getLogoutUrl();
-      window.location.href = response.logoutUrl;
-    } catch (error) {
-      console.error('Error during logout redirect:', error);
-      throw new Error('Could not start logout process');
-    } 
-  }
+  // (ฟังก์ชันนี้ไม่จำเป็นต้องใช้แล้ว เพราะ Store จะเรียก getLogoutUrl เอง)
+  // async startLogoutRedirect(): Promise<void> { ... }
 
-  // * -------------------------------------------------------------------------- Get Me --------------------------------------------------------------------------
-  async getMe(): Promise<AuthResponse> {
+
+  // * -------------------------------------------------------------------------- Check Session --------------------------------------------------------------------------
+  
+  /**
+   * (C) ตรวจสอบ Session (เรียกโดย Store ตอนเปิดแอป)
+   * [FIX] เราจะเรียก /auth/session (Endpoint ใหม่)
+   * แทน /auth/me (Endpoint เก่าที่ถูก Guard บล็อก)
+   */
+  async checkSession(): Promise<SessionValidationResponse> {
     try {
-      const response = await apiClient.get('/auth/me', {
+      const response = await apiClient.get('/auth/session', {
         headers: {
-          'Cache-Control': 'no-cache', // (กัน 304)
+          'Cache-Control': 'no-cache', 
         }
-      }) as AuthResponse;
+      }) as SessionValidationResponse; 
       return response;
     } catch (error) {
-      console.error('Failed to fetch user profile:', error);
+      console.error('Failed to validate session:', error);
       throw new Error('Not authenticated');
     }
   }

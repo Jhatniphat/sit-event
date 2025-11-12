@@ -1,98 +1,106 @@
-// src/stores/auth.store.ts
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
+// (ตรวจสอบว่า Path ไปยัง auth.service.ts ถูกต้อง)
 import authService from '@/features/auth/services/auth.service'; 
 
-// (สร้าง Type ของ User ที่จะเก็บใน Store)
+/**
+ * Type สำหรับข้อมูล User ที่จะเก็บใน State
+ */
 export interface AuthUser {
   id: string;
   email: string;
   firstName: string;
   lastName: string;
+  userRole: string; // [FIX] เพิ่ม userRole (จาก NestJS DTO)
 }
 
+/**
+ * Pinia Store สำหรับจัดการสถานะ Authentication
+ */
 export const useAuthStore = defineStore('auth', () => {
-  // --- 1. STATE ---
-  // สถานะของ User ที่ Login อยู่ (สำหรับแสดงผลใน UI)
+  // --- STATE ---
   const user = ref<AuthUser | null>(null);
   const router = useRouter();
 
-  // --- 2. GETTERS ---
-  // Getter สำหรับเช็คว่า Login แล้วหรือยัง
+  // --- GETTERS ---
   const isAuthenticated = computed(() => !!user.value);
-  // Getter สำหรับดึงชื่อ User
   const userFullName = computed(() => {
-    if (user.value) {
-      return `${user.value.firstName} ${user.value.lastName}`;
-    }
-    return '';
+    return user.value 
+      ? `${user.value.firstName} ${user.value.lastName}` 
+      : '';
   });
 
-  // --- 3. ACTIONS ---
+  // --- ACTIONS ---
 
   /**
-   * (A) สั่งให้ Redirect ไปหน้า Keycloak
-   * (เรียกใช้โดย: ปุ่ม Login)
+   * (A) เริ่มกระบวนการ Login
    */
   async function startLogin() {
     try {
-      // เรียก Service ให้จัดการ Redirect (เราทำไปแล้ว)
       await authService.startLoginRedirect();
     } catch (error) {
       console.error('Login failed to start:', error);
-      // (อาจจะแสดง Error UI)
     }
   }
 
   /**
-   * (B) จัดการ Callback หลังจาก Keycloak ส่งกลับมา
-   * (เรียกใช้โดย: หน้า AuthCallback.vue)
+   * (B) จัดการ Callback (หลังจาก Login ที่ Keycloak)
    */
   async function handleLoginCallback(code: string) {
     try {
-      // เรียก Service ให้ส่ง code ไป NestJS
-      // NestJS จะตั้ง Cookie ให้เรา และส่งข้อมูล User กลับมา
       const response = await authService.handleAuthCallback(code);
-
-      // เก็บข้อมูล User ที่ได้ ลง State
-      user.value = response.user;
-      
-      // ส่งกลับไปหน้า Dashboard
-      router.push('/dashboard'); 
+      user.value = response.user; 
+      router.push('/'); 
     } catch (error) {
       console.error('Login callback failed:', error);
-      router.push('/'); // ถ้าพัง ให้กลับหน้าแรก
+      router.push('/'); 
     }
   }
 
   /**
-   * (C) ตรวจสอบ Session ตอนเปิดแอป
-   * (เรียกใช้โดย: App.vue ตอน onMounted)
+   * (C) ตรวจสอบ Session (ตอนเปิดแอป)
+   * [FIX] แก้ไข Logic ให้ทำงานกับ Endpoint /auth/session
    */
   async function checkSession() {
     try {
-      const response = await authService.getMe();
-      user.value = response.user;
+      // เรียก Service (ที่เรียก /auth/session)
+      const response = await authService.checkSession();
+
+      // (C.1) ถ้า Session ถูกต้อง (Backend คืน valid: true)
+      if (response.valid && response.session) {
+        // [FIX] เราจะดึงข้อมูล User จาก "session" object ที่ส่งกลับมา
+        user.value = {
+          id: response.session.userId,
+          email: response.session.email,
+          firstName: response.session.firstName,
+          lastName: response.session.lastName,
+          userRole: response.session.userRole,
+        };
+      } else {
+        // (C.2) ถ้า Session ไม่ถูกต้อง (valid: false หรือ ไม่มี session)
+        user.value = null;
+      }
     } catch (error) {
-      console.error('No active session:', error);
+      // (C.3) ถ้า API พัง (เช่น 500)
+      console.error('Error checking session:', error);
       user.value = null;
     }
   }
 
   /**
    * (D) สั่ง Logout
-   * (เรียกใช้โดย: ปุ่ม Logout)
    */
   async function logout() {
     try {
-      // 1. (สำคัญ) เรียก Service เพื่อเอา URL Logout จาก NestJS
+      // 1. เรียก NestJS เพื่อเอา Keycloak Logout URL
+      // (Backend จะเคลียร์ Cookie และ Session ใน Redis/DB)
       const { logoutUrl } = await authService.getLogoutUrl();
       
-      // 2. ล้าง State ของ User ใน Pinia
+      // 2. ล้าง State
       user.value = null;
       
-      // 3. ส่งผู้ใช้ไป Logout ที่ Keycloak (และล้าง Cookie ฝั่ง NestJS)
+      // 3. Redirect ไปที่ Keycloak (เพื่อ Logout จาก SSO)
       window.location.href = logoutUrl;
 
     } catch (error) {
@@ -100,7 +108,6 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  // คืนค่าทั้งหมดให้ Component เรียกใช้
   return {
     user,
     isAuthenticated,

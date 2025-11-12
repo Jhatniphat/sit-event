@@ -23,6 +23,7 @@ export interface ParsedApiError {
 const apiClient: AxiosInstance = axios.create({
   baseURL: baseURL,
   timeout: 10000,
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
   },
