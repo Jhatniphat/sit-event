@@ -18,7 +18,7 @@
 import { ref, watch, defineProps, defineEmits, onMounted, onUnmounted } from 'vue'
 
 interface Props {
-  count: number
+  count?: number
   modelValue?: number
   responsive?: boolean // ถ้าอยากเปิดปิดฟีเจอร์ responsive limit
 }
@@ -55,7 +55,6 @@ function updateLimit() {
   const width = window.innerWidth
   if (width < 1024) limit.value = 5
   else limit.value = 8
-  console.log(limit.value)
   emit('limit-change', limit.value)
 }
 

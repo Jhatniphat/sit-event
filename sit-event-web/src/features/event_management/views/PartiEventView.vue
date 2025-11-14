@@ -8,6 +8,8 @@ import { Pagination, Autoplay } from 'swiper/modules'
 import paginationComponent from '@/components/ui/commons/pagination.vue'
 import { useEventStore } from '../store/EventStore'
 import authService from '@/features/auth/services/auth.service'
+import { useRouter } from 'vue-router'
+import { useAuthStore } from '@/features/auth/stores/auth.store'
 
 const AppLang = ref('EN')
 const isOpenMenu = ref(false)
@@ -18,6 +20,8 @@ const events = computed(() => eventStore.events)
 const paginations = computed(() => eventStore.pagination)
 const currentPage = ref(1)
 const currentLimit = ref(5)
+const router = useRouter()
+const authStore = useAuthStore()
 
 const ChangeLng = () => {
   if (AppLang.value === 'EN') {
@@ -110,7 +114,7 @@ const slides = [
 
 const isLoading = ref(false)
 const errorMessage = ref('')
-const isLogin = ref(false)
+const isLogin = authStore.isAuthenticated
 
 // const handleLogin = async () => {
 //   isLoading.value = true;
@@ -144,7 +148,7 @@ const handleLogout = async () => {
   isLoading.value = true
   errorMessage.value = ''
   try {
-    await authService.startLogoutRedirect()
+    await authService.getLogoutUrl()
   } catch (error) {
     console.error('Logout Error:', error)
     errorMessage.value = 'เกิดข้อผิดพลาดในการเริ่มระบบ Logout'
@@ -159,6 +163,10 @@ function formatDate(date: string | number | Date) {
     year: 'numeric',
   })
 }
+
+const goToPage = (path: string) => {
+  router.push(path)
+}
 </script>
 
 <template>
@@ -167,7 +175,7 @@ function formatDate(date: string | number | Date) {
       <template #right>
         <div class="flex flex-row">
           <!-- <button @click="ChangeLng">{{ AppLang }}</button> -->
-          <div class="w-7 h-7 items-center">
+          <div v-if="authStore.isAuthenticated" class="w-7 h-7 items-center">
             <img
               src="../../../assets/images/mock_profile.png"
               alt="mockProfile"
@@ -190,11 +198,15 @@ function formatDate(date: string | number | Date) {
                   class="absolute right-0 mt-3 flex flex-col gap-3 bg-white rounded-xl p-4 w-56 shadow-lg border border-slate-200 z-50"
                 >
                   <button
-                    @click="console.log('Member')"
+                    @click="goToPage(`/mybookings`)"
                     class="flex flex-row items-center w-full hover:bg-slate-100 rounded-lg p-2"
                   >
-                    <img src="../../../assets/icons/member_icon.svg" alt="Member" class="w-5 h-5" />
-                    <span class="ml-3 font-medium">Member</span>
+                    <img
+                      src="../../../assets/icons/mybooking_icon.svg"
+                      alt="Member"
+                      class="w-5 h-5"
+                    />
+                    <span class="ml-3 font-medium">My Bookings</span>
                   </button>
 
                   <button
@@ -242,7 +254,7 @@ function formatDate(date: string | number | Date) {
                     @click="handleLogin"
                     class="flex flex-row items-center w-full hover:bg-slate-100 rounded-lg p-2"
                   >
-                    <img src="../../../assets/icons/login_icon.svg" alt="Login" class="w-5 h-5" />
+                    <img src="../../../assets/icons/login_icon.svg" alt="Login" class="w-6 h-6" />
                     <span class="ml-3 font-medium">Login</span>
                   </button>
                 </div>
@@ -294,14 +306,17 @@ function formatDate(date: string | number | Date) {
           <div class="h-3"></div>
           <div>
             <div v-for="(event, index) in events" :key="index" class="h-auto rounded-lg mb-3">
-              <div>
+              <div @click="goToPage(`/event/${event.id}`)" class="mb-10">
                 <div class="p-3">
-                  <img :src="event.image" class="w-full h-52 object-cover rounded-lg" />
+                  <img
+                    src="../../../assets/images/mock_sub_session1.png"
+                    class="w-full h-52 object-cover rounded-lg"
+                  />
                 </div>
 
                 <!-- todo : bring back when image URLs are available -->
                 <div>
-                  <div class="flex flex-col h-44">
+                  <div class="flex flex-col h-auto">
                     <div>
                       <div class="p-3 pt-0 pb-0">
                         <div class="text-xl font-semibold mb-2">

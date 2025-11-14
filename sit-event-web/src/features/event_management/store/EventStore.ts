@@ -15,7 +15,7 @@ import { type ParsedApiError } from '@/shared/utils/FetchUtils'
 // 1. Interface
 interface IEventState {
   events: Event[]
-  pagination: PaginationMeta
+  pagination: PaginationMeta | null
   currentEvent: Event | null
   myRegistrations: EventRegistration[]
   isLoadingList: boolean
@@ -41,7 +41,7 @@ const handleError = (error: unknown, defaultMessage: string): string => {
 export const useEventStore = defineStore('events', {
   state: (): IEventState => ({
     events: [],
-    pagination: null as PaginationMeta | null,
+    pagination: null,
     currentEvent: null,
     myRegistrations: [],
     isLoadingList: false,
@@ -65,7 +65,6 @@ export const useEventStore = defineStore('events', {
      * R = Read (All)
      */
     async fetchAllEvents(page: number, limit: number) {
-      console.log(`in Store page : ${page}, limit : ${limit}`)
       // if (this.hasEvents) {
       //   return
       // }
