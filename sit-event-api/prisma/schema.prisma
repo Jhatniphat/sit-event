@@ -53,6 +53,7 @@ enum FieldName {
 enum StaffStatus {
   PENDING
   ACCEPTED
+  WITHDRAWN
   REFUSED
 }
 
@@ -163,7 +164,7 @@ model EventStaff {
   eventId   String
   userId    String
   eventRole String
-  status    StaffStatus
+  status    StaffStatus @default(PENDING)
   createdAt DateTime    @default(now()) @db.Timestamptz
 
   // Relations

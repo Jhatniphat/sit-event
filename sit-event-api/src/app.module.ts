@@ -20,6 +20,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { SessionMiddleware } from './common/middleware/session.middleware';
 import { SessionService } from './auth/session.service';
 import { EventRegistrationsModule } from './event-registrations/event-registrations.module';
+import { EventStaffsModule } from './event-staffs/event-staffs.module';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { EventRegistrationsModule } from './event-registrations/event-registrati
     UsersModule,
     AuthModule,
     EventRegistrationsModule,
+    EventStaffsModule,
   ],
   controllers: [AppController],
   providers: [
