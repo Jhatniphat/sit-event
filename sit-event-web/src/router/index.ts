@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import AuthCallback from '@/features/auth/views/AuthCallback.vue'; // หน้าที่จะรับ Code
+import AuthCallback from '@/features/auth/views/AuthCallback.vue' // หน้าที่จะรับ Code
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -30,6 +30,23 @@ const router = createRouter({
       path: '/auth/callback', // <--- นี่คือหน้า Callback ที่ตรงกับ redirect_uri
       name: 'AuthCallback',
       component: AuthCallback,
+    },
+    {
+      path: '/event/:id',
+      name: 'EventDetail',
+      props: true,
+      component: () => import('../features/event_management/views/EventDetail.vue'),
+    },
+    {
+      path: '/event/:id/register',
+      name: 'RegisterDetail',
+      props: true,
+      component: () => import('../features/registration/views/RegistrationDetail.vue'),
+    },
+    {
+      path: '/mybookings',
+      name: 'MyRegistration',
+      component: () => import('../features/registration/views/MyRegistration.vue'),
     },
   ],
 })

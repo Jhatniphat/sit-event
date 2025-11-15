@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import BaseButton from '@/components/ui/button/BaseButton.vue'
-import { ref, computed, onMounted } from 'vue'
+import { ref } from 'vue'
 import EventListing from '@/features/event_management/components/EventListing.vue'
 import { useRouter } from 'vue-router'
-import { useEventStore } from '@/features/event_management/store/EventStore'
+// import { useEventStore } from '@/features/event_management/store/EventStore'
 
-const eventStore = useEventStore()
+// const eventStore = useEventStore()
 const router = useRouter()
 const sideBarMenu = ref('Events')
 
@@ -17,9 +17,9 @@ const changeSideBarMenu = (menu: string) => {
   sideBarMenu.value = menu
 }
 
-const events = computed(() => eventStore.events)
-const isLoading = computed(() => eventStore.isLoadingList)
-const error = computed(() => eventStore.error)
+// const events = computed(() => eventStore.events)
+// const isLoading = computed(() => eventStore.isLoadingList)
+// const error = computed(() => eventStore.error)
 </script>
 
 <template>

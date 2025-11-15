@@ -1,0 +1,90 @@
+<script setup lang="ts">
+import { useRouter } from 'vue-router'
+import { useRegistrationStore } from '../store/RegistrationStore'
+import { onMounted, ref } from 'vue'
+import Modal from '@/components/ui/commons/ModalBox.vue'
+import { useEventStore } from '@/features/event_management/store/EventStore'
+
+const registerStore = useRegistrationStore()
+const eventStore = useEventStore()
+const router = useRouter()
+const eventId = router.currentRoute.value.params.id as string
+const modalSuccess = ref(false)
+const event = eventStore.currentEvent
+
+const returnToHomePage = () => {
+  router.push('/event/Listing')
+}
+
+const confirmRegister = async () => {
+  console.log(`Confirm Booking ${event?.name} : ${eventId}`)
+  await registerStore.registerForEvent(eventId)
+  if (registerStore.error != null) {
+    return
+  } else {
+    modalSuccess.value = true
+  }
+}
+
+onMounted(() => {
+  eventStore.fetchEventById(eventId)
+})
+</script>
+
+<template>
+  <div>
+    <div class="flex flex-col justify-between h-screen">
+      <div class="flex flex-row justify-between p-4 mb-2 items-center">
+        <div>
+          <img
+            @click="returnToHomePage"
+            src="../../../assets/icons/back_arrow.svg"
+            alt="backToHome"
+          />
+        </div>
+      </div>
+      <div class="flex flex-col justify-between h-full mx-5">
+        <div>
+          <div class="text-xl font-semibold">Select Sub-sessions</div>
+          <div class="h-3"></div>
+          <div class="text-lg font-bold mb-2">09:00 AM - 10:00 AM (Choose one)</div>
+          <div class="flex flex-row items-center mb-4">
+            <input type="checkbox" name="Cybersecurity" />
+            <label class="ml-3" for="">Cybersecurity</label>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="m-4">
+          <button @click="confirmRegister" class="w-full bg-blue-500 rounded-sm p-3 text-white">
+            Confirm Booking
+          </button>
+        </div>
+      </div>
+    </div>
+    <div>
+      <Modal v-model="modalSuccess">
+        <div class="flex flex-row justify-center">
+          <img
+            src="../../../assets/icons/success_icon.svg"
+            alt="Suscess Icon"
+            class="w-24 h-24 my-4"
+          />
+        </div>
+        <div class="flex flex-row justify-center">
+          <h2 class="text-xl font-bold my-4">Register to "{{ event?.name }}" Suscessfull!!</h2>
+        </div>
+
+        <div class="flex justify-center my-4">
+          <BaseButton @click="returnToHomePage" color="blue" label="Close" />
+        </div>
+      </Modal>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.container {
+  /* styles */
+}
+</style>

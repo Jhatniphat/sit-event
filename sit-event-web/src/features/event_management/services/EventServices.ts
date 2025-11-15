@@ -130,8 +130,11 @@ export const EventService = {
     tag?: EventTag
   }): Promise<PaginatedResult<Event>> {
     try {
-      const events = await apiClient.get<Event[], Event[]>('/events', { params })
-      return events
+      const result = await apiClient.get<PaginatedResult<Event>, PaginatedResult<Event>>(
+        '/events',
+        { params },
+      )
+      return result
     } catch (error: unknown) {
       if (isApiError(error)) {
         console.error(`[EventService.getAllEvents] API Error ${error.status}: ${error.message}`)
