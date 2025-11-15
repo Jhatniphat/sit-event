@@ -44,7 +44,7 @@ const router = createRouter({
       component: () => import('../features/registration/views/RegistrationDetail.vue'),
     },
     {
-      path: '/mybookings',
+      path: '/myregistrations',
       name: 'MyRegistration',
       component: () => import('../features/registration/views/MyRegistration.vue'),
     },

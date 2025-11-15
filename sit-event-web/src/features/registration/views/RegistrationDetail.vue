@@ -4,6 +4,7 @@ import { useRegistrationStore } from '../store/RegistrationStore'
 import { onMounted, ref } from 'vue'
 import Modal from '@/components/ui/commons/ModalBox.vue'
 import { useEventStore } from '@/features/event_management/store/EventStore'
+import BaseButton from '@/components/ui/button/BaseButton.vue'
 
 const registerStore = useRegistrationStore()
 const eventStore = useEventStore()
@@ -71,8 +72,8 @@ onMounted(() => {
             class="w-24 h-24 my-4"
           />
         </div>
-        <div class="flex flex-row justify-center">
-          <h2 class="text-xl font-bold my-4">Register to "{{ event?.name }}" Suscessfull!!</h2>
+        <div class="flex flex-row justify-center text-center">
+          <h2 class="text-lg font-bold my-4">Register to "{{ event?.name }}" Suscessfull!!</h2>
         </div>
 
         <div class="flex justify-center my-4">

@@ -21,7 +21,7 @@ const close = () => {
   <!-- Overlay -->
   <div
     v-if="show"
-    class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+    class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-6"
     @click.self="close"
   >
     <div class="bg-white rounded-lg shadow-lg max-w-lg w-full p-6 relative">

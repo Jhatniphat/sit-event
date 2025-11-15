@@ -2,7 +2,6 @@
 import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useRegistrationStore } from '../store/RegistrationStore'
-import BaseButton from '@/components/ui/button/BaseButton.vue'
 
 const router = useRouter()
 const registerStore = useRegistrationStore()
