@@ -20,7 +20,8 @@ const eventStore = useEventStore()
 const eventForm = ref<CreateEventDto>({
   name: '',
   description: '',
-  thumbnail: '',
+  thumbnail: 'aaa',
+  images: ['asd'],
   registrationOpenDate: new Date(),
   registrationEndDate: new Date(),
   eventStartDate: new Date(),
@@ -58,7 +59,6 @@ onMounted(async () => {
     if (eventToEdit) {
       eventForm.value = {
         ...eventToEdit,
-
         registrationOpenDate: new Date(eventToEdit.registrationOpenDate),
         registrationEndDate: new Date(eventToEdit.registrationEndDate),
         eventStartDate: new Date(eventToEdit.eventStartDate),

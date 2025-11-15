@@ -46,6 +46,7 @@ export interface Event {
   tags: EventTag[]
   creatorId: Date // uuid, readOnly [cite: 11, 12]
   createdAt: Date // date-time, readOnly [cite: 12]
+  images: string[]
 }
 
 /**
@@ -56,6 +57,7 @@ export interface CreateEventDto {
   name: string // required [cite: 18]
   description: string // required [cite: 18]
   thumbnail?: string // uri
+  images: string[]
   registrationOpenDate: Date // date-time, required [cite: 18, 19]
   registrationEndDate: Date // date-time, required [cite: 18, 19]
   eventStartDate: Date // date-time, required [cite: 18, 19]
