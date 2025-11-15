@@ -1,30 +1,25 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
-// (ตรวจสอบว่า Path ไปยัง auth.service.ts ถูกต้อง)
 import authService from '@/features/auth/services/auth.service'; 
 
-/**
- * Type สำหรับข้อมูล User ที่จะเก็บใน State
- */
 export interface AuthUser {
   id: string;
   email: string;
   firstName: string;
   lastName: string;
-  userRole: string; // [FIX] เพิ่ม userRole (จาก NestJS DTO)
+  userRole: string; 
 }
 
-/**
- * Pinia Store สำหรับจัดการสถานะ Authentication
- */
 export const useAuthStore = defineStore('auth', () => {
   // --- STATE ---
   const user = ref<AuthUser | null>(null);
+  const accessToken = ref<string | null>(null); 
+  const refreshToken = ref<string | null>(null); 
   const router = useRouter();
 
   // --- GETTERS ---
-  const isAuthenticated = computed(() => !!user.value);
+  const isAuthenticated = computed(() => !!user.value && !!accessToken.value); 
   const userFullName = computed(() => {
     return user.value 
       ? `${user.value.firstName} ${user.value.lastName}` 
@@ -50,7 +45,11 @@ export const useAuthStore = defineStore('auth', () => {
   async function handleLoginCallback(code: string) {
     try {
       const response = await authService.handleAuthCallback(code);
+      
       user.value = response.user; 
+      accessToken.value = response.accessToken;
+      refreshToken.value = response.refreshToken;
+
       router.push('/'); 
     } catch (error) {
       console.error('Login callback failed:', error);
@@ -60,16 +59,20 @@ export const useAuthStore = defineStore('auth', () => {
 
   /**
    * (C) ตรวจสอบ Session (ตอนเปิดแอป)
-   * [FIX] แก้ไข Logic ให้ทำงานกับ Endpoint /auth/session
    */
   async function checkSession() {
     try {
-      // เรียก Service (ที่เรียก /auth/session)
       const response = await authService.checkSession();
+      console.log('Session check response:', response);
+      console.log('Is session valid?:', response.valid);
+      console.log('Session data:', response.session);
+      console.log('Session accessToken:', response.session?.accessToken);
+      console.log('Session refreshToken:', response.session?.refreshToken);
 
-      // (C.1) ถ้า Session ถูกต้อง (Backend คืน valid: true)
-      if (response.valid && response.session) {
-        // [FIX] เราจะดึงข้อมูล User จาก "session" object ที่ส่งกลับมา
+      if (response.valid && response.session && response.session.accessToken) {
+
+        console.log('Restoring session for user');
+        
         user.value = {
           id: response.session.userId,
           email: response.session.email,
@@ -77,14 +80,24 @@ export const useAuthStore = defineStore('auth', () => {
           lastName: response.session.lastName,
           userRole: response.session.userRole,
         };
+        
+        accessToken.value = response.session.accessToken ?? null;
+        refreshToken.value = response.session.refreshToken ?? null;
+
+        console.log('User restored:', user.value);
+        console.log('Access Token restored:', accessToken.value);
+        console.log('Refresh Token restored:', refreshToken.value);
+
       } else {
-        // (C.2) ถ้า Session ไม่ถูกต้อง (valid: false หรือ ไม่มี session)
         user.value = null;
+        accessToken.value = null;
+        refreshToken.value = null;
       }
     } catch (error) {
-      // (C.3) ถ้า API พัง (เช่น 500)
       console.error('Error checking session:', error);
       user.value = null;
+      accessToken.value = null;
+      refreshToken.value = null;
     }
   }
 
@@ -93,23 +106,22 @@ export const useAuthStore = defineStore('auth', () => {
    */
   async function logout() {
     try {
-      // 1. เรียก NestJS เพื่อเอา Keycloak Logout URL
-      // (Backend จะเคลียร์ Cookie และ Session ใน Redis/DB)
       const { logoutUrl } = await authService.getLogoutUrl();
-      
-      // 2. ล้าง State
       user.value = null;
+      accessToken.value = null;
+      refreshToken.value = null;
       
-      // 3. Redirect ไปที่ Keycloak (เพื่อ Logout จาก SSO)
       window.location.href = logoutUrl;
 
-    } catch (error) {
+    } catch (error)      {
       console.error('Logout failed:', error);
     }
   }
 
   return {
     user,
+    accessToken,    
+    refreshToken,   
     isAuthenticated,
     userFullName,
     startLogin,

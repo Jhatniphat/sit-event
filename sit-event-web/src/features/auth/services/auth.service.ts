@@ -13,21 +13,26 @@ interface LoginCallbackResponse {
   message: string;
   user: AuthUser;
   sessionCreated: boolean;
+  accessToken: string;  // 👈 [เพิ่ม]
+  refreshToken: string; // 👈 [เพิ่ม]
 }
 
 interface SessionData {
   sessionId: string;
-  userId: string; // 👈 [FIX] เพิ่ม userId
+  userId: string;
   email: string;
   firstName: string;
   lastName: string;
   userRole: string;
+  accessToken?: string;  
+  refreshToken?: string; 
 }
 
 interface SessionValidationResponse {
   valid: boolean;
   message: string;
   session?: SessionData; 
+
 }
 
 interface LoginUrlResponse {
@@ -55,7 +60,7 @@ class AuthService {
         {
           params: { code: code }
         }
-      ) as LoginCallbackResponse; // [FIX] ใช้ Type ใหม่
+      ) as LoginCallbackResponse; 
 
       return response; 
       
@@ -130,8 +135,6 @@ class AuthService {
   
   /**
    * (C) ตรวจสอบ Session (เรียกโดย Store ตอนเปิดแอป)
-   * [FIX] เราจะเรียก /auth/session (Endpoint ใหม่)
-   * แทน /auth/me (Endpoint เก่าที่ถูก Guard บล็อก)
    */
   async checkSession(): Promise<SessionValidationResponse> {
     try {
@@ -143,7 +146,7 @@ class AuthService {
       return response;
     } catch (error) {
       console.error('Failed to validate session:', error);
-      throw new Error('Not authenticated');
+      return { valid: false, message: 'Not authenticated' };
     }
   }
   
