@@ -153,18 +153,20 @@ export class AuthService {
     // Check if user exists
     const existingUser = await this.usersService.findByEmail(keycloakUser.email);
     
-    // Determine user role based on email domain
-    const userRole = this.determineUserRole(keycloakUser.email);
-    
     if (existingUser) {
-      // Update existing user
+      // Update existing user but preserve their current role
+      this.logger.log(`Updating existing user: ${keycloakUser.email}, preserving role: ${existingUser.userRole}`);
       return this.usersService.updateUser(existingUser.id, {
         firstName: keycloakUser.given_name,
         lastName: keycloakUser.family_name,
         email: keycloakUser.email,
-        userRole: userRole,
+        // Do not update userRole - preserve existing role
       });
     } else {
+      // Determine user role based on email domain only for new users
+      const userRole = this.determineUserRole(keycloakUser.email);
+      this.logger.log(`Creating new user: ${keycloakUser.email} with role: ${userRole}`);
+      
       // Create new user
       return this.usersService.createUser({
         email: keycloakUser.email,
