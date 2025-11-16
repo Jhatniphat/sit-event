@@ -7,7 +7,7 @@ import { Swiper, SwiperSlide } from 'swiper/vue'
 import { Pagination, Autoplay } from 'swiper/modules'
 import paginationComponent from '@/components/ui/commons/pagination.vue'
 import { useEventStore } from '../store/EventStore'
-import authService from '@/features/auth/services/auth.service'
+// import authService from '@/features/auth/services/auth.service'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/features/auth/stores/auth.store'
 
@@ -114,7 +114,7 @@ const slides = [
 
 const isLoading = ref(false)
 const errorMessage = ref('')
-const isLogin = authStore.isAuthenticated
+// const isLogin = authStore.isAuthenticated
 
 // const handleLogin = async () => {
 //   isLoading.value = true;
@@ -133,10 +133,14 @@ const isLogin = authStore.isAuthenticated
 // };
 
 const handleLogin = async () => {
+  if (authStore.isAuthenticated) {
+    console.log('User is already authenticated, no need to login again.');
+    return;
+  }
   isLoading.value = true
   errorMessage.value = ''
   try {
-    await authService.startLoginRedirect()
+    await authStore.startLogin()
   } catch (error) {
     console.error('Login Error:', error)
     errorMessage.value = 'เกิดข้อผิดพลาดในการเริ่มระบบ Login'
@@ -145,10 +149,11 @@ const handleLogin = async () => {
 }
 
 const handleLogout = async () => {
+  console.log('Initiating logout process...')
   isLoading.value = true
   errorMessage.value = ''
   try {
-    await authService.getLogoutUrl()
+    await authStore.startLogout()
   } catch (error) {
     console.error('Logout Error:', error)
     errorMessage.value = 'เกิดข้อผิดพลาดในการเริ่มระบบ Logout'
@@ -257,7 +262,7 @@ const goToPage = (path: string) => {
                   </button>
 
                   <button
-                    v-if="isLogin"
+                    v-if="authStore.isAuthenticated"
                     @click="handleLogout"
                     class="flex flex-row items-center w-full hover:bg-slate-100 rounded-lg p-2 text-red-600"
                   >

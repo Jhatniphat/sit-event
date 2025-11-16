@@ -191,14 +191,18 @@ export class AuthService {
     }
   }
 
-  getLogoutUrl(): string {
+  getLogoutUrl(idTokenHint?: string): string {
     const authServerUrl = this.configService.get('KC_AUTH_SERVER_URL');
     const realm = this.configService.get('KC_REALM');
     const redirectUri = this.configService.get('KC_LOGOUT_REDIRECT_URI') || 'http://localhost:3000';
 
     const params = new URLSearchParams({
-      redirect_uri: redirectUri,
+      post_logout_redirect_uri: redirectUri,
     });
+
+    if (idTokenHint) {
+      params.append('id_token_hint', idTokenHint);
+    }
 
     return `${authServerUrl}/realms/${realm}/protocol/openid-connect/logout?${params.toString()}`;
   }

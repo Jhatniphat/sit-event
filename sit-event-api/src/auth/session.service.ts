@@ -13,6 +13,7 @@ export interface SessionData {
   userRole: string;
   accessToken: string;
   refreshToken: string;
+  idToken?: string;
   expiresIn: number;
   tokenType: string;
   createdAt: Date;
@@ -87,6 +88,7 @@ export class SessionService {
         lastName: user.lastName,
         userRole: user.userRole,
         accessToken: tokens.access_token,
+        idToken: tokens.id_token,
         refreshToken: tokens.refresh_token,
         expiresIn: tokens.expires_in,
         tokenType: tokens.token_type,
@@ -197,15 +199,20 @@ export class SessionService {
   /**
    * Delete session by cookie value
    */
-  async logout(cookieValue: string): Promise<void> {
+  async logout(cookieValue: string): Promise<string | null> {
     try {
       const sessionId = this.verifySignedCookie(cookieValue);
       if (sessionId) {
+        // Read session before deleting so callers can include id_token_hint
+        const session = await this.getSession(sessionId);
         await this.deleteSession(sessionId);
+        return session?.idToken || null;
       }
+      return null;
     } catch (error) {
       this.logger.error('Failed to logout session:', error);
       // Don't throw error for logout, just log it
+      return null;
     }
   }
 
@@ -224,6 +231,9 @@ export class SessionService {
 
       // Update tokens
       sessionData.accessToken = tokens.access_token;
+      if (tokens.id_token) {
+        sessionData.idToken = tokens.id_token;
+      }
       sessionData.refreshToken = tokens.refresh_token;
       sessionData.expiresIn = tokens.expires_in;
       sessionData.tokenType = tokens.token_type;

@@ -17,7 +17,6 @@ apiClient.interceptors.request.use(
   (config) => {
     const authStore = useAuthStore(pinia); 
     const token = authStore.accessToken;
-    console.log('Attaching token to request:', token);
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }

@@ -1,28 +1,33 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
-import authService from '@/features/auth/services/auth.service'; 
+import authService from '@/features/auth/services/auth.service';
 
 export interface AuthUser {
   id: string;
   email: string;
   firstName: string;
   lastName: string;
-  userRole: string; 
+  userRole: string;
 }
 
 export const useAuthStore = defineStore('auth', () => {
   // --- STATE ---
   const user = ref<AuthUser | null>(null);
-  const accessToken = ref<string | null>(null); 
-  const refreshToken = ref<string | null>(null); 
+  const accessToken = ref<string | null>(null);
+  const refreshToken = ref<string | null>(null);
   const router = useRouter();
 
   // --- GETTERS ---
-  const isAuthenticated = computed(() => !!user.value && !!accessToken.value); 
+  const isAuthenticated = computed(() => {
+    console.log('Checking if user is authenticated...', !!user.value && !!accessToken.value);
+    console.log('User:', user.value);
+    console.log('Access Token:', accessToken.value);
+    return !!user.value && !!accessToken.value
+  });
   const userFullName = computed(() => {
-    return user.value 
-      ? `${user.value.firstName} ${user.value.lastName}` 
+    return user.value
+      ? `${user.value.firstName} ${user.value.lastName}`
       : '';
   });
 
@@ -32,6 +37,11 @@ export const useAuthStore = defineStore('auth', () => {
    * (A) เริ่มกระบวนการ Login
    */
   async function startLogin() {
+    console.log('Starting login process...');
+    if (isAuthenticated.value) {
+      console.log('User is already authenticated, skipping login redirect.');
+      return;
+    }
     try {
       await authService.startLoginRedirect();
     } catch (error) {
@@ -45,15 +55,17 @@ export const useAuthStore = defineStore('auth', () => {
   async function handleLoginCallback(code: string) {
     try {
       const response = await authService.handleAuthCallback(code);
-      
-      user.value = response.user; 
-      accessToken.value = response.accessToken;
-      refreshToken.value = response.refreshToken;
+      await authService.handleAuthCallback(code);
+      const sessionResponse = await authService.checkSession();
 
-      router.push('/'); 
+      user.value = response.user;
+      accessToken.value = sessionResponse.session?.accessToken || null;
+      refreshToken.value = sessionResponse.session?.refreshToken || null;
+      
+      router.push('/');
     } catch (error) {
       console.error('Login callback failed:', error);
-      router.push('/'); 
+      router.push('/');
     }
   }
 
@@ -63,16 +75,10 @@ export const useAuthStore = defineStore('auth', () => {
   async function checkSession() {
     try {
       const response = await authService.checkSession();
-      console.log('Session check response:', response);
-      console.log('Is session valid?:', response.valid);
-      console.log('Session data:', response.session);
-      console.log('Session accessToken:', response.session?.accessToken);
-      console.log('Session refreshToken:', response.session?.refreshToken);
-
       if (response.valid && response.session && response.session.accessToken) {
 
         console.log('Restoring session for user');
-        
+
         user.value = {
           id: response.session.userId,
           email: response.session.email,
@@ -80,13 +86,9 @@ export const useAuthStore = defineStore('auth', () => {
           lastName: response.session.lastName,
           userRole: response.session.userRole,
         };
-        
+
         accessToken.value = response.session.accessToken ?? null;
         refreshToken.value = response.session.refreshToken ?? null;
-
-        console.log('User restored:', user.value);
-        console.log('Access Token restored:', accessToken.value);
-        console.log('Refresh Token restored:', refreshToken.value);
 
       } else {
         user.value = null;
@@ -104,29 +106,54 @@ export const useAuthStore = defineStore('auth', () => {
   /**
    * (D) สั่ง Logout
    */
-  async function logout() {
+  // async function logout() {
+  //   try {
+  //     // const { logoutUrl } = await authService.getLogoutUrl();
+  //     user.value = null;
+  //     accessToken.value = null;
+  //     refreshToken.value = null;
+
+  //     // window.location.href = logoutUrl;
+  //     await authService.startLogoutRedirect();
+
+  //   } catch (error)      {
+  //     console.error('Logout failed:', error);
+  //   }
+  // }
+
+  async function startLogout() {
     try {
-      const { logoutUrl } = await authService.getLogoutUrl();
+      await authService.startLogoutRedirect();
+    } catch (error) {
+      console.error('Logout failed to start:', error);
+    }
+  }
+
+  async function handleLogoutCallback() {
+    try {
+      // const response = await authService.handleAuthCallback(code);
+      await authService.logout();
       user.value = null;
       accessToken.value = null;
       refreshToken.value = null;
-      
-      window.location.href = logoutUrl;
 
-    } catch (error)      {
-      console.error('Logout failed:', error);
+      router.push('/');
+    } catch (error) {
+      console.error('Login callback failed:', error);
+      router.push('/');
     }
   }
 
   return {
     user,
-    accessToken,    
-    refreshToken,   
+    accessToken,
+    refreshToken,
     isAuthenticated,
     userFullName,
     startLogin,
     handleLoginCallback,
     checkSession,
-    logout,
+    startLogout,
+    handleLogoutCallback
   };
 });

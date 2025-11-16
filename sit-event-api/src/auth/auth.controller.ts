@@ -38,7 +38,6 @@ export class AuthController {
     try {
       const loginUrl = this.authService.getLoginUrl();
       this.logger.log(`Generated login URL: ${loginUrl}`);
-      
       return {
         loginUrl,
         message: 'Login URL generated successfully',
@@ -168,10 +167,15 @@ export class AuthController {
   async logout(@Req() req: Request, @Res() res: Response): Promise<void> {
     try {
       const sessionCookie = req.cookies?.session;
-      
-      // Clear session from Redis if cookie exists
+      let idTokenHint: string | null = null;
+
+      // Clear session from Redis if cookie exists and retrieve idToken for id_token_hint
       if (sessionCookie) {
-        await this.sessionService.logout(sessionCookie);
+        try {
+          idTokenHint = await this.sessionService.logout(sessionCookie as string);
+        } catch (err) {
+          this.logger.warn('Failed to read session idToken during logout:', err?.message || err);
+        }
       }
 
       // Clear the session cookie
@@ -182,10 +186,10 @@ export class AuthController {
         path: '/',
       });
 
-      // Get Keycloak logout URL and redirect
-      const logoutUrl = this.authService.getLogoutUrl();
+      // Get Keycloak logout URL (include id_token_hint if available) and redirect
+      const logoutUrl = this.authService.getLogoutUrl(idTokenHint || undefined);
       this.logger.log(`User logged out and redirecting to: ${logoutUrl}`);
-      
+
       res.status(HttpStatus.FOUND).redirect(logoutUrl);
       
     } catch (error) {
@@ -199,11 +203,27 @@ export class AuthController {
 
   @Public()
   @Get('logout-url')
-  getLogoutUrl() {
+  async getLogoutUrl(@Req() req: Request) {
     try {
-      const logoutUrl = this.authService.getLogoutUrl();
+      // If there's an active session cookie, include id_token_hint (without deleting session)
+      const sessionCookie = req.cookies?.session;
+      let idTokenHint: string | undefined;
+
+      if (sessionCookie) {
+        try {
+          const sessionData = await this.sessionService.validateSessionFromCookie(sessionCookie as string);
+          if (sessionData?.idToken) {
+            idTokenHint = sessionData.idToken;
+          }
+        } catch {
+          // ignore - we still return the logout URL without hint
+          this.logger.debug('No valid session for logout-url id_token_hint');
+        }
+      }
+
+      const logoutUrl = this.authService.getLogoutUrl(idTokenHint);
       this.logger.log(`Generated logout URL: ${logoutUrl}`);
-      
+
       return {
         logoutUrl,
         message: 'Logout URL generated successfully',

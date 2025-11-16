@@ -127,8 +127,53 @@ class AuthService {
     }
   }
 
-  // (ฟังก์ชันนี้ไม่จำเป็นต้องใช้แล้ว เพราะ Store จะเรียก getLogoutUrl เอง)
-  // async startLogoutRedirect(): Promise<void> { ... }
+  async startLogoutRedirect(): Promise<void> {
+    try {
+      const response = await apiClient.get(
+        '/auth/logout-url',
+        {
+          headers: {
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache',
+            'Expires': '0',
+          }
+        }
+      ) as LogoutUrlResponse; 
+
+      if (!response || !response.logoutUrl) {
+        console.error('❌ Server OK, but logoutUrl is missing!', response);
+        throw new Error('Server responded OK, but logoutUrl data is missing.');
+      }
+      
+      const logoutUrl = response.logoutUrl;
+      console.log('✅ Success! logout URL:', logoutUrl);
+      
+      window.location.href = logoutUrl;
+
+    } catch (error) {
+      console.error('Error during login redirect:', error);
+      throw new Error('Could not start login process');
+    }
+  }
+
+    async logout(): Promise<void> {
+    try {
+      await apiClient.get(
+        '/auth/logout',
+        {
+          headers: {
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache',
+            'Expires': '0',
+          }
+        }
+      ) 
+
+    } catch (error) {
+      console.error('Error during logout redirect:', error);
+      throw new Error('Could not complete logout process');
+    }
+  }
 
 
   // * -------------------------------------------------------------------------- Check Session --------------------------------------------------------------------------
