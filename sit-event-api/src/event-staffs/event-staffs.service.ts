@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma.service';
 import { UsersService } from 'src/users/users.service';
 import { AuthenticatedUser } from 'src/common/decorators/current-user.decorator';
@@ -19,7 +19,7 @@ export class EventStaffsService {
   ) {
     const user = await this.usersService.findByEmail(authenticatedUser.email);
     if (!user) {
-      throw new Error(
+      throw new NotFoundException(
         `User with email '${authenticatedUser.email}' not found in database.`,
       );
     }
@@ -30,7 +30,7 @@ export class EventStaffsService {
     });
 
     if (!event) {
-      throw new Error(`Event with ID '${eventId}' not found.`);
+      throw new NotFoundException(`Event with ID '${eventId}' not found.`);
     }
 
     // Check if application already exists
@@ -52,9 +52,7 @@ export class EventStaffsService {
           },
         });
       } else {
-        throw new Error(
-          'You already have an active application for this event',
-        );
+        throw new ConflictException('You already have an active application for this event');
       }
     }
 
@@ -79,7 +77,7 @@ export class EventStaffsService {
   ) {
     const user = await this.usersService.findByEmail(authenticatedUser.email);
     if (!user) {
-      throw new Error(
+      throw new NotFoundException(
         `User with email '${authenticatedUser.email}' not found in database.`,
       );
     }
@@ -120,7 +118,7 @@ export class EventStaffsService {
   ) {
     const user = await this.usersService.findByEmail(authenticatedUser.email);
     if (!user) {
-      throw new Error(
+      throw new NotFoundException(
         `User with email '${authenticatedUser.email}' not found in database.`,
       );
     }
@@ -137,7 +135,7 @@ export class EventStaffsService {
     });
 
     if (!application) {
-      throw new Error('No active staff application found for this event');
+      throw new NotFoundException('No active staff application found for this event');
     }
 
     // Update status to withdrawn instead of deleting
@@ -170,7 +168,7 @@ export class EventStaffsService {
     });
 
     if (!user) {
-      throw new Error(`User with ID '${userId}' not found in database.`);
+      throw new NotFoundException(`User with ID '${userId}' not found in database.`);
     }
 
     // Check if event exists
@@ -179,7 +177,7 @@ export class EventStaffsService {
     });
 
     if (!event) {
-      throw new Error(`Event with ID '${eventId}' not found in database.`);
+      throw new NotFoundException(`Event with ID '${eventId}' not found in database.`);
     }
 
     // Check if staff entry already exists
@@ -201,7 +199,7 @@ export class EventStaffsService {
           },
         });
       } else {
-        throw new Error(
+        throw new ConflictException(
           'User already has an active staff entry for this event',
         );
       }
@@ -236,7 +234,7 @@ export class EventStaffsService {
     });
 
     if (!staffEntry) {
-      throw new Error(
+      throw new NotFoundException(
         `Staff entry with ID '${staffId}' not found for event '${eventId}'.`,
       );
     }
@@ -258,7 +256,7 @@ export class EventStaffsService {
     });
 
     if (!staffEntry) {
-      throw new Error(
+      throw new NotFoundException(
         `Staff entry with ID '${staffId}' not found for event '${eventId}'.`,
       );
     }

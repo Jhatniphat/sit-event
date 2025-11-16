@@ -1,4 +1,4 @@
-import { Controller, Post, Param, Delete, HttpCode, Patch } from '@nestjs/common';
+import { Controller, Post, Param, Delete, HttpCode, Patch, Get } from '@nestjs/common';
 import { EventRegistrationsService } from './event-registrations.service';
 import { 
   Roles, 
@@ -27,6 +27,14 @@ export class EventRegistrationsController {
     return this.eventRegistrationsService.unregisterUserFromEvent(eventId, user);
   }
 
+  @Get('registrations/me')
+  @AllRoleAccess()
+  async findMyRegistration(
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.eventRegistrationsService.findMyRegistration(user);
+  }
+
   @Delete('registrations/:registrationId/cancel')
   @HttpCode(204)
   @AdminOnly()
@@ -35,6 +43,7 @@ export class EventRegistrationsController {
   }
 
   @Patch(':eventId/registrations/:registrationId')
+  @AdminOnly()
   async changeAttendedStatusByRegistrationId(
     @Param('eventId') eventId: string,
     @Param('registrationId') registrationId: string,
@@ -47,6 +56,7 @@ export class EventRegistrationsController {
   }
 
   @Patch(':eventId/users/:userId')
+  @AllRoleAccess()
   async changeAttendedStatusByUserId(
     @Param('eventId') eventId: string,
     @Param('userId') userId: string,

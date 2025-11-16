@@ -1,4 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from 'src/prisma.service';
 import { UsersService } from '../users/users.service';
 import { AuthenticatedUser } from '../common/decorators/current-user.decorator';
@@ -14,12 +18,28 @@ export class EventRegistrationsService {
     eventId: string,
     authenticatedUser: AuthenticatedUser,
   ) {
+    const event = await this.prisma.event.findUnique({
+      where: { id: eventId },
+    });
+    if (!event) {
+      throw new NotFoundException(`Event with ID '${eventId}' not found.`);
+    }
     const user = await this.usersService.findByEmail(authenticatedUser.email);
     if (!user) {
-      throw new Error(
+      throw new NotFoundException(
         `User with email '${authenticatedUser.email}' not found in database.`,
       );
     }
+    const existingRegistration = await this.prisma.eventRegistration.findFirst({
+      where: {
+        eventId: eventId,
+        userId: user.id,
+      },
+    });
+    if (existingRegistration) {
+      throw new ConflictException('You are already registered for this event');
+    }
+
     return this.prisma.eventRegistration.create({
       data: {
         event: {
@@ -38,13 +58,33 @@ export class EventRegistrationsService {
   ) {
     const user = await this.usersService.findByEmail(authenticatedUser.email);
     if (!user) {
-      throw new Error(
+      throw new NotFoundException(
         `User with email '${authenticatedUser.email}' not found in database.`,
       );
     }
-    return this.prisma.eventRegistration.deleteMany({
+    const deleteResult = await this.prisma.eventRegistration.deleteMany({
       where: {
         eventId: eventId,
+        userId: user.id,
+      },
+    });
+    if (deleteResult.count === 0) {
+      throw new NotFoundException(
+        'Registration not found for this user and event.',
+      );
+    }
+    return deleteResult;
+  }
+
+  async findMyRegistration(authenticatedUser: AuthenticatedUser) {
+    const user = await this.usersService.findByEmail(authenticatedUser.email);
+    if (!user) {
+      throw new NotFoundException(
+        `User with email '${authenticatedUser.email}' not found in database.`,
+      );
+    }
+    return this.prisma.eventRegistration.findMany({
+      where: {
         userId: user.id,
       },
     });
