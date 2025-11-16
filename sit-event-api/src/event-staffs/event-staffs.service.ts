@@ -72,7 +72,6 @@ export class EventStaffsService {
   }
 
   async findMyApplication(
-    eventId: string,
     authenticatedUser: AuthenticatedUser,
   ) {
     const user = await this.usersService.findByEmail(authenticatedUser.email);
@@ -82,9 +81,8 @@ export class EventStaffsService {
       );
     }
 
-    return this.prisma.eventStaff.findFirst({
+    return this.prisma.eventStaff.findMany({
       where: {
-        eventId: eventId,
         userId: user.id,
         status: {
           not: 'WITHDRAWN', // Don't show withdrawn applications

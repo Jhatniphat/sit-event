@@ -257,7 +257,7 @@
         }
       }
     },
-    "/events/{eventId}/staffs/me": {
+    "/events/staffs/status/me": {
       "get": {
         "tags": ["Event Staff"],
         "summary": "Get my staff application status for an event",

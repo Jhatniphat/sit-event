@@ -25,13 +25,12 @@ export class EventStaffsController {
     return this.eventStaffsService.createApplication(eventId, user, dto);
   }
 
-  @Get(':eventId/staffs/me')
+  @Get('staffs/status/me')
   @AllRoleAccess()
   async getMyStaffStatus(
     @CurrentUser() user: AuthenticatedUser,
-    @Param('eventId') eventId: string,
   ) {
-    return this.eventStaffsService.findMyApplication(eventId, user);
+    return this.eventStaffsService.findMyApplication(user);
   }
 
   @Delete(':eventId/staffs/me')
