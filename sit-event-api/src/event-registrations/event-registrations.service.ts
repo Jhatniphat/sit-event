@@ -87,6 +87,7 @@ export class EventRegistrationsService {
       where: {
         userId: user.id,
       },
+      include: { event: true },
     });
   }
 
