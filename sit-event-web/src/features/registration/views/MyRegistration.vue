@@ -1,35 +1,40 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useRegistrationStore } from '../store/RegistrationStore'
 
 const router = useRouter()
 const registerStore = useRegistrationStore()
-const myRegis = registerStore.myRegistrations
+const myRegis = computed(() => registerStore.myRegistrations)
 
 const returnToHomePage = () => {
   router.push('/event/Listing')
 }
 
-const mockMyRegis = [
-  {
-    Image: '../../../assets/images/mock_sub_session1.png',
-    name: 'Test Test',
-    Date: '2024-10-26T10:00:00',
-  },
-  {
-    Image: '../../../assets/images/mock_sub_session1.png',
-    name: 'Test Test',
-    Date: '2024-10-26T10:00:00',
-  },
-  {
-    Image: '../../../assets/images/mock_sub_session1.png',
-    name: 'Test Test',
-    Date: '2024-10-26T10:00:00',
-  },
-]
+// const mockMyRegis = [
+//   {
+//     Image: '../../../assets/images/mock_sub_session1.png',
+//     name: 'Test Test',
+//     date: '2024-10-26T10:00:00',
+//   },
+//   {
+//     Image: '../../../assets/images/mock_sub_session1.png',
+//     name: 'Test Test',
+//     date: '2025-12-26T10:00:00',
+//   },
+//   {
+//     Image: '../../../assets/images/mock_sub_session1.png',
+//     name: 'Test Test',
+//     date: '2024-10-26T10:00:00',
+//   },
+// ]
+const now = new Date()
 
-function formatEventDate(dateString: string): string {
+const upcoming = computed(() => myRegis.value.filter((r) => new Date(r.event.eventStartDate) > now))
+
+const ongoing = computed(() => myRegis.value.filter((r) => new Date(r.event.eventStartDate) <= now))
+
+function formatEventDate(dateString: string | Date): string {
   const date = new Date(dateString)
 
   const datePart = new Intl.DateTimeFormat('en-US', {
@@ -50,8 +55,21 @@ function formatEventDate(dateString: string): string {
 onMounted(() => {
   registerStore.fetchMyRegistrations()
 })
-</script>
 
+type regisType = 'Book' | 'Staff'
+
+const regisTab = ref<regisType>('Book')
+
+const changeRegisTab = (tab: regisType) => {
+  if (regisTab.value === tab) return
+  regisTab.value = tab
+  if (regisTab.value === 'Book') {
+    registerStore.fetchMyRegistrations()
+  } else {
+    registerStore.fetchMyStaffStatus()
+  }
+}
+</script>
 <template>
   <div>
     <div>
@@ -64,13 +82,34 @@ onMounted(() => {
               alt="backToHome"
             />
           </div>
-          <div class="font-bold text-lg">My Bookings</div>
+          <div class="flex flex-row text-lg">
+            <div class="flex flex-col">
+              <div
+                class="mx-3"
+                :class="{ 'font-bold': regisTab === 'Book' }"
+                @click="changeRegisTab('Book')"
+              >
+                My Booking
+              </div>
+              <div :class="{ 'mt-1 h-1 rounded-xl bg-black': regisTab === 'Book' }"></div>
+            </div>
+            <div class="flex flex-col">
+              <div
+                class="mx-3"
+                :class="{ 'font-bold': regisTab == 'Staff' }"
+                @click="changeRegisTab('Staff')"
+              >
+                My Staffing
+              </div>
+              <div :class="{ 'mt-1 h-1 rounded-xl bg-black': regisTab === 'Staff' }"></div>
+            </div>
+          </div>
           <div class="w-4"></div>
         </div>
         <div class="mt-8">
           <div class="font-semibold text-xl">Upcoming</div>
           <div class="h-2"></div>
-          <div v-for="(event, index) in mockMyRegis" :key="index">
+          <div v-for="(reg, index) in upcoming" :key="index">
             <div class="flex flex-row justify-start items-center my-3">
               <div class="flex flex-row items-center flex-1">
                 <div>
@@ -82,8 +121,10 @@ onMounted(() => {
                 </div>
                 <div class="w-5"></div>
                 <div class="flex flex-col justify-center">
-                  <div class="">{{ event.name }}</div>
-                  <div class="text-sm text-slate-400">{{ formatEventDate(event.Date) }}</div>
+                  <div class="">{{ reg.event.name }}</div>
+                  <div class="text-sm text-slate-400">
+                    {{ formatEventDate(reg.event.eventStartDate) }}
+                  </div>
                 </div>
               </div>
               <div>
@@ -97,7 +138,7 @@ onMounted(() => {
         <div class="mt-8">
           <div class="font-semibold text-xl">Ongoing</div>
           <div class="h-2"></div>
-          <div v-for="(event, index) in mockMyRegis" :key="index">
+          <div v-for="(reg, index) in ongoing" :key="index">
             <div class="flex flex-row justify-start items-center my-3">
               <div class="flex flex-row items-center flex-1">
                 <div>
@@ -109,8 +150,10 @@ onMounted(() => {
                 </div>
                 <div class="w-5"></div>
                 <div class="flex flex-col justify-center">
-                  <div class="">{{ event.name }}</div>
-                  <div class="text-sm text-slate-400">{{ formatEventDate(event.Date) }}</div>
+                  <div class="">{{ reg.event.name }}</div>
+                  <div class="text-sm text-slate-400">
+                    {{ formatEventDate(reg.event.eventStartDate) }}
+                  </div>
                 </div>
               </div>
               <div>

@@ -1,7 +1,7 @@
-import { createRouter, createWebHistory , type RouteRecordRaw} from 'vue-router'
+import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import { useAuthStore } from '@/features/auth/stores/auth.store'
 import AuthCallbackLogin from '@/features/auth/views/AuthCallbackLogin.vue'
-import AuthCallbackLogout from '@/features/auth/views/AuthCallbackLogout.vue' 
+import AuthCallbackLogout from '@/features/auth/views/AuthCallbackLogout.vue'
 
 export enum UserRole {
   ADMIN = 'admin',
@@ -22,29 +22,29 @@ const routes: Array<RouteRecordRaw> = [
     path: '/admin/events',
     name: 'OrgEventView',
     component: () => import('../features/event_management/views/OrgEventView.vue'),
-    meta: { 
-      requiresAuth: true, 
-      roles: adminRoles 
-    }
+    meta: {
+      requiresAuth: true,
+      roles: adminRoles,
+    },
   },
   {
     path: '/event/create',
     name: 'createEvent',
     component: () => import('../features/event_management/components/CreateUpdate_Event.vue'),
-    meta: { 
-      requiresAuth: true, 
-      roles: adminRoles 
-    }
+    meta: {
+      requiresAuth: true,
+      roles: adminRoles,
+    },
   },
   {
     path: '/event/edit/:id',
     name: 'editEvent',
     component: () => import('../features/event_management/components/CreateUpdate_Event.vue'),
     props: true,
-    meta: { 
-      requiresAuth: true, 
-      roles: adminRoles 
-    }
+    meta: {
+      requiresAuth: true,
+      roles: adminRoles,
+    },
   },
 
   // --- Authenticated User Routes (Requires any login) ---
@@ -52,51 +52,62 @@ const routes: Array<RouteRecordRaw> = [
     path: '/myregistrations',
     name: 'MyRegistration',
     component: () => import('../features/registration/views/MyRegistration.vue'),
-    meta: { 
-      requiresAuth: true, 
-      roles: allAuthenticated 
-    }
+    meta: {
+      requiresAuth: true,
+      roles: allAuthenticated,
+    },
   },
   {
     path: '/event/:id/register',
     name: 'RegisterDetail',
     props: true,
     component: () => import('../features/registration/views/RegistrationDetail.vue'),
-    meta: { 
-      requiresAuth: true, 
-      roles: allAuthenticated 
-    }
+    meta: {
+      requiresAuth: true,
+      roles: allAuthenticated,
+    },
+  },
+  // --- Staff Routes (Requires Staff Role) ---
+  {
+    path: '/event/:id/register/staff',
+    name: 'StaffEventDetail',
+    props: true,
+    component: () => import('../features/registration/views/StaffingDetail.vue'),
+    meta: {
+      requiresAuth: true,
+      roles: staffRoles,
+    },
   },
 
   // --- Public Routes (No Auth Required) ---
   {
     path: '/',
-    redirect: '/event/listing'
+    redirect: '/event/listing',
   },
   {
     path: '/event/listing',
     name: 'PartiEventView',
     component: () => import('../features/event_management/views/PartiEventView.vue'),
-    meta: { requiresAuth: false } // Public list of events [cite: 49]
+    meta: { requiresAuth: false }, // Public list of events [cite: 49]
   },
   {
     path: '/event/:id',
     name: 'EventDetail',
     props: true,
     component: () => import('../features/event_management/views/EventDetail.vue'),
-    meta: { requiresAuth: false } 
+    meta: { requiresAuth: false },
   },
   {
     path: '/auth/callback/login',
     name: 'AuthCallbackLogin',
     component: AuthCallbackLogin,
-    meta: { requiresAuth: false }
+    meta: { requiresAuth: false },
   },
   {
     path: '/auth/callback/logout',
     name: 'AuthCallbackLogout',
     component: AuthCallbackLogout,
-    meta: { requiresAuth: false }
+    meta: { requiresAuth: false },
   },
 ]
 
@@ -110,9 +121,9 @@ const router = createRouter({
 router.beforeEach((to, from, next) => {
   // Get the auth store
   const authStore = useAuthStore()
-  
+
   // Use getters or state from your store, e.g.:
-  const isAuthenticated = authStore.isAuthenticated 
+  const isAuthenticated = authStore.isAuthenticated
   const userRole = authStore.user?.userRole as UserRole | undefined
 
   const requiresAuth = to.meta.requiresAuth as boolean
@@ -124,15 +135,19 @@ router.beforeEach((to, from, next) => {
     if (!isAuthenticated) {
       return next({
         name: 'Login',
-        query: { redirect: to.fullPath } 
+        query: { redirect: to.fullPath },
       })
     }
 
     // 3. If user is authenticated, check if they have the required role
     if (requiredRoles && requiredRoles.length > 0) {
-      if (userRole && requiredRoles.includes(userRole)) {
+      const userRoleUpper = userRole?.toUpperCase()
+      const requiredRolesUpper = requiredRoles.map((r) => r.toUpperCase())
+      console.log('ตรวจสอบสิทธิ์:', userRoleUpper, requiredRolesUpper)
+      if (userRoleUpper && requiredRolesUpper.includes(userRoleUpper)) {
         return next()
       } else {
+        console.log('เด้ง')
         return next({ name: 'PartiEventView' })
       }
     }

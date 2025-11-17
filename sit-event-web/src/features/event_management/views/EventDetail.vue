@@ -26,10 +26,23 @@
         </div>
       </div>
       <div>
-        <div class="m-4">
-          <button @click="goToBooking()" class="w-full bg-blue-500 rounded-sm p-3 text-white">
-            Book Now
-          </button>
+        <div class="m-4 flex flex-row gap-2">
+          <div class="flex-2">
+            <button
+              @click="goToBooking()"
+              class="w-full bg-blue-500 hover:bg-blue-600 rounded-sm p-3 text-white"
+            >
+              Book Now
+            </button>
+          </div>
+          <div>
+            <button
+              @click="goToApplyStaff()"
+              class="w-full hover:bg-slate-100 rounded-sm p-3 text-black border border-slate-300"
+            >
+              Apply as Staff
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -58,5 +71,9 @@ const returnToHomePage = () => {
 
 const goToBooking = () => {
   router.push(`/event/${event.value?.id}/register`)
+}
+
+const goToApplyStaff = () => {
+  router.push(`/event/${event.value?.id}/register/staff`)
 }
 </script>

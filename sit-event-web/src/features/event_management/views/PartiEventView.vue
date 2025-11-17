@@ -134,8 +134,8 @@ const errorMessage = ref('')
 
 const handleLogin = async () => {
   if (authStore.isAuthenticated) {
-    console.log('User is already authenticated, no need to login again.');
-    return;
+    console.log('User is already authenticated, no need to login again.')
+    return
   }
   isLoading.value = true
   errorMessage.value = ''
@@ -205,19 +205,6 @@ const goToPage = (path: string) => {
                   class="absolute right-0 mt-3 flex flex-col gap-3 bg-white rounded-xl p-4 w-56 shadow-lg border border-slate-200 z-50"
                 >
                   <button
-                    v-if="authStore.user?.userRole == 'STAFF'"
-                    @click="goToPage(`/myregistrations`)"
-                    class="flex flex-row items-center w-full hover:bg-slate-100 rounded-lg p-2"
-                  >
-                    <img
-                      src="../../../assets/icons/mybooking_icon.svg"
-                      alt="Member"
-                      class="w-5 h-5"
-                    />
-                    <span class="ml-3 font-medium">My Staffing</span>
-                  </button>
-                  <button
-                    v-else
                     @click="goToPage(`/myregistrations`)"
                     class="flex flex-row items-center w-full hover:bg-slate-100 rounded-lg p-2"
                   >
@@ -350,7 +337,7 @@ const goToPage = (path: string) => {
                         <div class="text-lg text-slate-500">
                           {{ formatDate(event.eventStartDate) }}
                         </div>
-                        <div v-if="authStore.user?.userRole == 'STAFF'">
+                        <div>
                           <button
                             class="mx-auto my-2 p-1 px-3 w-full text-white text-sm rounded-l-md bg-blue-500"
                           >

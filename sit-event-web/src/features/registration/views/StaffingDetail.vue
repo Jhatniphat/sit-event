@@ -18,8 +18,9 @@ const returnToHomePage = () => {
 }
 
 const confirmRegister = async () => {
-  console.log(`Confirm Booking ${event?.name} : ${eventId}`)
+  console.log(`Confirm Staffing ${event?.name} : ${eventId}`)
   await registerStore.registerForEvent(eventId)
+  //   <---- Here
   if (registerStore.error != null) {
     return
   } else {
@@ -35,7 +36,7 @@ onMounted(() => {
 <template>
   <div>
     <div class="flex flex-col justify-between h-screen">
-      <div class="flex flex-row justify-between p-4 mb-4 items-center">
+      <div class="flex flex-row justify-between p-4 mb-2 items-center">
         <div>
           <img
             @click="returnToHomePage"
@@ -63,7 +64,7 @@ onMounted(() => {
             @click="confirmRegister"
             class="w-full bg-blue-500 hover:bg-blue-600 rounded-sm p-3 text-white"
           >
-            Confirm Booking
+            Confirm Staffing
           </button>
         </div>
       </div>
@@ -78,7 +79,7 @@ onMounted(() => {
           />
         </div>
         <div class="flex flex-row justify-center text-center">
-          <h2 class="text-lg font-bold my-4">Register to "{{ event?.name }}" Suscessfull!!</h2>
+          <h2 class="text-lg font-bold my-4">Apply to "{{ event?.name }}" Staff Suscessfull!!</h2>
         </div>
 
         <div class="flex justify-center my-4">
