@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import {
   RegistrationService,
   type ApplyToBeStaffDto,
+  type EventDetail,
   type EventRegistration,
   type EventStaffApplication,
   type RegisterForEventDto,
@@ -30,6 +31,7 @@ export interface StaffApplication {
   status: StaffApplicationStatus
   createdAt: string | Date
   updatedAt: string | Date
+  event: EventDetail
 }
 
 export interface AddStaffRequest {
@@ -213,6 +215,7 @@ export const useRegistrationStore = defineStore('registration', {
       this.error = null
       try {
         const data = await RegistrationService.getMyStaffStatus()
+        console.log('Fetched my staff status:', data)
         this.myStaffStatus = data
       } catch (error) {
         this.error = handleError(error, 'Failed to load staff status.')

@@ -18,7 +18,6 @@ const returnToHomePage = () => {
 }
 
 const confirmRegister = async () => {
-  console.log(`Confirm Booking ${event?.name} : ${eventId}`)
   await registerStore.registerForEvent(eventId)
   if (registerStore.error != null) {
     return

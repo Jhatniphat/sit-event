@@ -66,6 +66,7 @@ export type StaffApplicationStatus = 'ACCEPTED' | 'REFUSED' | 'PENDING' | 'WITHD
 export interface EventStaffApplication {
   id: string
   eventId: string
+  event: EventDetail
   userId: string
   eventRole: string | null
   status: 'PENDING' | 'ACCEPTED' | 'REFUSED' | 'WITHDRAWN'

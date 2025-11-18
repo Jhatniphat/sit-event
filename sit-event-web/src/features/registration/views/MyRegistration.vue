@@ -2,13 +2,13 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useRegistrationStore } from '../store/RegistrationStore'
-import MyListEvent from '../components/MyListEvent.vue'
+import MyBooking from '../components/MyBooking.vue'
+import MyStaffing from '../components/MyStaffing.vue'
 
 const router = useRouter()
 const registerStore = useRegistrationStore()
-const myRegis = computed(() => {
-  return regisTab.value === 'Book' ? registerStore.myRegistrations : registerStore.myStaffStatus
-})
+const myBookRegis = computed(() => registerStore.myRegistrations ?? [])
+const myStaffRegis = computed(() => registerStore.myStaffStatus ?? [])
 const returnToHomePage = () => {
   router.push('/event/Listing')
 }
@@ -40,7 +40,7 @@ type regisType = 'Book' | 'Staff'
 const regisTab = ref<regisType>('Book')
 
 const changeRegisTab = (tab: regisType) => {
-  console.log(`Change to tab: ${tab}`)
+  console.log(`Changing tab to: ${tab}`)
   if (regisTab.value === tab) return
   regisTab.value = tab
   if (regisTab.value === 'Book') {
@@ -86,8 +86,11 @@ const changeRegisTab = (tab: regisType) => {
           </div>
           <div class="w-4"></div>
         </div>
-        <div>
-          <MyListEvent :my-regis="myRegis" />
+        <div v-if="regisTab === 'Book'">
+          <MyBooking :my-regis="myBookRegis" />
+        </div>
+        <div v-if="regisTab === 'Staff'">
+          <MyStaffing :my-regis="myStaffRegis" />
         </div>
       </div>
     </div>

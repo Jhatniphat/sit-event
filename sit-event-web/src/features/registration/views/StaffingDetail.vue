@@ -18,8 +18,7 @@ const returnToHomePage = () => {
   router.push('/event/Listing')
 }
 
-const confirmRegister = async () => {
-  console.log(`Confirm Staffing ${event?.name} : ${eventId}`)
+const confirmRegisterStaff = async () => {
   const body: ApplyToBeStaffDto = {
     eventRole: 'Staff',
   }
@@ -64,7 +63,7 @@ onMounted(() => {
       <div>
         <div class="m-4">
           <button
-            @click="confirmRegister"
+            @click="confirmRegisterStaff"
             class="w-full bg-blue-500 hover:bg-blue-600 rounded-sm p-3 text-white"
           >
             Confirm Staffing

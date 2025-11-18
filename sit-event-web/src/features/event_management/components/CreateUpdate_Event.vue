@@ -47,7 +47,6 @@ const returnToDashboard = () => {
   if (modalOpen.value) {
     modalOpen.value = false
   }
-  console.log(modalOpen.value)
   router.push('/')
 }
 

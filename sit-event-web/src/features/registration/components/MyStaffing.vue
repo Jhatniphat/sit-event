@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import type { EventRegistration } from '../services/RegistrationService'
+import { computed } from 'vue'
+import router from '@/router'
+import type { StaffApplication } from '../store/RegistrationStore'
 
 const props = defineProps<{
-  myRegis: EventRegistration[]
+  myRegis: StaffApplication[]
 }>()
 
 const now = new Date()
@@ -26,6 +27,10 @@ function formatEventDate(dateString: string | Date): string {
   }).format(date)
 
   return `${datePart} - ${timePart}`
+}
+
+const seeEventDetail = (eventId: string) => {
+  router.push(`/event/${eventId}`)
 }
 </script>
 
@@ -52,7 +57,12 @@ function formatEventDate(dateString: string | Date): string {
           </div>
         </div>
         <div>
-          <button class="text-sm bg-slate-100 hover:bg-slate-200 px-5 py-1 rounded-md">View</button>
+          <button
+            @click="seeEventDetail(reg.eventId)"
+            class="text-sm bg-slate-100 hover:bg-slate-200 px-5 py-1 rounded-md"
+          >
+            Test
+          </button>
         </div>
       </div>
     </div>

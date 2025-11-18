@@ -143,11 +143,9 @@ router.beforeEach((to, from, next) => {
     if (requiredRoles && requiredRoles.length > 0) {
       const userRoleUpper = userRole?.toUpperCase()
       const requiredRolesUpper = requiredRoles.map((r) => r.toUpperCase())
-      console.log('ตรวจสอบสิทธิ์:', userRoleUpper, requiredRolesUpper)
       if (userRoleUpper && requiredRolesUpper.includes(userRoleUpper)) {
         return next()
       } else {
-        console.log('เด้ง')
         return next({ name: 'PartiEventView' })
       }
     }
