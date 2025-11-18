@@ -194,16 +194,25 @@ export class AuthService {
   getLogoutUrl(idTokenHint?: string): string {
     const authServerUrl = this.configService.get('KC_AUTH_SERVER_URL');
     const realm = this.configService.get('KC_REALM');
-    const redirectUri = this.configService.get('KC_LOGOUT_REDIRECT_URI') || 'http://localhost:3000';
+    const clientId = this.configService.get('KC_CLIENT_ID');
+    const redirectUri = this.configService.get('KC_LOGOUT_REDIRECT_URI') || 'http://localhost:3000/auth/logout-callback';
 
     const params = new URLSearchParams({
+      client_id: clientId,
       post_logout_redirect_uri: redirectUri,
     });
 
+    // Add id_token_hint only if available
     if (idTokenHint) {
       params.append('id_token_hint', idTokenHint);
+      this.logger.log('Logout URL generated with id_token_hint');
+    } else {
+      this.logger.warn('Logout URL generated without id_token_hint (session may not have been found)');
     }
 
-    return `${authServerUrl}/realms/${realm}/protocol/openid-connect/logout?${params.toString()}`;
+    const logoutUrl = `${authServerUrl}/realms/${realm}/protocol/openid-connect/logout?${params.toString()}`;
+    this.logger.log(`Generated logout URL with client_id and post_logout_redirect_uri`);
+    
+    return logoutUrl;
   }
 }

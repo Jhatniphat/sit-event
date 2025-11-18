@@ -167,15 +167,28 @@ export class AuthController {
   async logout(@Req() req: Request, @Res() res: Response): Promise<void> {
     try {
       const sessionCookie = req.cookies?.session;
-      let idTokenHint: string | null = null;
+      let idTokenHint: string | undefined;
 
-      // Clear session from Redis if cookie exists and retrieve idToken for id_token_hint
+      // Get idToken from session before deleting it
       if (sessionCookie) {
         try {
-          idTokenHint = await this.sessionService.logout(sessionCookie as string);
+          // First try to get the session data to extract idToken
+          const sessionData = await this.sessionService.validateSessionFromCookie(sessionCookie as string);
+          if (sessionData?.idToken) {
+            idTokenHint = sessionData.idToken;
+            this.logger.log('Found idToken for logout hint');
+          } else {
+            this.logger.warn('No idToken found in session for logout hint');
+          }
+          
+          // Then delete the session
+          await this.sessionService.logout(sessionCookie as string);
+          this.logger.log('Session deleted from Redis');
         } catch (err) {
-          this.logger.warn('Failed to read session idToken during logout:', err?.message || err);
+          this.logger.warn('Failed to process session during logout:', err?.message || err);
         }
+      } else {
+        this.logger.warn('No session cookie found during logout');
       }
 
       // Clear the session cookie
@@ -187,17 +200,25 @@ export class AuthController {
       });
 
       // Get Keycloak logout URL (include id_token_hint if available) and redirect
-      const logoutUrl = this.authService.getLogoutUrl(idTokenHint || undefined);
-      this.logger.log(`User logged out and redirecting to: ${logoutUrl}`);
+      const logoutUrl = this.authService.getLogoutUrl(idTokenHint);
+      this.logger.log(`User logged out, redirecting to Keycloak logout`);
 
       res.status(HttpStatus.FOUND).redirect(logoutUrl);
       
     } catch (error) {
       this.logger.error('Logout error:', error);
-      res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
-        message: 'Logout failed',
-        error: error.message,
-      });
+      // Even if logout fails, try to redirect to Keycloak logout anyway
+      try {
+        const logoutUrl = this.authService.getLogoutUrl();
+        this.logger.log('Fallback logout redirect due to error');
+        res.status(HttpStatus.FOUND).redirect(logoutUrl);
+      } catch (fallbackError) {
+        this.logger.error('Fallback logout also failed:', fallbackError);
+        res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+          message: 'Logout failed',
+          error: error.message,
+        });
+      }
     }
   }
 

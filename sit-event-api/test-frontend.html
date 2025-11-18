@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SIT Event - Test Frontend</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+            text-align: center;
+        }
+
+        .logo {
+            font-size: 2.5em;
+            color: #4a5568;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+
+        .subtitle {
+            color: #718096;
+            margin-bottom: 40px;
+            font-size: 1.1em;
+        }
+
+        .section {
+            margin: 30px 0;
+            padding: 25px;
+            background: #f7fafc;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+        }
+
+        .section h3 {
+            color: #2d3748;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+
+        .user-info {
+            background: #e6fffa;
+            border-left-color: #38b2ac;
+            text-align: left;
+        }
+
+        .user-info.hidden {
+            display: none;
+        }
+
+        .session-info {
+            background: #fff5f5;
+            border-left-color: #e53e3e;
+            text-align: left;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+
+        .session-info.hidden {
+            display: none;
+        }
+
+        .btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1em;
+            margin: 10px;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn:hover {
+            background: #5a67d8;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .btn.danger {
+            background: #e53e3e;
+        }
+
+        .btn.danger:hover {
+            background: #c53030;
+        }
+
+        .btn.success {
+            background: #38a169;
+        }
+
+        .btn.success:hover {
+            background: #2f855a;
+        }
+
+        .status {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-weight: bold;
+        }
+
+        .status.online {
+            background: #c6f6d5;
+            color: #22543d;
+            border: 1px solid #9ae6b4;
+        }
+
+        .status.offline {
+            background: #fed7d7;
+            color: #742a2a;
+            border: 1px solid #fc8181;
+        }
+
+        .info-item {
+            margin: 8px 0;
+            padding: 8px 0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .info-item:last-child {
+            border-bottom: none;
+        }
+
+        .label {
+            font-weight: bold;
+            color: #4a5568;
+        }
+
+        .value {
+            color: #718096;
+        }
+
+        .json-container {
+            max-height: 300px;
+            overflow-y: auto;
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: left;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .loading {
+            color: #667eea;
+            font-style: italic;
+        }
+
+        .error {
+            color: #e53e3e;
+            background: #fed7d7;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+
+        .success {
+            color: #22543d;
+            background: #c6f6d5;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            border: 1px solid #9ae6b4;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">🎪 SIT Event</div>
+        <div class="subtitle">Test Frontend สำหรับทดสอบ Session Management</div>
+
+        <!-- Status Section -->
+        <div class="section">
+            <h3>📊 สถานะการเชื่อมต่อ</h3>
+            <div id="connectionStatus" class="status offline">
+                <span class="loading">กำลังตรวจสอบ...</span>
+            </div>
+        </div>
+
+        <!-- User Info Section -->
+        <div id="userSection" class="section user-info hidden">
+            <h3>👤 ข้อมูลผู้ใช้</h3>
+            <div id="userInfo">
+                <!-- User data will be populated here -->
+            </div>
+        </div>
+
+        <!-- Control Buttons -->
+        <div class="section">
+            <h3>🎮 การควบคุม</h3>
+            <a href="#" id="loginBtn" class="btn">🔑 เข้าสู่ระบบ</a>
+            <button id="checkSessionBtn" class="btn success">📋 ตรวจสอบ Session</button>
+            <a href="#" id="logoutBtn" class="btn danger">🚪 ออกจากระบบ</a>
+        </div>
+
+        <!-- Session Details Section -->
+        <div id="sessionSection" class="section session-info hidden">
+            <h3>🔐 รายละเอียด Session</h3>
+            <div class="json-container" id="sessionDetails">
+                <!-- Session JSON will be displayed here -->
+            </div>
+        </div>
+
+        <!-- API Response Section -->
+        <div class="section">
+            <h3>📡 API Response Log</h3>
+            <div class="json-container" id="apiLog">
+                พร้อมแสดงผล API responses...
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3000';
+        
+        // DOM Elements
+        const connectionStatus = document.getElementById('connectionStatus');
+        const userSection = document.getElementById('userSection');
+        const sessionSection = document.getElementById('sessionSection');
+        const userInfo = document.getElementById('userInfo');
+        const sessionDetails = document.getElementById('sessionDetails');
+        const apiLog = document.getElementById('apiLog');
+        const loginBtn = document.getElementById('loginBtn');
+        const checkSessionBtn = document.getElementById('checkSessionBtn');
+        const logoutBtn = document.getElementById('logoutBtn');
+
+        // Utility Functions
+        function logAPI(message, data = null) {
+            const timestamp = new Date().toLocaleString('th-TH');
+            const logEntry = `[${timestamp}] ${message}`;
+            
+            if (data) {
+                apiLog.textContent = logEntry + '\n' + JSON.stringify(data, null, 2) + '\n\n' + apiLog.textContent;
+            } else {
+                apiLog.textContent = logEntry + '\n\n' + apiLog.textContent;
+            }
+        }
+
+        function showError(message) {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error';
+            errorDiv.textContent = message;
+            document.querySelector('.container').prepend(errorDiv);
+            
+            setTimeout(() => {
+                errorDiv.remove();
+            }, 5000);
+        }
+
+        function showSuccess(message) {
+            const successDiv = document.createElement('div');
+            successDiv.className = 'success';
+            successDiv.textContent = message;
+            document.querySelector('.container').prepend(successDiv);
+            
+            setTimeout(() => {
+                successDiv.remove();
+            }, 5000);
+        }
+
+        function updateConnectionStatus(online, message = '') {
+            connectionStatus.className = `status ${online ? 'online' : 'offline'}`;
+            connectionStatus.innerHTML = online ? 
+                '🟢 เชื่อมต่อแล้ว' + (message ? ` - ${message}` : '') :
+                '🔴 ไม่ได้เชื่อมต่อ' + (message ? ` - ${message}` : '');
+        }
+
+        function updateUserInfo(userData) {
+            if (!userData) {
+                userSection.classList.add('hidden');
+                sessionSection.classList.add('hidden');
+                return;
+            }
+
+            userSection.classList.remove('hidden');
+            userInfo.innerHTML = `
+                <div class="info-item">
+                    <span class="label">ชื่อ:</span> 
+                    <span class="value">${userData.firstName} ${userData.lastName}</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">อีเมล:</span> 
+                    <span class="value">${userData.email}</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">บทบาท:</span> 
+                    <span class="value">${userData.userRole}</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">User ID:</span> 
+                    <span class="value">${userData.userId}</span>
+                </div>
+            `;
+        }
+
+        function updateSessionDetails(sessionData) {
+            if (!sessionData) {
+                sessionSection.classList.add('hidden');
+                return;
+            }
+
+            sessionSection.classList.remove('hidden');
+            sessionDetails.textContent = JSON.stringify(sessionData, null, 2);
+        }
+
+        // API Functions
+        async function handleKeycloakCallback() {
+            try {
+                const urlParams = new URLSearchParams(window.location.search);
+                const code = urlParams.get('code');
+                const state = urlParams.get('state');
+                const sessionState = urlParams.get('session_state');
+                const error = urlParams.get('error');
+
+                if (error) {
+                    logAPI('❌ Keycloak callback error:', { error });
+                    showError('เกิดข้อผิดพลาดจาก Keycloak: ' + error);
+                    return false;
+                }
+
+                if (code) {
+                    logAPI('✅ พบ authorization code จาก Keycloak, กำลังส่งไปยัง backend...', {
+                        code: code.substring(0, 10) + '...',
+                        state,
+                        sessionState
+                    });
+
+                    // ส่ง code ไปยัง backend callback endpoint
+                    const response = await fetch(`${API_BASE}/auth/callback?code=${encodeURIComponent(code)}`, {
+                        method: 'GET',
+                        credentials: 'include',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        }
+                    });
+
+                    const data = await response.json();
+                    logAPI('📨 Backend callback response:', data);
+
+                    if (response.ok && data.sessionCreated) {
+                        updateConnectionStatus(true, 'ล็อกอินสำเร็จและสร้าง session แล้ว');
+                        showSuccess('ล็อกอินสำเร็จ! ยินดีต้อนรับ ' + data.user.firstName);
+                        
+                        // Clear URL parameters
+                        const url = new URL(window.location);
+                        url.search = '';
+                        window.history.replaceState({}, document.title, url.pathname);
+                        
+                        // Check session to update UI
+                        setTimeout(() => {
+                            checkSession();
+                        }, 500);
+                        
+                        return true;
+                    } else {
+                        throw new Error(data.message || 'Callback failed');
+                    }
+                }
+
+                return false;
+            } catch (error) {
+                logAPI('❌ Callback handling failed:', { error: error.message });
+                showError('ไม่สามารถประมวลผล callback ได้: ' + error.message);
+                return false;
+            }
+        }
+
+        async function checkSession() {
+            try {
+                logAPI('🔍 ตรวจสอบ session...');
+                
+                const response = await fetch(`${API_BASE}/auth/session`, {
+                    method: 'GET',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                const data = await response.json();
+                logAPI('📨 Session Response:', data);
+
+                if (data.valid && data.session) {
+                    updateConnectionStatus(true, 'มี session ที่ใช้งานได้');
+                    updateUserInfo(data.session);
+                    updateSessionDetails(data.session);
+                    return data.session;
+                } else {
+                    updateConnectionStatus(false, data.message);
+                    updateUserInfo(null);
+                    updateSessionDetails(null);
+                    return null;
+                }
+            } catch (error) {
+                logAPI('❌ Session check failed:', { error: error.message });
+                updateConnectionStatus(false, 'ไม่สามารถเชื่อมต่อ API ได้');
+                updateUserInfo(null);
+                updateSessionDetails(null);
+                showError('ไม่สามารถตรวจสอบ session ได้: ' + error.message);
+                return null;
+            }
+        }
+
+        function login() {
+            logAPI('🔑 เปลี่ยนเส้นทางไปหน้า login...');
+            window.location.href = `${API_BASE}/auth/login`;
+        }
+
+        function logout() {
+            logAPI('🚪 กำลังออกจากระบบ...');
+            window.location.href = `${API_BASE}/auth/logout`;
+        }
+
+        // Event Listeners
+        loginBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            login();
+        });
+
+        checkSessionBtn.addEventListener('click', () => {
+            checkSession();
+        });
+
+        logoutBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            logout();
+        });
+
+        // Handle logout callback
+        function handleLogoutCallback() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const logoutStatus = urlParams.get('logout');
+            
+            if (logoutStatus === 'success') {
+                logAPI('✅ ออกจากระบบเรียบร้อยแล้ว');
+                showSuccess('ออกจากระบบเรียบร้อยแล้ว');
+                updateConnectionStatus(false, 'ออกจากระบบแล้ว');
+                updateUserInfo(null);
+                updateSessionDetails(null);
+                
+                // Clear URL parameters
+                const url = new URL(window.location);
+                url.search = '';
+                window.history.replaceState({}, document.title, url.pathname);
+                
+                return true;
+            } else if (logoutStatus === 'error') {
+                logAPI('❌ เกิดข้อผิดพลาดในการออกจากระบบ');
+                showError('เกิดข้อผิดพลาดในการออกจากระบบ');
+                
+                // Clear URL parameters
+                const url = new URL(window.location);
+                url.search = '';
+                window.history.replaceState({}, document.title, url.pathname);
+                
+                return true;
+            }
+            
+            return false;
+        }
+
+        // Auto-check session on page load
+        window.addEventListener('load', async () => {
+            logAPI('🚀 หน้าเว็บโหลดเสร็จแล้ว...');
+            
+            // ตรวจสอบ logout callback ก่อน
+            const isLogoutCallback = handleLogoutCallback();
+            
+            if (!isLogoutCallback) {
+                // ตรวจสอบ Keycloak login callback
+                const isLoginCallback = await handleKeycloakCallback();
+                
+                if (!isLoginCallback) {
+                    // ถ้าไม่ใช่ callback ใดๆ ให้ตรวจสอบ session ปกติ
+                    logAPI('🔍 กำลังตรวจสอบ session อัตโนมัติ...');
+                    setTimeout(() => {
+                        checkSession();
+                    }, 500);
+                }
+            }
+        });
+
+        // Check for callback parameters (if redirected back from Keycloak)
+        // This is now handled in the load event listener above
+        
+        // Periodic session check (every 5 minutes)
+        setInterval(() => {
+            logAPI('ตรวจสอบ session แบบอัตโนมัติ...');
+            checkSession();
+        }, 30 * 60 * 1000);
+
+        // Initial log
+        logAPI('🌟 Test Frontend เริ่มทำงานแล้ว');
+        logAPI('🔗 API Endpoint: ' + API_BASE);
+        logAPI('🖥️ Frontend URL: ' + window.location.origin);
+    </script>
+</body>
+</html>
