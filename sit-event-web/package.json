@@ -8,6 +8,8 @@
   },
   "scripts": {
     "dev": "vite",
+    "check-env": "node check-env.ts", 
+    "predev": "npm run check-env",
     "build": "run-p type-check \"build-only {@}\" --",
     "preview": "vite preview",
     "prepare": "cypress install",
