@@ -54,11 +54,23 @@ export interface RegisterForEventDto {
 /* ========= Staff Interfaces ========= */
 
 export interface ApplyToBeStaffDto {
-  message?: string
+  eventRole?: string
 }
 
 export interface AddStaffDto {
   role: string
+}
+
+export type StaffApplicationStatus = 'ACCEPTED' | 'REFUSED' | 'PENDING' | 'WITHDRAWN'
+
+export interface EventStaffApplication {
+  id: string
+  eventId: string
+  userId: string
+  eventRole: string | null
+  status: 'PENDING' | 'ACCEPTED' | 'REFUSED' | 'WITHDRAWN'
+  createdAt: string | Date
+  updatedAt: string | Date
 }
 
 /* ========= Error Checker ========= */
@@ -193,7 +205,7 @@ export const RegistrationService = {
   /** [POST] /events/:eventId/staffs/apply */
   async applyToBeStaff(eventId: string, payload: ApplyToBeStaffDto) {
     try {
-      return await apiClient.post<ApplyToBeStaffDto, any>(
+      return await apiClient.post<EventStaffApplication, ApplyToBeStaffDto>(
         `/events/${eventId}/staffs/apply`,
         payload,
       )
@@ -204,7 +216,6 @@ export const RegistrationService = {
         )
         throw error
       }
-      console.error('[RegistrationService.applyToBeStaff] Unexpected Error:', error)
       throw new Error('An unexpected error occurred while applying to be staff.')
     }
   },

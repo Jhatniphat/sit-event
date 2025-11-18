@@ -5,6 +5,7 @@ import { onMounted, ref } from 'vue'
 import Modal from '@/components/ui/commons/ModalBox.vue'
 import { useEventStore } from '@/features/event_management/store/EventStore'
 import BaseButton from '@/components/ui/button/BaseButton.vue'
+import type { ApplyToBeStaffDto } from '../services/RegistrationService'
 
 const registerStore = useRegistrationStore()
 const eventStore = useEventStore()
@@ -19,8 +20,10 @@ const returnToHomePage = () => {
 
 const confirmRegister = async () => {
   console.log(`Confirm Staffing ${event?.name} : ${eventId}`)
-  await registerStore.registerForEvent(eventId)
-  //   <---- Here
+  const body: ApplyToBeStaffDto = {
+    eventRole: 'Staff',
+  }
+  await registerStore.applyToBeStaff(eventId, body)
   if (registerStore.error != null) {
     return
   } else {
@@ -49,12 +52,12 @@ onMounted(() => {
       </div>
       <div class="flex flex-col justify-between h-full mx-5">
         <div>
-          <div class="text-xl font-semibold">Select Sub-sessions</div>
+          <div class="text-xl font-semibold">Select Staff Role</div>
           <div class="h-3"></div>
-          <div class="text-lg font-bold mb-2">09:00 AM - 10:00 AM (Choose one)</div>
+          <div class="text-lg font-bold mb-2">09:00 AM - 12:00 PM (Choose one)</div>
           <div class="flex flex-row items-center mb-4">
-            <input type="checkbox" name="Cybersecurity" />
-            <label class="ml-3" for="">Cybersecurity</label>
+            <input type="checkbox" name="HR" />
+            <label class="ml-3" for="">HR</label>
           </div>
         </div>
       </div>

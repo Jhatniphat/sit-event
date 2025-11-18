@@ -1,8 +1,11 @@
 import { defineStore } from 'pinia'
 import {
   RegistrationService,
+  type ApplyToBeStaffDto,
   type EventRegistration,
+  type EventStaffApplication,
   type RegisterForEventDto,
+  type StaffApplicationStatus,
 } from '@/features/registration/services/RegistrationService'
 import type { ParsedApiError } from '@/shared/utils/FetchUtils'
 
@@ -19,24 +22,28 @@ const handleError = (error: unknown, defaultMessage: string): string => {
   return defaultMessage
 }
 
-export type StaffApplicationStatus = 'ACCEPTED' | 'REFUSED'
-
 export interface StaffApplication {
   id: string
   eventId: string
   userId: string
+  eventRole: string | null
   status: StaffApplicationStatus
-  appliedAt: string
+  createdAt: string | Date
+  updatedAt: string | Date
 }
 
 export interface AddStaffRequest {
   role: string
 }
 
+/* ========= Store State ========= */
+
 export interface RegistrationState {
   myRegistrations: EventRegistration[]
+
   myStaffStatus: StaffApplication | null
   staffsForEvent: StaffApplication[]
+
   isLoading: boolean
   error: string | null
 }
@@ -197,7 +204,9 @@ export const useRegistrationStore = defineStore('registration', {
       }
     },
 
-    // ============ STAFF ACTIONS ============
+    /* ============================
+     *      STAFF ACTIONS
+     * ============================ */
 
     async fetchMyStaffStatus(): Promise<void> {
       this.isLoading = true
@@ -212,12 +221,18 @@ export const useRegistrationStore = defineStore('registration', {
       }
     },
 
-    async applyToBeStaff(eventId: string, body: { message: string }): Promise<StaffApplication> {
+    async applyToBeStaff(eventId: string, body: ApplyToBeStaffDto): Promise<EventStaffApplication> {
       this.isLoading = true
       this.error = null
       try {
-        const created = await RegistrationService.applyToBeStaff(eventId, body)
+        const created = (await RegistrationService.applyToBeStaff(
+          eventId,
+          body,
+        )) as EventStaffApplication
+
+        // ตอนนี้ created มี type เป็น StaffApplication แล้ว ✔
         this.myStaffStatus = created
+
         return created
       } catch (error) {
         this.error = handleError(error, 'Failed to apply to be staff.')
@@ -276,7 +291,7 @@ export const useRegistrationStore = defineStore('registration', {
     async updateStaffStatus(
       eventId: string,
       staffId: string,
-      status: StaffApplicationStatus,
+      status: 'ACCEPTED' | 'REFUSED',
     ): Promise<StaffApplication> {
       this.isLoading = true
       this.error = null
@@ -300,7 +315,6 @@ export const useRegistrationStore = defineStore('registration', {
       this.error = null
       try {
         await RegistrationService.removeStaff(eventId, staffId)
-
         this.staffsForEvent = this.staffsForEvent.filter((s) => s.id !== staffId)
       } catch (error) {
         this.error = handleError(error, 'Failed to remove staff.')

@@ -75,7 +75,7 @@ const routes: Array<RouteRecordRaw> = [
     component: () => import('../features/registration/views/StaffingDetail.vue'),
     meta: {
       requiresAuth: true,
-      roles: staffRoles,
+      roles: allAuthenticated,
     },
   },
 
