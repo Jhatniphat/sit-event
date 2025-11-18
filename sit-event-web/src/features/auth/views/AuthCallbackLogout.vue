@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { onMounted } from 'vue';
-import { useAuthStore } from '@/features/auth/stores/auth.store';
-
-const authStore = useAuthStore();
+import router from '@/router';
 
 onMounted(async () => {
-  await authStore.handleLogoutCallback(); 
+  // await authStore.handleLogoutCallback();
+  router.replace({ path: '/' });
+  console.log('Auth Callback Logout Mounted');
 });
 </script>
 

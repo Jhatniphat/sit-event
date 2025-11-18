@@ -2,6 +2,7 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import authService from '@/features/auth/services/auth.service';
+import { Import } from 'lucide-vue-next';
 
 export interface AuthUser {
   id: string;
@@ -49,13 +50,20 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  function loginRedirect() {
+    window.location.href = import.meta.env.VITE_AUTH_LOGIN_URL;
+  }
+  
+  function logoutRedirect() {
+    window.location.href = import.meta.env.VITE_AUTH_LOGOUT_URL;
+  }
   /**
    * (B) จัดการ Callback (หลังจาก Login ที่ Keycloak)
    */
   async function handleLoginCallback(code: string) {
     try {
       const response = await authService.handleAuthCallback(code);
-      await authService.handleAuthCallback(code);
+      // await authService.handleAuthCallback(code);
       const sessionResponse = await authService.checkSession();
 
       user.value = response.user;
@@ -154,6 +162,8 @@ export const useAuthStore = defineStore('auth', () => {
     handleLoginCallback,
     checkSession,
     startLogout,
-    handleLogoutCallback
+    handleLogoutCallback,
+    loginRedirect,
+    logoutRedirect,
   };
 });

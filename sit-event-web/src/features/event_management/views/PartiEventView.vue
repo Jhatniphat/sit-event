@@ -139,26 +139,14 @@ const handleLogin = async () => {
   }
   isLoading.value = true
   errorMessage.value = ''
-  try {
-    await authStore.startLogin()
-  } catch (error) {
-    console.error('Login Error:', error)
-    errorMessage.value = 'เกิดข้อผิดพลาดในการเริ่มระบบ Login'
-    isLoading.value = false
-  }
+  authStore.loginRedirect()
 }
 
 const handleLogout = async () => {
   console.log('Initiating logout process...')
   isLoading.value = true
   errorMessage.value = ''
-  try {
-    await authStore.startLogout()
-  } catch (error) {
-    console.error('Logout Error:', error)
-    errorMessage.value = 'เกิดข้อผิดพลาดในการเริ่มระบบ Logout'
-    isLoading.value = false
-  }
+  authStore.logoutRedirect()
 }
 
 function formatDate(date: string | number | Date) {
