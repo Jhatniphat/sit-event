@@ -1,113 +1,159 @@
-// src/stores/auth.store.ts
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
-import authService from '@/features/auth/services/auth.service'; 
+import authService from '@/features/auth/services/auth.service';
 
-// (สร้าง Type ของ User ที่จะเก็บใน Store)
 export interface AuthUser {
   id: string;
   email: string;
   firstName: string;
   lastName: string;
+  userRole: string;
 }
 
 export const useAuthStore = defineStore('auth', () => {
-  // --- 1. STATE ---
-  // สถานะของ User ที่ Login อยู่ (สำหรับแสดงผลใน UI)
+  // --- STATE ---
   const user = ref<AuthUser | null>(null);
+  const accessToken = ref<string | null>(null);
+  const refreshToken = ref<string | null>(null);
   const router = useRouter();
 
-  // --- 2. GETTERS ---
-  // Getter สำหรับเช็คว่า Login แล้วหรือยัง
-  const isAuthenticated = computed(() => !!user.value);
-  // Getter สำหรับดึงชื่อ User
+  // --- GETTERS ---
+  const isAuthenticated = computed(() => {
+    console.log('Checking if user is authenticated...', !!user.value && !!accessToken.value);
+    console.log('User:', user.value);
+    console.log('Access Token:', accessToken.value);
+    return !!user.value && !!accessToken.value
+  });
   const userFullName = computed(() => {
-    if (user.value) {
-      return `${user.value.firstName} ${user.value.lastName}`;
-    }
-    return '';
+    return user.value
+      ? `${user.value.firstName} ${user.value.lastName}`
+      : '';
   });
 
-  // --- 3. ACTIONS ---
+  // --- ACTIONS ---
 
   /**
-   * (A) สั่งให้ Redirect ไปหน้า Keycloak
-   * (เรียกใช้โดย: ปุ่ม Login)
+   * (A) เริ่มกระบวนการ Login
    */
   async function startLogin() {
+    console.log('Starting login process...');
+    if (isAuthenticated.value) {
+      console.log('User is already authenticated, skipping login redirect.');
+      return;
+    }
     try {
-      // เรียก Service ให้จัดการ Redirect (เราทำไปแล้ว)
       await authService.startLoginRedirect();
     } catch (error) {
       console.error('Login failed to start:', error);
-      // (อาจจะแสดง Error UI)
     }
   }
 
   /**
-   * (B) จัดการ Callback หลังจาก Keycloak ส่งกลับมา
-   * (เรียกใช้โดย: หน้า AuthCallback.vue)
+   * (B) จัดการ Callback (หลังจาก Login ที่ Keycloak)
    */
   async function handleLoginCallback(code: string) {
     try {
-      // เรียก Service ให้ส่ง code ไป NestJS
-      // NestJS จะตั้ง Cookie ให้เรา และส่งข้อมูล User กลับมา
       const response = await authService.handleAuthCallback(code);
+      await authService.handleAuthCallback(code);
+      const sessionResponse = await authService.checkSession();
 
-      // เก็บข้อมูล User ที่ได้ ลง State
       user.value = response.user;
+      accessToken.value = sessionResponse.session?.accessToken || null;
+      refreshToken.value = sessionResponse.session?.refreshToken || null;
       
-      // ส่งกลับไปหน้า Dashboard
-      router.push('/dashboard'); 
+      router.push('/');
     } catch (error) {
       console.error('Login callback failed:', error);
-      router.push('/'); // ถ้าพัง ให้กลับหน้าแรก
+      router.push('/');
     }
   }
 
   /**
-   * (C) ตรวจสอบ Session ตอนเปิดแอป
-   * (เรียกใช้โดย: App.vue ตอน onMounted)
+   * (C) ตรวจสอบ Session (ตอนเปิดแอป)
    */
   async function checkSession() {
     try {
-      const response = await authService.getMe();
-      user.value = response.user;
+      const response = await authService.checkSession();
+      if (response.valid && response.session && response.session.accessToken) {
+
+        console.log('Restoring session for user');
+
+        user.value = {
+          id: response.session.userId,
+          email: response.session.email,
+          firstName: response.session.firstName,
+          lastName: response.session.lastName,
+          userRole: response.session.userRole,
+        };
+
+        accessToken.value = response.session.accessToken ?? null;
+        refreshToken.value = response.session.refreshToken ?? null;
+
+      } else {
+        user.value = null;
+        accessToken.value = null;
+        refreshToken.value = null;
+      }
     } catch (error) {
-      console.error('No active session:', error);
+      console.error('Error checking session:', error);
       user.value = null;
+      accessToken.value = null;
+      refreshToken.value = null;
     }
   }
 
   /**
    * (D) สั่ง Logout
-   * (เรียกใช้โดย: ปุ่ม Logout)
    */
-  async function logout() {
-    try {
-      // 1. (สำคัญ) เรียก Service เพื่อเอา URL Logout จาก NestJS
-      const { logoutUrl } = await authService.getLogoutUrl();
-      
-      // 2. ล้าง State ของ User ใน Pinia
-      user.value = null;
-      
-      // 3. ส่งผู้ใช้ไป Logout ที่ Keycloak (และล้าง Cookie ฝั่ง NestJS)
-      window.location.href = logoutUrl;
+  // async function logout() {
+  //   try {
+  //     // const { logoutUrl } = await authService.getLogoutUrl();
+  //     user.value = null;
+  //     accessToken.value = null;
+  //     refreshToken.value = null;
 
+  //     // window.location.href = logoutUrl;
+  //     await authService.startLogoutRedirect();
+
+  //   } catch (error)      {
+  //     console.error('Logout failed:', error);
+  //   }
+  // }
+
+  async function startLogout() {
+    try {
+      await authService.startLogoutRedirect();
     } catch (error) {
-      console.error('Logout failed:', error);
+      console.error('Logout failed to start:', error);
     }
   }
 
-  // คืนค่าทั้งหมดให้ Component เรียกใช้
+  async function handleLogoutCallback() {
+    try {
+      // const response = await authService.handleAuthCallback(code);
+      await authService.logout();
+      user.value = null;
+      accessToken.value = null;
+      refreshToken.value = null;
+
+      router.push('/');
+    } catch (error) {
+      console.error('Login callback failed:', error);
+      router.push('/');
+    }
+  }
+
   return {
     user,
+    accessToken,
+    refreshToken,
     isAuthenticated,
     userFullName,
     startLogin,
     handleLoginCallback,
     checkSession,
-    logout,
+    startLogout,
+    handleLogoutCallback
   };
 });

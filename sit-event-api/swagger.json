@@ -1,0 +1,464 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Event Management API (Demo)",
+    "description": "API documentation for the event management system, generated for demo purposes.",
+    "version": "1.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3000",
+      "description": "Local development server"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Events",
+      "description": "Core endpoints for managing events."
+    },
+    {
+      "name": "Event Registrations",
+      "description": "Endpoints for user event registration and check-ins."
+    },
+    {
+      "name": "Event Staff",
+      "description": "Endpoints for applying and managing event staff."
+    }
+  ],
+  "paths": {
+    "/events": {
+      "post": {
+        "tags": ["Events"],
+        "summary": "Create a new event (Admin/Organizer only)",
+        "security": [{ "JWT-auth": [] }],
+        "requestBody": {
+          "description": "Data for new event",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateEventDto" }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Event created successfully" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
+        }
+      },
+      "get": {
+        "tags": ["Events"],
+        "summary": "Get all events (Public)",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": { "type": "integer" },
+            "required": false
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": { "type": "integer" },
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": { "description": "List of all events" }
+        }
+      }
+    },
+    "/events/{id}": {
+      "get": {
+        "tags": ["Events"],
+        "summary": "Get a single event by ID (Public)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Event details" },
+          "404": { "description": "Event not found" }
+        }
+      },
+      "patch": {
+        "tags": ["Events"],
+        "summary": "Update an event (Admin/Organizer only)",
+        "security": [{ "JWT-auth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "description": "Data to update",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpdateEventDto" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Event updated" },
+          "404": { "description": "Event not found" }
+        }
+      },
+      "delete": {
+        "tags": ["Events"],
+        "summary": "Delete an event (Admin only)",
+        "security": [{ "JWT-auth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Event deleted" },
+          "404": { "description": "Event not found" }
+        }
+      }
+    },
+    "/events/{eventId}/register": {
+      "post": {
+        "tags": ["Event Registrations"],
+        "summary": "Register current user for an event",
+        "security": [{ "JWT-auth": [] }],
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "201": { "description": "Registered successfully" }
+        }
+      }
+    },
+    "/events/{eventId}/unregister": {
+      "delete": {
+        "tags": ["Event Registrations"],
+        "summary": "Unregister current user from an event",
+        "security": [{ "JWT-auth": [] }],
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "204": { "description": "Unregistered successfully" }
+        }
+      }
+    },
+    "/events/registrations/{registrationId}/cancel": {
+      "delete": {
+        "tags": ["Event Registrations"],
+        "summary": "Cancel a registration by ID (Admin only)",
+        "security": [{ "JWT-auth": [] }],
+        "parameters": [
+          {
+            "name": "registrationId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "204": { "description": "Registration canceled" }
+        }
+      }
+    },
+    "/events/{eventId}/registrations/{registrationId}": {
+      "patch": {
+        "tags": ["Event Registrations"],
+        "summary": "Change attended status (Check-in) by Registration ID",
+        "security": [{ "JWT-auth": [] }],
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "registrationId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Status updated" }
+        }
+      }
+    },
+    "/events/{eventId}/users/{userId}": {
+      "patch": {
+        "tags": ["Event Registrations"],
+        "summary": "Change attended status (Check-in) by User ID",
+        "security": [{ "JWT-auth": [] }],
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Status updated" }
+        }
+      }
+    },
+    "/events/{eventId}/staffs/apply": {
+      "post": {
+        "tags": ["Event Staff"],
+        "summary": "Apply to be staff for an event",
+        "security": [{ "JWT-auth": [] }],
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ApplyToBeStaffDto" }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Application submitted, status PENDING" }
+        }
+      }
+    },
+    "/events/staffs/status/me": {
+      "get": {
+        "tags": ["Event Staff"],
+        "summary": "Get my staff application status for an event",
+        "security": [{ "JWT-auth": [] }],
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Your staff application details" },
+          "404": { "description": "You have not applied" }
+        }
+      },
+      "delete": {
+        "tags": ["Event Staff"],
+        "summary": "Withdraw my staff application",
+        "security": [{ "JWT-auth": [] }],
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Application withdrawn" }
+        }
+      }
+    },
+    "/events/{eventId}/staffs": {
+      "get": {
+        "tags": ["Event Staff"],
+        "summary": "Get all staff applications for an event (Admin/Organizer only)",
+        "security": [{ "JWT-auth": [] }],
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "List of staff applications" }
+        }
+      }
+    },
+    "/events/{eventId}/staffs/{userId}/add": {
+      "post": {
+        "tags": ["Event Staff"],
+        "summary": "Add a user as staff (Admin/Organizer only)",
+        "security": [{ "JWT-auth": [] }],
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/AddStaffDto" }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Staff entry created" }
+        }
+      }
+    },
+    "/events/{eventId}/staffs/{staffId}": {
+      "patch": {
+        "tags": ["Event Staff"],
+        "summary": "Approve or Refuse a staff application (Admin/Organizer only)",
+        "security": [{ "JWT-auth": [] }],
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "staffId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpdateStaffStatusDto" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Staff status updated" }
+        }
+      },
+      "delete": {
+        "tags": ["Event Staff"],
+        "summary": "Remove a staff entry (Admin/Organizer only)",
+        "security": [{ "JWT-auth": [] }],
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "staffId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Staff entry removed" }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CreateEventDto": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "description": { "type": "string" },
+          "registrationOpenDate": { "type": "string", "format": "date-time" },
+          "registrationEndDate": { "type": "string", "format": "date-time" },
+          "eventStartDate": { "type": "string", "format": "date-time" },
+          "eventEndDate": { "type": "string", "format": "date-time" },
+          "targetAudience": {
+            "type": "array",
+            "items": { "type": "string", "enum": ["EXTERNAL_STUDENT", "INTERNAL_STUDENT", "TEACHER", "PUBLIC"] }
+          },
+          "tags": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        },
+        "required": ["name", "description", "registrationOpenDate", "registrationEndDate", "eventStartDate", "eventEndDate"]
+      },
+      "UpdateEventDto": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "description": { "type": "string" },
+          "registrationOpenDate": { "type": "string", "format": "date-time" },
+          "registrationEndDate": { "type": "string", "format": "date-time" },
+          "eventStartDate": { "type": "string", "format": "date-time" },
+          "eventEndDate": { "type": "string", "format": "date-time" }
+        }
+      },
+      "ApplyToBeStaffDto": {
+        "type": "object",
+        "properties": {
+          "eventRole": { "type": "string" }
+        },
+        "required": ["eventRole"]
+      },
+      "AddStaffDto": {
+        "type": "object",
+        "properties": {
+          "eventRole": { "type": "string" },
+          "status": { "type": "string", "enum": ["PENDING", "ACCEPTED", "REFUSED"] }
+        },
+        "required": ["eventRole", "status"]
+      },
+      "UpdateStaffStatusDto": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "string", "enum": ["ACCEPTED", "REFUSED"] }
+        },
+        "required": ["status"]
+      }
+    },
+    "securitySchemes": {
+      "JWT-auth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  }
+}

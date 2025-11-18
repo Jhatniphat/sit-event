@@ -1,26 +1,27 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import BaseButton from '@/components/ui/button/BaseButton.vue'
-import Modal from '@/components/ui/commons/ModalBox.vue'
+import { computed, onMounted, ref } from 'vue'
 import Pagination from '@/components/ui/commons/pagination.vue'
-import { useRouter } from 'vue-router'
 import { useEventStore } from '../store/EventStore'
-const router = useRouter()
-const modalOpen = ref(false)
 const currentPage = ref(1)
+const currentLimit = ref(8)
 const eventStore = useEventStore()
 
 const events = computed(() => eventStore.events)
+const paginations = computed(() => eventStore.pagination)
 
-const handlePageChange = (page: number) => {
+onMounted(() => {
+  eventStore.fetchAllEvents(currentPage.value, currentLimit.value)
+})
+
+const handlePageChange = async (page: number) => {
+  await eventStore.fetchAllEvents(page, currentLimit.value)
   currentPage.value = page
 }
 
-const ChangeEventView = (page: string) => {
-  router.push(`/event/${page}`)
-}
-const modalDeleteOpen = () => {
-  modalOpen.value = true
+const handleLimitChange = async (newLimit: number) => {
+  currentLimit.value = newLimit
+  currentPage.value = 1
+  await eventStore.fetchAllEvents(1, newLimit)
 }
 
 // id: string;
@@ -77,29 +78,7 @@ const formatDate = (dateStr: string | number | Date) => {
 <template>
   <div class="container">
     <div class="font-bold text-4xl">My Events</div>
-    <div class="h-4"></div>
-    <div class="flex flex-row py-2">
-      <div class="container"></div>
-      <div class="container">
-        <div class="container flex flex-row justify-between">
-          <div class="mx-2">
-            <BaseButton @click="ChangeEventView('update')" label="Update" color="grey" />
-          </div>
-          <div class="mx-2">
-            <BaseButton @click="modalDeleteOpen" label="Delete" color="red" />
-            <Modal v-model="modalOpen">
-              <h2 class="text-xl font-bold mb-4">Delete Modal</h2>
-              <p>Test Modal</p>
-              <div class="flex justify-end">
-                <BaseButton @click="modalOpen = false" color="red" label="Close" />
-              </div>
-            </Modal>
-          </div>
-        </div>
-      </div>
-      <div class="container"></div>
-    </div>
-    <div class="h-4"></div>
+    <div class="h-8"></div>
     <div class="container rounded-xl border border-slate-200">
       <table class="w-full py-3">
         <thead>
@@ -150,7 +129,13 @@ const formatDate = (dateStr: string | number | Date) => {
     <div class="h-4"></div>
     <div class="flex flex-row justify-end">
       <div>
-        <Pagination v-model="currentPage" :count="4" @page-change="handlePageChange" />
+        <Pagination
+          v-model="currentPage"
+          :count="paginations?.totalPages"
+          responsive
+          @page-change="handlePageChange"
+          @limit-change="handleLimitChange"
+        />
       </div>
     </div>
   </div>

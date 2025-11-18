@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import BaseButton from '@/components/ui/button/BaseButton.vue'
-import { ref, computed, onMounted } from 'vue'
+import { ref } from 'vue'
 import EventListing from '@/features/event_management/components/EventListing.vue'
 import { useRouter } from 'vue-router'
-import { useEventStore } from '@/features/event_management/store/EventStore'
+// import { useEventStore } from '@/features/event_management/store/EventStore'
 
-const eventStore = useEventStore()
+// const eventStore = useEventStore()
 const router = useRouter()
 const sideBarMenu = ref('Events')
 
@@ -17,13 +17,9 @@ const changeSideBarMenu = (menu: string) => {
   sideBarMenu.value = menu
 }
 
-const events = computed(() => eventStore.events)
-const isLoading = computed(() => eventStore.isLoadingList)
-const error = computed(() => eventStore.error)
-
-onMounted(() => {
-  eventStore.fetchAllEvents()
-})
+// const events = computed(() => eventStore.events)
+// const isLoading = computed(() => eventStore.isLoadingList)
+// const error = computed(() => eventStore.error)
 </script>
 
 <template>
@@ -37,7 +33,8 @@ onMounted(() => {
             <div class="flex flex-col gap-2">
               <div>
                 <button
-                  class="w-full px-3 py-2 rounded-md focus:bg-slate-100 focus:font-semibold hover:bg-slate-100"
+                  class="w-full px-3 py-2 rounded-md hover:bg-slate-100"
+                  :class="{ 'bg-slate-100 font-semibold': sideBarMenu === 'Dashboard' }"
                   @click="changeSideBarMenu('Dashboard')"
                 >
                   <div class="flex flex-row">
@@ -49,7 +46,8 @@ onMounted(() => {
               </div>
               <div>
                 <button
-                  class="w-full px-3 py-2 rounded-md focus:bg-slate-100 focus:font-semibold hover:bg-slate-100"
+                  class="w-full px-3 py-2 rounded-md hover:bg-slate-100"
+                  :class="{ 'bg-slate-100 font-semibold': sideBarMenu === 'Events' }"
                   @click="changeSideBarMenu('Events')"
                 >
                   <div class="flex flex-row">
@@ -61,7 +59,8 @@ onMounted(() => {
               </div>
               <div>
                 <button
-                  class="w-full px-3 py-2 rounded-md focus:bg-slate-100 focus:font-semibold hover:bg-slate-100"
+                  class="w-full px-3 py-2 rounded-md hover:bg-slate-100"
+                  :class="{ 'bg-slate-100 font-semibold': sideBarMenu === 'Participants' }"
                   @click="changeSideBarMenu('Participants')"
                 >
                   <div class="flex flex-row">
@@ -73,7 +72,8 @@ onMounted(() => {
               </div>
               <div>
                 <button
-                  class="w-full px-3 py-2 rounded-md focus:bg-slate-100 focus:font-semibold hover:bg-slate-100"
+                  class="w-full px-3 py-2 rounded-md hover:bg-slate-100"
+                  :class="{ 'bg-slate-100 font-semibold': sideBarMenu === 'Staff' }"
                   @click="changeSideBarMenu('Staff')"
                 >
                   <div class="flex flex-row">
@@ -85,7 +85,8 @@ onMounted(() => {
               </div>
               <div>
                 <button
-                  class="w-full px-3 py-2 rounded-md focus:bg-slate-100 focus:font-semibold hover:bg-slate-100"
+                  class="w-full px-3 py-2 rounded-md hover:bg-slate-100"
+                  :class="{ 'bg-slate-100 font-semibold': sideBarMenu === 'Setting' }"
                   @click="changeSideBarMenu('Setting')"
                 >
                   <div class="flex flex-row">
@@ -113,7 +114,7 @@ onMounted(() => {
           </div>
         </div>
       </div>
-      <div class="flex-8 p-2 mx-3">
+      <div class="flex-8 p-2 mx-3 overflow-auto">
         <div v-if="sideBarMenu == 'Events'">
           <EventListing />
         </div>

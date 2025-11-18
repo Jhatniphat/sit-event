@@ -39,7 +39,8 @@ export class RolesGuard implements CanActivate {
       ...(user.roles || []),
       user.role, // Single role field
     ].filter(Boolean);
-
+    console.log('User Roles from Token:', userRoles);
+    console.log('Required Roles:', requiredRoles);
     if (requireAllRoles) {
       // User must have ALL required roles (or higher)
       return requiredRoles.every(role => 

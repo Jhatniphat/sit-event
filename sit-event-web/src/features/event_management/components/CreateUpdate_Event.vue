@@ -2,13 +2,15 @@
 import TextField from '@/components/ui/commons/TextField.vue'
 import TextArea from '@/components/ui/commons/TextArea.vue'
 import BaseButton from '@/components/ui/button/BaseButton.vue'
-import NavBar from '@/components/ui/commons/NavBar.vue'
 import Modal from '@/components/ui/commons/ModalBox.vue'
 import TagInput from '@/components/ui/commons/TagInput.vue'
 import { ref, computed, onMounted } from 'vue'
 import { useEventStore } from '@/features/event_management/store/EventStore'
 import { useDateTimeInputAdapter } from '@/shared/useDateTimeInput'
 import { type CreateEventDto } from '@/features/event_management/services/EventServices'
+import { useRouter } from 'vue-router'
+
+const router = useRouter()
 
 const props = defineProps<{
   id?: string
@@ -18,7 +20,8 @@ const eventStore = useEventStore()
 const eventForm = ref<CreateEventDto>({
   name: '',
   description: '',
-  thumbnail: '',
+  thumbnail: 'aaa',
+  images: ['asd'],
   registrationOpenDate: new Date(),
   registrationEndDate: new Date(),
   eventStartDate: new Date(),
@@ -40,6 +43,13 @@ console.log('Event ID:', props.id)
 
 const modalOpen = ref(false)
 
+const returnToDashboard = () => {
+  if (modalOpen.value) {
+    modalOpen.value = false
+  }
+  router.push('/')
+}
+
 onMounted(async () => {
   if (isEditMode.value) {
     await eventStore.fetchEventById(props.id!)
@@ -48,7 +58,6 @@ onMounted(async () => {
     if (eventToEdit) {
       eventForm.value = {
         ...eventToEdit,
-
         registrationOpenDate: new Date(eventToEdit.registrationOpenDate),
         registrationEndDate: new Date(eventToEdit.registrationEndDate),
         eventStartDate: new Date(eventToEdit.eventStartDate),
@@ -81,16 +90,6 @@ const onSubmit = () => {
 
 <template>
   <div>
-    <div>
-      <NavBar HeadText="Event View"
-        ><div class="flex flex-row gap-4">
-          <div>test 1</div>
-          <div>test 2</div>
-          <div>test 3</div>
-          <div>test 4</div>
-        </div></NavBar
-      >
-    </div>
     <div class="flex justify-between p-5">
       <div class="container flex-1">
         <!-- <div>SpaceLeft</div> -->
@@ -311,6 +310,8 @@ const onSubmit = () => {
         <div class="py-3"></div>
         <!-- Create Button -->
         <div class="container flex justify-end">
+          <BaseButton label="Cancel" color="red" @click="returnToDashboard"></BaseButton>
+          <div class="w-4"></div>
           <BaseButton
             :label="isEditMode ? 'Edit Event' : 'Create New Event'"
             color="blue"
@@ -329,7 +330,7 @@ const onSubmit = () => {
             </div>
 
             <div class="flex justify-center my-4">
-              <BaseButton @click="modalOpen = false" color="blue" label="Close" />
+              <BaseButton @click="returnToDashboard" color="blue" label="Close" />
             </div>
           </Modal>
         </div>

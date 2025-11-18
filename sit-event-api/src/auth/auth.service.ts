@@ -153,18 +153,20 @@ export class AuthService {
     // Check if user exists
     const existingUser = await this.usersService.findByEmail(keycloakUser.email);
     
-    // Determine user role based on email domain
-    const userRole = this.determineUserRole(keycloakUser.email);
-    
     if (existingUser) {
-      // Update existing user
+      // Update existing user but preserve their current role
+      this.logger.log(`Updating existing user: ${keycloakUser.email}, preserving role: ${existingUser.userRole}`);
       return this.usersService.updateUser(existingUser.id, {
         firstName: keycloakUser.given_name,
         lastName: keycloakUser.family_name,
         email: keycloakUser.email,
-        userRole: userRole,
+        // Do not update userRole - preserve existing role
       });
     } else {
+      // Determine user role based on email domain only for new users
+      const userRole = this.determineUserRole(keycloakUser.email);
+      this.logger.log(`Creating new user: ${keycloakUser.email} with role: ${userRole}`);
+      
       // Create new user
       return this.usersService.createUser({
         email: keycloakUser.email,
@@ -189,15 +191,28 @@ export class AuthService {
     }
   }
 
-  getLogoutUrl(): string {
+  getLogoutUrl(idTokenHint?: string): string {
     const authServerUrl = this.configService.get('KC_AUTH_SERVER_URL');
     const realm = this.configService.get('KC_REALM');
-    const redirectUri = this.configService.get('KC_LOGOUT_REDIRECT_URI') || 'http://localhost:3000';
+    const clientId = this.configService.get('KC_CLIENT_ID');
+    const redirectUri = this.configService.get('KC_LOGOUT_REDIRECT_URI') || 'http://localhost:3000/auth/logout-callback';
 
     const params = new URLSearchParams({
-      redirect_uri: redirectUri,
+      client_id: clientId,
+      post_logout_redirect_uri: redirectUri,
     });
 
-    return `${authServerUrl}/realms/${realm}/protocol/openid-connect/logout?${params.toString()}`;
+    // Add id_token_hint only if available
+    if (idTokenHint) {
+      params.append('id_token_hint', idTokenHint);
+      this.logger.log('Logout URL generated with id_token_hint');
+    } else {
+      this.logger.warn('Logout URL generated without id_token_hint (session may not have been found)');
+    }
+
+    const logoutUrl = `${authServerUrl}/realms/${realm}/protocol/openid-connect/logout?${params.toString()}`;
+    this.logger.log(`Generated logout URL with client_id and post_logout_redirect_uri`);
+    
+    return logoutUrl;
   }
 }

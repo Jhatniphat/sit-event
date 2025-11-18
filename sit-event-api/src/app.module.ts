@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, MiddlewareConsumer, RequestMethod } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { EventsModule } from './events/events.module';
@@ -17,6 +17,10 @@ import {
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { SessionMiddleware } from './common/middleware/session.middleware';
+import { SessionService } from './auth/session.service';
+import { EventRegistrationsModule } from './event-registrations/event-registrations.module';
+import { EventStaffsModule } from './event-staffs/event-staffs.module';
 
 @Module({
   imports: [
@@ -39,6 +43,8 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
     EventsModule,
     UsersModule,
     AuthModule,
+    EventRegistrationsModule,
+    EventStaffsModule,
   ],
   controllers: [AppController],
   providers: [
@@ -56,7 +62,14 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
       useClass: RoleGuard,
     },
     PrismaService,
+    SessionService,
     { provide: 'APP_FILTER', useClass: GlobalExceptionFilter },
   ],
 })
-export class AppModule {}
+export class AppModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer
+      .apply(SessionMiddleware)
+      .forRoutes({ path: '*', method: RequestMethod.ALL });
+  }
+}
