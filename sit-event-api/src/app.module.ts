@@ -11,7 +11,6 @@ import {
   KeycloakConnectModule,
   PolicyEnforcementMode,
   ResourceGuard,
-  RoleGuard,
   TokenValidation,
 } from 'nest-keycloak-connect';
 import { UsersModule } from './users/users.module';
@@ -20,6 +19,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { SessionMiddleware } from './common/middleware/session.middleware';
 import { SessionService } from './auth/session.service';
 import { EventRegistrationsModule } from './event-registrations/event-registrations.module';
+import { RolesGuard } from './common';
 import { EventStaffsModule } from './event-staffs/event-staffs.module';
 
 @Module({
@@ -59,7 +59,7 @@ import { EventStaffsModule } from './event-staffs/event-staffs.module';
     },
     {
       provide: APP_GUARD,
-      useClass: RoleGuard,
+      useClass: RolesGuard,
     },
     PrismaService,
     SessionService,
