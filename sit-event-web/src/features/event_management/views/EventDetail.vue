@@ -60,9 +60,10 @@ const router = useRouter()
 const event = computed(() => eventStore.currentEvent)
 
 onMounted(async () => {
-  const id = Number(route.params.id)
+  const id = route.params.id
+  console.log('Event Detail Mounted with ID:', id)
   // fetch ข้อมูลจาก backend
-  await eventStore.fetchEventById(id.toString())
+  await eventStore.fetchEventById(id as string)
 })
 
 const returnToHomePage = () => {
@@ -70,9 +71,9 @@ const returnToHomePage = () => {
 }
 
 const goToBooking = () => {
+  console.log('Navigating to booking page for event ID:', event.value?.id)
   router.push(`/event/${event.value?.id}/register`)
 }
-
 const goToApplyStaff = () => {
   router.push(`/event/${event.value?.id}/register/staff`)
 }

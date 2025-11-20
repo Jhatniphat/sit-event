@@ -58,6 +58,16 @@ const routes: Array<RouteRecordRaw> = [
     },
   },
   {
+    path: '/event/:id/register/qrcode',
+    name: 'RegisterQRCode',
+    props: true,
+    component: () => import('../features/registration/views/RegistrationQRCode.vue'),
+    meta: {
+      requiresAuth: true,
+      roles: allAuthenticated,
+    },
+  },
+  {
     path: '/event/:id/register',
     name: 'RegisterDetail',
     props: true,
@@ -132,11 +142,10 @@ router.beforeEach((to, from, next) => {
   // 1. Check if route requires authentication
   if (requiresAuth) {
     // 2. If user is not authenticated, redirect to Login
-    if (!isAuthenticated) {
-      return next({
-        name: 'Login',
-        query: { redirect: to.fullPath },
-      })
+    console.log('Route requires auth. User authenticated:', authStore.isAuthenticated)
+    if (!authStore.isAuthenticated) {
+      authStore.loginRedirect()
+      return;
     }
 
     // 3. If user is authenticated, check if they have the required role

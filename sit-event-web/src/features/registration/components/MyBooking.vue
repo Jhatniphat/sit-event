@@ -29,6 +29,10 @@ function formatEventDate(dateString: string | Date): string {
   return `${datePart} - ${timePart}`
 }
 
+function showQRCode(eventId: string) {
+  router.push(`/event/${eventId}/register/qrcode`)
+}
+
 const seeEventDetail = (eventId: string) => {
   router.push(`/event/${eventId}`)
 }
@@ -89,6 +93,12 @@ const seeEventDetail = (eventId: string) => {
           </div>
         </div>
         <div>
+          <button
+            @click="showQRCode(reg.eventId)"
+            class="text-sm bg-slate-100 hover:bg-slate-200 px-5 py-1 rounded-md"
+          >
+            show QR Code
+          </button>
           <button
             @click="seeEventDetail(reg.eventId)"
             class="text-sm bg-slate-100 hover:bg-slate-200 px-5 py-1 rounded-md"
