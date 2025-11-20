@@ -64,7 +64,7 @@ onMounted(() => {
         <div class="m-4">
           <button
             @click="confirmRegisterStaff"
-            class="w-full bg-blue-500 hover:bg-blue-600 rounded-sm p-3 text-white"
+            class="w-full bg-blue-500 hover:bg-blue-600 rounded-sm px-3 py-2 text-white"
           >
             Confirm Staffing
           </button>
@@ -81,11 +81,14 @@ onMounted(() => {
           />
         </div>
         <div class="flex flex-row justify-center text-center">
-          <h2 class="text-lg font-bold my-4">Apply to "{{ event?.name }}" Staff Suscessfull!!</h2>
+          <div class="flex flex-col">
+            <h2 class="text-lg font-semibold mt-4">Successfully registered as staff for</h2>
+            <h2 class="text-lg font-bold mb-4">"{{ event?.name }}"</h2>
+          </div>
         </div>
 
         <div class="flex justify-center my-4">
-          <BaseButton @click="returnToHomePage" color="blue" label="Close" />
+          <BaseButton @click="returnToHomePage" color="blue" label="Close" class="w-full" />
         </div>
       </Modal>
     </div>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useRegistrationStore } from '../store/RegistrationStore'
 import MyBooking from '../components/MyBooking.vue'
@@ -13,41 +13,18 @@ const returnToHomePage = () => {
   router.push('/event/Listing')
 }
 
-// const mockMyRegis = [
-//   {
-//     Image: '../../../assets/images/mock_sub_session1.png',
-//     name: 'Test Test',
-//     date: '2024-10-26T10:00:00',
-//   },
-//   {
-//     Image: '../../../assets/images/mock_sub_session1.png',
-//     name: 'Test Test',
-//     date: '2025-12-26T10:00:00',
-//   },
-//   {
-//     Image: '../../../assets/images/mock_sub_session1.png',
-//     name: 'Test Test',
-//     date: '2024-10-26T10:00:00',
-//   },
-// ]
-
-onMounted(() => {
-  registerStore.fetchMyRegistrations()
-})
-
 type regisType = 'Book' | 'Staff'
 
 const regisTab = ref<regisType>('Book')
 
 const changeRegisTab = (tab: regisType) => {
-  console.log(`Changing tab to: ${tab}`)
   if (regisTab.value === tab) return
   regisTab.value = tab
-  if (regisTab.value === 'Book') {
-    registerStore.fetchMyRegistrations()
-  } else {
-    registerStore.fetchMyStaffStatus()
-  }
+  // if (regisTab.value === 'Book') {
+  //   registerStore.fetchMyRegistrations()
+  // } else {
+  //   registerStore.fetchMyStaffStatus()
+  // }
 }
 </script>
 <template>

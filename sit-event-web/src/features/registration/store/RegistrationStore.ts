@@ -43,7 +43,7 @@ export interface AddStaffRequest {
 export interface RegistrationState {
   myRegistrations: EventRegistration[]
 
-  myStaffStatus: StaffApplication | null
+  myStaffStatus: StaffApplication[] | null
   staffsForEvent: StaffApplication[]
 
   isLoading: boolean
@@ -55,7 +55,7 @@ export const useRegistrationStore = defineStore('registration', {
     myRegistrations: [],
 
     // staff
-    myStaffStatus: null,
+    myStaffStatus: [],
     staffsForEvent: [],
 
     isLoading: false,
@@ -77,8 +77,8 @@ export const useRegistrationStore = defineStore('registration', {
       (eventId: string): EventRegistration | undefined =>
         state.myRegistrations.find((r) => r.eventId === eventId),
 
-    isStaffAccepted: (state) => state.myStaffStatus?.status === 'ACCEPTED',
-    isStaffRefused: (state) => state.myStaffStatus?.status === 'REFUSED',
+    // isStaffAccepted: (state) => state.myStaffStatus?.status === 'ACCEPTED',
+    // isStaffRefused: (state) => state.myStaffStatus?.status === 'REFUSED',
   },
 
   actions: {
@@ -215,7 +215,6 @@ export const useRegistrationStore = defineStore('registration', {
       this.error = null
       try {
         const data = await RegistrationService.getMyStaffStatus()
-        console.log('Fetched my staff status:', data)
         this.myStaffStatus = data
       } catch (error) {
         this.error = handleError(error, 'Failed to load staff status.')
@@ -224,16 +223,18 @@ export const useRegistrationStore = defineStore('registration', {
       }
     },
 
-    async applyToBeStaff(eventId: string, body: ApplyToBeStaffDto): Promise<EventStaffApplication> {
+    async applyToBeStaff(
+      eventId: string,
+      body: ApplyToBeStaffDto,
+    ): Promise<EventStaffApplication[]> {
       this.isLoading = true
       this.error = null
       try {
         const created = (await RegistrationService.applyToBeStaff(
           eventId,
           body,
-        )) as EventStaffApplication
+        )) as EventStaffApplication[]
 
-        // ตอนนี้ created มี type เป็น StaffApplication แล้ว ✔
         this.myStaffStatus = created
 
         return created

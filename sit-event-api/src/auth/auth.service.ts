@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { UsersService } from '../users/users.service';
 import { UserRole } from '../common/enums/roles.enum';
+import { KeycloakAdminService } from './keycloak-admin.service';
 import axios from 'axios';
 import * as https from 'https';
 
@@ -26,6 +27,7 @@ export class AuthService {
   constructor(
     private readonly configService: ConfigService,
     private readonly usersService: UsersService,
+    private readonly keycloakAdminService: KeycloakAdminService,
   ) {}
 
   getLoginUrl(): string {
@@ -167,6 +169,8 @@ export class AuthService {
       const userRole = this.determineUserRole(keycloakUser.email);
       this.logger.log(`Creating new user: ${keycloakUser.email} with role: ${userRole}`);
       
+      await this.keycloakAdminService.assignRoleToUser(keycloakUser.sub, userRole);
+
       // Create new user
       return this.usersService.createUser({
         email: keycloakUser.email,

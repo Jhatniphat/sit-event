@@ -10,6 +10,7 @@ import { useEventStore } from '../store/EventStore'
 // import authService from '@/features/auth/services/auth.service'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/features/auth/stores/auth.store'
+import { useRegistrationStore } from '@/features/registration/store/RegistrationStore'
 
 const AppLang = ref('EN')
 const isOpenMenu = ref(false)
@@ -22,6 +23,7 @@ const currentPage = ref(1)
 const currentLimit = ref(5)
 const router = useRouter()
 const authStore = useAuthStore()
+const registerStore = useRegistrationStore()
 
 const ChangeLng = () => {
   if (AppLang.value === 'EN') {
@@ -64,7 +66,11 @@ onMounted(() => document.addEventListener('click', handleClickOutside))
 onBeforeUnmount(() => document.removeEventListener('click', handleClickOutside))
 
 onMounted(() => {
+  isLoading.value = true
   eventStore.fetchAllEvents(currentPage.value, currentLimit.value)
+  registerStore.fetchMyRegistrations()
+  registerStore.fetchMyStaffStatus()
+  isLoading.value = false
 })
 
 const slides = [
@@ -174,7 +180,7 @@ const goToPage = (path: string) => {
             <img
               src="../../../assets/images/mock_profile.png"
               alt="mockProfile"
-              class="w-full h-full object-cover rounded-full items-center"
+              class="border border-slate-300 w-full h-full object-cover rounded-full items-center"
             />
           </div>
           <div class="w-5"></div>
