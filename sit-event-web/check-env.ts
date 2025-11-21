@@ -1,10 +1,22 @@
 import * as fs from 'fs';
 
-// อ่านไฟล์ .env และ .env.example
-const envConfig: string = fs.readFileSync('.env', 'utf-8');
+// 1. รับชื่อไฟล์เป้าหมายจาก Command Line Argument (ตัวที่ 2)
+// ถ้าไม่มีการส่งค่ามา ให้ใช้ค่าเริ่มต้นเป็น '.env'
+const targetEnvFile = process.argv[2] || '.env';
+
+console.log(`🔍 Checking environment variables in: ${targetEnvFile}`);
+
+// 2. ตรวจสอบว่าไฟล์มีอยู่จริงไหม
+if (!fs.existsSync(targetEnvFile)) {
+  console.error(`❌ Error: File "${targetEnvFile}" not found.`);
+  console.error(`   Please create "${targetEnvFile}" before running this command.`);
+  process.exit(1);
+}
+
+// 3. อ่านไฟล์ตามชื่อที่รับมา
+const envConfig: string = fs.readFileSync(targetEnvFile, 'utf-8');
 const envExample: string = fs.readFileSync('.env.example', 'utf-8');
 
-// ฟังก์ชันสำหรับดึง Key ออกมาจากเนื้อหาไฟล์ (ระบุ Type รับ string คืนค่าเป็น string[])
 const getKeys = (content: string): string[] => {
   return content.split('\n')
     .filter((line) => line && !line.startsWith('#') && line.includes('='))
@@ -14,13 +26,12 @@ const getKeys = (content: string): string[] => {
 const currentKeys: string[] = getKeys(envConfig);
 const exampleKeys: string[] = getKeys(envExample);
 
-// หา key ที่มีใน example แต่ไม่มีใน .env
 const missingKeys: string[] = exampleKeys.filter((key) => !currentKeys.includes(key));
 
 if (missingKeys.length > 0) {
-  console.error('⚠️  Warning: Missing keys in .env file:');
+  console.error(`⚠️  Warning: Missing keys in ${targetEnvFile}:`);
   missingKeys.forEach((key) => console.error(` - ${key}`));
-  process.exit(1); // จบการทำงานด้วย Error Code
+  process.exit(1);
 } else {
-  console.log('✅ .env matches .env.example');
+  console.log(`✅ ${targetEnvFile} matches .env.example`);
 }

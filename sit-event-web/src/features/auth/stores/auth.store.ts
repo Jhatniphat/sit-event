@@ -51,11 +51,11 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   function loginRedirect() {
-    window.location.href = import.meta.env.VITE_AUTH_LOGIN_URL;
+    window.location.href = `${import.meta.env.VITE_API_BASE_URL}/auth/login`;
   }
   
   function logoutRedirect() {
-    window.location.href = import.meta.env.VITE_AUTH_LOGOUT_URL;
+    window.location.href = `${import.meta.env.VITE_API_BASE_URL}/auth/logout`;
   }
   /**
    * (B) จัดการ Callback (หลังจาก Login ที่ Keycloak)

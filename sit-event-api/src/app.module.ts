@@ -4,7 +4,6 @@ import { AppService } from './app.service';
 import { EventsModule } from './events/events.module';
 import { GlobalExceptionFilter } from './exceptions.filter';
 import { APP_GUARD } from "@nestjs/core";
-import { PrismaService } from './prisma.service';
 import {
   AuthGuard,
   KeycloakConnectConfig,
@@ -21,11 +20,14 @@ import { SessionService } from './auth/session.service';
 import { EventRegistrationsModule } from './event-registrations/event-registrations.module';
 import { RolesGuard } from './common';
 import { EventStaffsModule } from './event-staffs/event-staffs.module';
+import { PrismaService } from './prisma.service';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      // ถ้า APP_MODE เป็น 'mobile' ให้โหลด .env.mobile ถ้าไม่ใช่ให้โหลด .env ปกติ
+      envFilePath: process.env.APP_MODE === 'mobile' ? '.env.mobile' : '.env',
     }),
     KeycloakConnectModule.registerAsync({
       inject: [ConfigService],
@@ -35,9 +37,9 @@ import { EventStaffsModule } from './event-staffs/event-staffs.module';
         clientId: configService.get("KC_CLIENT_ID"),
         secret: configService.get("KC_CLIENT_SECRET") || "",
         policyEnforcement: PolicyEnforcementMode.PERMISSIVE,
-        tokenValidation: TokenValidation.OFFLINE, // Use offline validation to avoid SSL issues
+        tokenValidation: TokenValidation.OFFLINE, 
         bearerOnly: false,
-        'ssl-required': 'none', // Disable SSL requirement
+        'ssl-required': 'none',
       }),
     }),
     EventsModule,

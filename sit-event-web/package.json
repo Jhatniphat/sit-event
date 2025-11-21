@@ -8,8 +8,10 @@
   },
   "scripts": {
     "dev": "vite",
+    "dev-mobile": "concurrently \"vite --mode mobile\" \"ngrok http 5173\"",
     "check-env": "node check-env.ts",
     "predev": "npm list --depth=0 && npm run check-env ",
+    "predev-mobile": "tsx check-env.ts .env.mobile",
     "build": "run-p type-check \"build-only {@}\" --",
     "preview": "vite preview",
     "prepare": "cypress install",
@@ -46,6 +48,7 @@
     "@vue/eslint-config-prettier": "^10.2.0",
     "@vue/eslint-config-typescript": "^14.6.0",
     "@vue/tsconfig": "^0.8.1",
+    "concurrently": "^9.2.1",
     "cypress": "^15.3.0",
     "daisyui": "^5.4.3",
     "eslint": "^9.33.0",

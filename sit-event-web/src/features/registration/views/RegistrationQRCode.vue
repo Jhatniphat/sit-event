@@ -6,7 +6,6 @@ import QrcodeVue from 'qrcode.vue'
 
 // เรียกใช้ Hooks
 const route = useRoute()
-const router = useRouter()
 const authStore = useAuthStore()
 
 // 1. ดึง Event ID จาก Route Params
