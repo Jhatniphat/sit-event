@@ -24,6 +24,7 @@ const currentLimit = ref(5)
 const router = useRouter()
 const authStore = useAuthStore()
 const registerStore = useRegistrationStore()
+const userRole = computed(()=> authStore.user?.userRole)
 
 const ChangeLng = () => {
   if (AppLang.value === 'EN') {
@@ -198,6 +199,18 @@ const goToPage = (path: string) => {
                   ref="menuRef"
                   class="absolute right-0 mt-3 flex flex-col gap-3 bg-white rounded-xl p-4 w-56 shadow-lg border border-slate-200 z-50"
                 >
+                  <button
+                    @click="goToPage(`/admin/events`)"
+                    v-if="authStore.isAuthenticated && userRole === 'ADMIN'"
+                    class="flex flex-row items-center w-full hover:bg-slate-100 rounded-lg p-2"
+                  >
+                    <img
+                      src="../../../assets/icons/mybooking_icon.svg"
+                      alt="Member"
+                      class="w-5 h-5"
+                    />
+                    <span class="ml-3 font-medium">My Admin</span>
+                  </button>
                   <button
                     @click="goToPage(`/myregistrations`)"
                     class="flex flex-row items-center w-full hover:bg-slate-100 rounded-lg p-2"
