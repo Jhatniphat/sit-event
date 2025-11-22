@@ -323,10 +323,7 @@ const goToPage = (path: string) => {
             >
               <div @click="goToPage(`/event/${event.id}`)" class="">
                 <div class="p-2">
-                  <img
-                    src="../../../assets/images/mock_sub_session1.png"
-                    class="w-full h-52 object-cover rounded-lg"
-                  />
+                  <img :src="event.thumbnail" class="w-full h-52 object-cover rounded-lg" />
                 </div>
 
                 <!-- todo : bring back when image URLs are available -->

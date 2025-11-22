@@ -7,7 +7,7 @@ import TagInput from '@/components/ui/commons/TagInput.vue'
 import { ref, computed, onMounted } from 'vue'
 import { useEventStore } from '@/features/event_management/store/EventStore'
 import { useDateTimeInputAdapter } from '@/shared/useDateTimeInput'
-import { type CreateEventDto } from '@/features/event_management/services/EventServices'
+// import { type CreateEventDto } from '@/features/event_management/services/EventServices'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
@@ -17,17 +17,28 @@ const props = defineProps<{
 }>()
 
 const eventStore = useEventStore()
-const eventForm = ref<CreateEventDto>({
+const eventForm = ref<{
+  name: string
+  description: string
+  thumbnail: File | string | null
+  images: File[]
+  registrationOpenDate: Date
+  registrationEndDate: Date
+  eventStartDate: Date
+  eventEndDate: Date
+  targetAudience: string[]
+  tags: string[]
+}>({
   name: '',
   description: '',
-  thumbnail: 'aaa',
-  images: ['asd'],
+  thumbnail: null,
+  images: [],
   registrationOpenDate: new Date(),
   registrationEndDate: new Date(),
   eventStartDate: new Date(),
   eventEndDate: new Date(),
   targetAudience: [],
-  tags: [],
+  tags: ['SPEAK'],
 })
 
 const regOpenInput = useDateTimeInputAdapter(eventForm, 'registrationOpenDate')
@@ -57,32 +68,72 @@ onMounted(async () => {
 
     if (eventToEdit) {
       eventForm.value = {
-        ...eventToEdit,
+        name: eventToEdit.name,
+        description: eventToEdit.description,
         registrationOpenDate: new Date(eventToEdit.registrationOpenDate),
         registrationEndDate: new Date(eventToEdit.registrationEndDate),
         eventStartDate: new Date(eventToEdit.eventStartDate),
         eventEndDate: new Date(eventToEdit.eventEndDate),
+        thumbnail: eventToEdit.thumbnail ?? null,
+        images: Array.isArray(eventToEdit.images)
+          ? eventToEdit.images
+          : eventToEdit.images
+            ? [eventToEdit.images]
+            : [],
+        targetAudience: eventToEdit.targetAudience ?? [],
+        tags: eventToEdit.tags ?? [],
+      }
+
+      // ถ้ามี thumbnail จาก backend ให้ preview
+      if (eventToEdit.thumbnail) {
+        // backend may return either a URL string or a File/Blob; normalize to a string URL
+        previewUrl.value =
+          typeof eventToEdit.thumbnail === 'string'
+            ? eventToEdit.thumbnail
+            : URL.createObjectURL(eventToEdit.thumbnail)
       }
     }
   }
 })
 
-const onSubmit = () => {
+const onSubmit = async () => {
   if (isEditMode.value) {
     console.log('Updating Event:', props.id, eventForm.value)
-    eventStore.updateEvent(props.id!, eventForm.value)
+    // eventStore.updateEvent(props.id!, eventForm.value)
     if (eventStore.error != '' || eventStore.error != null) {
       console.log('No error')
     } else {
       modalOpen.value = true
     }
   } else {
+    const formData = new FormData()
+
+    formData.append('name', eventForm.value.name)
+    formData.append('description', eventForm.value.description)
+    formData.append('registrationOpenDate', eventForm.value.registrationOpenDate.toISOString())
+    formData.append('registrationEndDate', eventForm.value.registrationEndDate.toISOString())
+    formData.append('eventStartDate', eventForm.value.eventStartDate.toISOString())
+    formData.append('eventEndDate', eventForm.value.eventEndDate.toISOString())
     console.log('Creating Event:', eventForm.value)
-    eventStore.createEvent(eventForm.value)
-    if (eventStore.error != '' || eventStore.error != null) {
+
+    // targetAudience (array)
+    eventForm.value.targetAudience?.forEach((t) => formData.append('targetAudience', t))
+
+    // tags (array)
+    eventForm.value.tags?.forEach((tag) => formData.append('tags', tag))
+
+    // รูปภาพ
+    if (selectedFile.value) {
+      formData.append('thumbnail', selectedFile.value)
+      formData.append('images', selectedFile.value)
+    }
+
+    await eventStore.createEvent(formData)
+    if (!eventStore.error) {
       console.log('No error')
-    } else {
       modalOpen.value = true
+    } else {
+      console.log('Error occurred:', eventStore.error)
     }
   }
 }
@@ -103,6 +154,7 @@ const handleFileSelect = (e: Event) => {
 
   if (file && file.type.startsWith('image/')) {
     selectedFile.value = file
+    eventForm.value.thumbnail = file
     previewUrl.value = URL.createObjectURL(file)
   }
 }
@@ -117,6 +169,7 @@ const handleDrop = (e: DragEvent) => {
 
 const removeImage = () => {
   selectedFile.value = null
+  eventForm.value.thumbnail = null
   previewUrl.value = null
   if (fileInput.value) fileInput.value.value = ''
 }

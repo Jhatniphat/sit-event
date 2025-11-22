@@ -110,7 +110,7 @@ export const useEventStore = defineStore('events', {
     /**
      * C = Create
      */
-    async createEvent(eventData: CreateEventDto) {
+    async createEvent(eventData: FormData) {
       this.isLoadingList = true
       this.error = null
       try {

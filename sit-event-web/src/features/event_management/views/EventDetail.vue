@@ -80,7 +80,9 @@ const returnToDetail = () => {
         <div class="w-4"></div>
       </div>
       <div class="h-52 flex justify-center">
-        <img class="w-full h-52" src="../../../assets/images/mock_sub_session1.png" />
+        <div v-for="(imgUrl, index) in event?.images" :key="index" class="w-full h-48">
+          <img :src="imgUrl" class="w-full h-full object-fill rounded-sm" />
+        </div>
       </div>
       <div class="flex flex-col justify-between h-full">
         <div class="h-full p-4">
