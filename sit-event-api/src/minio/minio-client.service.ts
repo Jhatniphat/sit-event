@@ -15,6 +15,16 @@ export class MinioClientService {
     this.bucketName = this.configService.get('MINIO_BUCKET_NAME')!;
   }
 
+  private getFileNameFromUrl(urlOrName: string): string {
+    if (!urlOrName) return '';
+    // ถ้ามี http หรือ / แสดงว่าเป็น URL ให้ตัดเอาตัวสุดท้าย
+    if (urlOrName.includes('http') || urlOrName.includes('/')) {
+        const segments = urlOrName.split('/');
+        return segments[segments.length - 1];
+    }
+    return urlOrName;
+  }
+
   public async uploadFile(file: Express.Multer.File) {
     // 1. สร้างชื่อไฟล์ใหม่ (Hash) เพื่อป้องกันชื่อซ้ำและตัวอักษรแปลกๆ
     const tempFilename = Date.now().toString();
@@ -41,12 +51,24 @@ export class MinioClientService {
     const url = `${protocol}://${host}:${port}/${this.bucketName}/${fileName}`;
 
     return {
-      url: url, 
       fileName: fileName 
     };
   }
 
-  public async deleteFile(fileName: string) {
+  public async getPresignedUrl(fileNameOrUrl: string): Promise<string> {
+    // กำหนดอายุของ Link (เช่น 1 วัน = 24*60*60 วินาที)
+    const fileName = this.getFileNameFromUrl(fileNameOrUrl);
+    const expiry = 24 * 60 * 60; 
+    try {
+      return await this.minio.client.presignedGetObject(this.bucketName, fileName, expiry);
+    } catch (error) {
+      this.logger.error(`Could not generate presigned URL for: ${fileName}`, error);
+      return ''; // กรณีหาไม่เจอหรือ Error ให้ส่ง string ว่าง หรือ URL รูป placeholder แทน
+    }
+  }
+
+  public async deleteFile(fileNameOrUrl: string) {
+    const fileName = this.getFileNameFromUrl(fileNameOrUrl);
     try {
       await this.minio.client.removeObject(this.bucketName, fileName);
     } catch (err) {
