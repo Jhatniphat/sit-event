@@ -7,6 +7,9 @@ import { ConfigService } from '@nestjs/config'; // เพิ่ม import
 async function bootstrap() {
   process.env['NODE_TLS_REJECT_UNAUTHORIZED'] = '0';
 
+  console.log('🚀 Current APP_MODE:', process.env.APP_MODE);
+  console.log('TZ Env:', process.env.CORS_ALLOWED_ORIGINS); 
+
   const app = await NestFactory.create(AppModule);
 
   // เรียกใช้ ConfigService
@@ -29,6 +32,7 @@ async function bootstrap() {
     'http://localhost:4200',
     'http://localhost:5500',
     'http://127.0.0.1:5500',
+
   ];
 
   // Enable CORS
@@ -43,6 +47,8 @@ async function bootstrap() {
       'Cache-Control',
       'Pragma',
       'Expires',
+      'Bypass-Tunnel-Reminder',
+      'ngrok-skip-browser-warning',
     ],
   });
 

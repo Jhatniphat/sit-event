@@ -320,4 +320,26 @@ export const RegistrationService = {
       throw new Error('An unexpected error occurred while removing staff from event.')
     }
   },
+
+  /**
+   * [PATCH] /events/:eventId/check-in/:userId
+   * สำหรับ Staff สแกน QR Code เพื่อ Check-in ผู้เข้าร่วม
+   */
+  async checkInUser(eventId: string, userId: string): Promise<EventRegistration> {
+    try {
+      // ไม่ต้องส่ง body {} ไป เพราะ backend ไม่ได้รับ body
+      return await apiClient.patch<void, EventRegistration>(
+        `/events/${eventId}/check-in/${userId}`,
+      )
+    } catch (error) {
+      if (isApiError(error)) {
+        console.error(
+          `[RegistrationService.checkInUser] API Error ${error.status}: ${error.message}`,
+        )
+        throw error
+      }
+      console.error('[RegistrationService.checkInUser] Unexpected Error:', error)
+      throw new Error('An unexpected error occurred while checking in user.')
+    }
+  },
 }

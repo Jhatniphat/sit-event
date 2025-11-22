@@ -67,4 +67,13 @@ export class EventRegistrationsController {
       true,
     );
   }
+
+  @Patch(':eventId/check-in/:userId')
+  @AllRoleAccess() // หรือปรับเป็น Role ที่เหมาะสม เช่น @Roles(UserRole.STAFF)
+  async checkInUser(
+    @Param('eventId') eventId: string,
+    @Param('userId') userId: string,
+  ) {
+    return this.eventRegistrationsService.checkInUser(eventId, userId);
+  }
 }

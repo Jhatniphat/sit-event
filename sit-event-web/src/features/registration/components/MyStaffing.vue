@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import router from '@/router'
 import type { StaffApplication } from '../store/RegistrationStore'
+import ScanQRCode from '../views/ScanQRCode.vue';
 
 const props = defineProps<{
   myRegis: StaffApplication[]
@@ -31,6 +32,10 @@ function formatEventDate(dateString: string | Date): string {
 
 const seeEventDetail = (eventId: string) => {
   router.push(`/event/${eventId}`)
+}
+
+function scanQRCode(eventId: string) {
+  router.push(`/event/${eventId}/register/scan-qrcode`)
 }
 </script>
 
@@ -89,6 +94,12 @@ const seeEventDetail = (eventId: string) => {
           </div>
         </div>
         <div>
+          <button
+            @click="scanQRCode(reg.eventId)"
+            class="text-sm bg-slate-100 hover:bg-slate-200 px-5 py-1 rounded-md"
+          >
+            scan QR Code
+          </button>
           <button class="text-sm bg-slate-100 hover:bg-slate-200 px-5 py-1 rounded-md">View</button>
         </div>
       </div>

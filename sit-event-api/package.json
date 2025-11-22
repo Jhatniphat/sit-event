@@ -10,7 +10,7 @@
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
     "start:dev": "nest start --watch",
-    "start:mobile": "concurrently \"cross-env APP_MODE=mobile nest start\" \"ngrok http 3000\"",
+    "start:mobile": "concurrently \"cross-env APP_MODE=mobile nest start --watch\" \"lt --port 3000 --subdomain sit-event-api-jhatniphat\"",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",

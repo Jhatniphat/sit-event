@@ -9,7 +9,7 @@ import axios, {
 const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
 
 interface DefaultErrorResponse {
-  message: string | string[]; 
+  message: string | string[];
   error?: string;
   statusCode?: number;
 }
@@ -22,10 +22,12 @@ export interface ParsedApiError {
 
 const apiClient: AxiosInstance = axios.create({
   baseURL: baseURL,
-  timeout: 10000,
+  timeout: 60000,
   withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
+    'Bypass-Tunnel-Reminder': 'true',
+    'ngrok-skip-browser-warning': 'true',
   },
 });
 
@@ -54,7 +56,7 @@ apiClient.interceptors.response.use(
     if (error.response) {
       // Server ตอบกลับมาด้วย status code ที่ไม่ใช่ 2xx
       const { data, status } = error.response;
-      
+
       // จัดการ message ที่อาจเป็น array (จาก class-validator)
       const errorMessage = Array.isArray(data.message)
         ? data.message.join(', ')

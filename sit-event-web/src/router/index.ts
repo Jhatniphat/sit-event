@@ -59,7 +59,7 @@ const routes: Array<RouteRecordRaw> = [
   },
   {
     path: '/event/:id/register/qrcode',
-    name: 'RegisterQRCode',
+    name: 'ShowQRCode',
     props: true,
     component: () => import('../features/registration/views/RegistrationQRCode.vue'),
     meta: {
@@ -83,6 +83,16 @@ const routes: Array<RouteRecordRaw> = [
     name: 'StaffEventDetail',
     props: true,
     component: () => import('../features/registration/views/StaffingDetail.vue'),
+    meta: {
+      requiresAuth: true,
+      roles: allAuthenticated,
+    },
+  },
+  {
+    path: '/event/:id/register/scan-qrcode',
+    name: 'ScanQRCode',
+    props: true,
+    component: () => import('../features/registration/views/ScanQRCode.vue'),
     meta: {
       requiresAuth: true,
       roles: allAuthenticated,

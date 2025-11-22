@@ -327,5 +327,24 @@ export const useRegistrationStore = defineStore('registration', {
         this.isLoading = false
       }
     },
+
+    /**
+     * Staff Action — Check-in User by QR Code
+     * เรียก API ใหม่: PATCH /events/:eventId/check-in/:userId
+     */
+    async checkInUser(eventId: string, userId: string): Promise<EventRegistration> {
+      this.isLoading = true
+      this.error = null
+      try {
+        const updated = await RegistrationService.checkInUser(eventId, userId)
+        // Return ข้อมูลล่าสุดกลับไปให้ Component (เช่น หน้า Staff Scan) เพื่อแสดงผล Success
+        return updated
+      } catch (error) {
+        this.error = handleError(error, 'Failed to check-in user.')
+        throw error
+      } finally {
+        this.isLoading = false
+      }
+    },
   },
 })
