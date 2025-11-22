@@ -21,6 +21,7 @@ import { EventRegistrationsModule } from './event-registrations/event-registrati
 import { RolesGuard } from './common';
 import { EventStaffsModule } from './event-staffs/event-staffs.module';
 import { PrismaService } from './prisma.service';
+import { MinioClientModule } from './minio/minio.module';
 
 @Module({
   imports: [
@@ -47,6 +48,7 @@ import { PrismaService } from './prisma.service';
     AuthModule,
     EventRegistrationsModule,
     EventStaffsModule,
+    MinioClientModule,
   ],
   controllers: [AppController],
   providers: [

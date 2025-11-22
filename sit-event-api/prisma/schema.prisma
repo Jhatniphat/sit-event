@@ -87,7 +87,7 @@ model Event {
   name                 String
   description          String           @db.Text
   images               String[] //MinIO S3
-  thumbnail            String
+  thumbnail            String?
   registrationOpenDate DateTime         @db.Timestamptz
   registrationEndDate  DateTime         @db.Timestamptz
   eventStartDate       DateTime         @db.Timestamptz

@@ -24,7 +24,7 @@ const currentLimit = ref(5)
 const router = useRouter()
 const authStore = useAuthStore()
 const registerStore = useRegistrationStore()
-const userRole = computed(()=> authStore.user?.userRole)
+const userRole = computed(() => authStore.user?.userRole)
 
 const ChangeLng = () => {
   if (AppLang.value === 'EN') {
@@ -204,15 +204,12 @@ const goToPage = (path: string) => {
                     v-if="authStore.isAuthenticated && userRole === 'ADMIN'"
                     class="flex flex-row items-center w-full hover:bg-slate-100 rounded-lg p-2"
                   >
-                    <img
-                      src="../../../assets/icons/mybooking_icon.svg"
-                      alt="Member"
-                      class="w-5 h-5"
-                    />
+                    <img src="../../../assets/icons/admin_icon.svg" alt="Member" class="w-5 h-5" />
                     <span class="ml-3 font-medium">My Admin</span>
                   </button>
+
                   <button
-                    @click="goToPage(`/myregistrations`)"
+                    @click="goToPage(`/myactivities`)"
                     class="flex flex-row items-center w-full hover:bg-slate-100 rounded-lg p-2"
                   >
                     <img
@@ -220,7 +217,7 @@ const goToPage = (path: string) => {
                       alt="Member"
                       class="w-5 h-5"
                     />
-                    <span class="ml-3 font-medium">My Bookings</span>
+                    <span class="ml-3 font-medium">My Activities</span>
                   </button>
 
                   <button
@@ -316,12 +313,16 @@ const goToPage = (path: string) => {
       <!-- Upcoming Events Section -->
       <div>
         <div class="flex flex-col">
-          <div class="text-lg font-semibold mt-4 ml-3">Upcoming Events</div>
-          <div class="h-3"></div>
+          <div class="text-xl font-semibold mt-4 ml-3">Upcoming Events</div>
+          <div class="h-2"></div>
           <div>
-            <div v-for="(event, index) in events" :key="index" class="h-auto rounded-lg mb-3">
-              <div @click="goToPage(`/event/${event.id}`)" class="mb-10">
-                <div class="p-3">
+            <div
+              v-for="(event, index) in events"
+              :key="index"
+              class="h-auto m-2 bg-white rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.06)] p-2"
+            >
+              <div @click="goToPage(`/event/${event.id}`)" class="">
+                <div class="p-2">
                   <img
                     src="../../../assets/images/mock_sub_session1.png"
                     class="w-full h-52 object-cover rounded-lg"
@@ -340,13 +341,22 @@ const goToPage = (path: string) => {
                           {{ event.description }}
                         </div>
                       </div>
-                      <div class="flex justify-between pt-3 pl-3 items-center">
-                        <div class="text-lg text-slate-500">
-                          {{ formatDate(event.eventStartDate) }}
+                      <div class="flex justify-between p-3 pb-0 items-center">
+                        <div class="flex flex-row items-center">
+                          <img
+                            src="../../../assets/icons/time_calendar_icon.svg"
+                            alt="calendar"
+                            class="w-5 h-5 m-1 text-slate-500"
+                          />
+                          <div class="w-2"></div>
+                          <div class="text-lg">
+                            {{ formatDate(event.eventStartDate) }}
+                          </div>
                         </div>
+
                         <div>
                           <button
-                            class="mx-auto my-2 p-1 px-3 w-full text-white text-sm rounded-l-md bg-blue-500"
+                            class="mx-auto my-2 p-1 px-3 w-full text-white text-sm rounded-xl bg-blue-500"
                           >
                             Apply as Staff
                           </button>
@@ -358,6 +368,7 @@ const goToPage = (path: string) => {
               </div>
             </div>
           </div>
+          <div class="h-2"></div>
           <div>
             <div class="flex flex-row justify-center mb-4">
               <paginationComponent
@@ -433,5 +444,11 @@ const goToPage = (path: string) => {
   text-overflow: ellipsis;
   white-space: normal; /* ✅ อนุญาตให้ขึ้นบรรทัดใหม่ได้ */
   word-break: break-word; /* ✅ ตัดคำกลางประโยคได้ถ้าคำยาวเกิน */
+}
+
+.icon {
+  width: 22px;
+  height: 22px;
+  color: slategrey; /* สี default */
 }
 </style>

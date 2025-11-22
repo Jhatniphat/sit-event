@@ -11,6 +11,7 @@ import {
   IsUUID
 } from 'class-validator';
 import { TargetAudience, EventTag } from 'generated/prisma';
+import { Transform, Type } from 'class-transformer';
 export class CreateEventDto {
   @IsString()
   @IsNotEmpty()
@@ -20,13 +21,24 @@ export class CreateEventDto {
   @IsNotEmpty()
   description: string;
 
+  @IsOptional()
   @IsArray()
   @IsString({ each: true })
-  images: string[];
+  @Transform(({ value }) => {
+    // If no value is provided, return empty array
+    if (!value || value === '' || value === 'undefined') return [];
+    // If it's already an array, return it
+    if (Array.isArray(value)) return value;
+    // If it's a string, wrap it in an array
+    if (typeof value === 'string') return [value];
+    // Otherwise return empty array
+    return [];
+  })
+  images?: string[];
 
   @IsString()
-  @IsNotEmpty()
-  thumbnail: string;
+  @IsOptional()
+  thumbnail?: string;
 
   @IsDateString()
   registrationOpenDate: string;
@@ -43,11 +55,19 @@ export class CreateEventDto {
   @IsArray()
   @IsEnum(TargetAudience, { each: true })
   @IsNotEmpty()
+  @Transform(({ value }) => {
+    if (!value) return [];
+    return Array.isArray(value) ? value : [value];
+  })
   targetAudience: TargetAudience[];
 
   @IsArray()
   @IsEnum(EventTag, { each: true })
   @IsNotEmpty()
+  @Transform(({ value }) => {
+    if (!value) return [];
+    return Array.isArray(value) ? value : [value];
+  })
   tags: EventTag[];
 
   @IsBoolean()
@@ -56,6 +76,7 @@ export class CreateEventDto {
 
   @IsInt()
   @IsOptional()
+  @Type(() => Number)
   activityHours?: number;
 
   @IsString()
@@ -68,6 +89,7 @@ export class CreateEventDto {
 
   @IsBoolean()
   @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
   needWifi?: boolean;
 
   @IsString()

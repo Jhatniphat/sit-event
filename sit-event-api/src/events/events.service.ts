@@ -5,6 +5,7 @@ import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
 import { UsersService } from '../users/users.service';
 import { AuthenticatedUser } from '../common/decorators/current-user.decorator';
+import { MinioClientService } from '../minio/minio-client.service';
 
 export interface PaginationParams {
   page?: number;
@@ -28,6 +29,7 @@ export class EventsService {
   constructor(
     private prisma: PrismaService,
     private usersService: UsersService,
+    private minioClientService: MinioClientService,
   ) {}
 
   async create(createEventDto: CreateEventDto, authenticatedUser: AuthenticatedUser): Promise<Event> {
@@ -65,10 +67,12 @@ export class EventsService {
       },
     });
 
+    const eventWithUrls = await Promise.all(events.map((event) => this.transformEventWithUrls(event)));
+
     const totalPages = Math.ceil(total / limit);
 
     return {
-      data: events,
+      data: eventWithUrls,
       pagination: {
         total,
         page,
@@ -87,7 +91,7 @@ export class EventsService {
     if (!event) {
       throw new NotFoundException(`Event with ID '${id}' not found.`);
     }
-    return event;
+    return this.transformEventWithUrls(event);
   }
 
   async update(id: string, updateEventDto: UpdateEventDto) {
@@ -112,4 +116,20 @@ export class EventsService {
     })
   }
 
+  private async transformEventWithUrls(event: Event): Promise<Event> {
+    const transformedEvent = { ...event };
+
+    if (event.thumbnail) {
+      transformedEvent.thumbnail = await this.minioClientService.getPresignedUrl(event.thumbnail);
+    }
+
+    if (event.images && event.images.length > 0) {
+      const imageUrls = await Promise.all(
+        event.images.map((image) => this.minioClientService.getPresignedUrl(image))
+      );
+      transformedEvent.images = imageUrls;
+    }
+
+    return transformedEvent;
+  }
 }

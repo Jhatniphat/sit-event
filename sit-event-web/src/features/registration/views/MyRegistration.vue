@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useRegistrationStore } from '../store/RegistrationStore'
 import MyBooking from '../components/MyBooking.vue'
@@ -20,12 +20,12 @@ const regisTab = ref<regisType>('Book')
 const changeRegisTab = (tab: regisType) => {
   if (regisTab.value === tab) return
   regisTab.value = tab
-  // if (regisTab.value === 'Book') {
-  //   registerStore.fetchMyRegistrations()
-  // } else {
-  //   registerStore.fetchMyStaffStatus()
-  // }
 }
+
+onMounted(() => {
+  registerStore.fetchMyRegistrations()
+  registerStore.fetchMyStaffStatus()
+})
 </script>
 <template>
   <div>
@@ -39,27 +39,30 @@ const changeRegisTab = (tab: regisType) => {
               alt="backToHome"
             />
           </div>
-          <div class="flex flex-row text-lg">
-            <div class="flex flex-col">
-              <div
-                class="mx-3"
-                :class="{ 'font-bold': regisTab === 'Book' }"
-                @click="changeRegisTab('Book')"
-              >
-                My Booking
-              </div>
-              <div :class="{ 'mt-1 h-1 rounded-xl bg-black': regisTab === 'Book' }"></div>
+          <div class="flex flex-row text-lg relative">
+            <div
+              class="mx-3 cursor-pointer"
+              :class="{ 'font-bold': regisTab === 'Book' }"
+              @click="changeRegisTab('Book')"
+            >
+              My Booking
             </div>
-            <div class="flex flex-col">
-              <div
-                class="mx-3"
-                :class="{ 'font-bold': regisTab == 'Staff' }"
-                @click="changeRegisTab('Staff')"
-              >
-                My Staffing
-              </div>
-              <div :class="{ 'mt-1 h-1 rounded-xl bg-black': regisTab === 'Staff' }"></div>
+
+            <div
+              class="mx-3 cursor-pointer"
+              :class="{ 'font-bold': regisTab === 'Staff' }"
+              @click="changeRegisTab('Staff')"
+            >
+              My Staffing
             </div>
+
+            <!-- underline (เส้นเลื่อน) -->
+            <div
+              class="underline-bar"
+              :style="{
+                transform: regisTab === 'Book' ? 'translateX(0)' : 'translateX(120px)',
+              }"
+            ></div>
           </div>
           <div class="w-4"></div>
         </div>
@@ -75,7 +78,16 @@ const changeRegisTab = (tab: regisType) => {
 </template>
 
 <style scoped>
-.container {
-  /* styles */
+.underline-bar {
+  position: absolute;
+  margin-top: 10px;
+  bottom: -4px; /* ระยะห่างลงล่าง */
+  left: 0;
+  width: 125px; /* ความกว้างของเส้น */
+  height: 3px;
+  background-color: black;
+  border-radius: 999px;
+  transition: transform 0.25s ease;
+  transform: translateX(0);
 }
 </style>

@@ -49,8 +49,8 @@ const routes: Array<RouteRecordRaw> = [
 
   // --- Authenticated User Routes (Requires any login) ---
   {
-    path: '/myregistrations',
-    name: 'MyRegistration',
+    path: '/myactivities',
+    name: 'MyActivities',
     component: () => import('../features/registration/views/MyRegistration.vue'),
     meta: {
       requiresAuth: true,
@@ -155,13 +155,14 @@ router.beforeEach((to, from, next) => {
     console.log('Route requires auth. User authenticated:', authStore.isAuthenticated)
     if (!authStore.isAuthenticated) {
       authStore.loginRedirect()
-      return;
+      return
     }
 
     // 3. If user is authenticated, check if they have the required role
     if (requiredRoles && requiredRoles.length > 0) {
       const userRoleUpper = userRole?.toUpperCase()
       const requiredRolesUpper = requiredRoles.map((r) => r.toUpperCase())
+      console.log('User role:', userRoleUpper, 'Required roles:', requiredRolesUpper)
       if (userRoleUpper && requiredRolesUpper.includes(userRoleUpper)) {
         return next()
       } else {

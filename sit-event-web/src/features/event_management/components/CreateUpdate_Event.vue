@@ -86,6 +86,40 @@ const onSubmit = () => {
     }
   }
 }
+
+// ===================== Image Upload (Drag & Drop + Browse) =====================
+const fileInput = ref<HTMLInputElement | null>(null)
+const selectedFile = ref<File | null>(null)
+const previewUrl = ref<string | null>(null)
+
+const openFileDialog = () => {
+  // Safely trigger the file input click only when the element is present
+  fileInput.value?.click()
+}
+
+const handleFileSelect = (e: Event) => {
+  const target = e.target as HTMLInputElement
+  const file = target.files?.[0]
+
+  if (file && file.type.startsWith('image/')) {
+    selectedFile.value = file
+    previewUrl.value = URL.createObjectURL(file)
+  }
+}
+
+const handleDrop = (e: DragEvent) => {
+  const file = e.dataTransfer?.files?.[0]
+  if (file && file.type.startsWith('image/')) {
+    selectedFile.value = file
+    previewUrl.value = URL.createObjectURL(file)
+  }
+}
+
+const removeImage = () => {
+  selectedFile.value = null
+  previewUrl.value = null
+  if (fileInput.value) fileInput.value.value = ''
+}
 </script>
 
 <template>
@@ -142,20 +176,46 @@ const onSubmit = () => {
         <div class="py-3"></div>
         <!-- Images Section -->
         <div>
-          <div>
-            <div class="text-xl font-bold">Images</div>
-          </div>
-          <div class="py-3"></div>
-          <div
-            class="container flex flex-col border border-dashed border-slate-300 rounded-lg h-48 justify-center items-center"
-          >
-            <div class="text-lg font-semibold">Upload Images</div>
-            <div class="flex flex-row">
-              <div>Drag and drop images here or</div>
-              <div class="pl-1 underline-offset-1 text-blue-500">browse files</div>
-            </div>
-          </div>
+          <div class="text-xl font-bold">Images</div>
         </div>
+        <div class="py-3"></div>
+        <div
+          class="border-2 border-dashed border-slate-300 rounded-xl p-2 cursor-pointer relative group h-64"
+          @dragover.prevent
+          @drop.prevent="handleDrop"
+          @click="openFileDialog()"
+        >
+          <!-- ถ้ายังไม่มีรูป -->
+          <div
+            v-if="!previewUrl"
+            class="w-full h-full flex flex-col items-center justify-center text-slate-400"
+          >
+            <p>Drag & Drop image</p>
+            <p class="text-sm">or click to upload</p>
+          </div>
+
+          <!-- ถ้ามีรูป -->
+          <div v-else class="w-full h-full relative">
+            <img :src="previewUrl" class="w-full h-full object-cover rounded-lg" />
+
+            <!-- ปุ่ม X ลบรูป (แสดงเมื่อ hover) -->
+            <button
+              @click.stop="removeImage"
+              class="absolute top-2 right-2 bg-red-500 text-white w-7 h-7 rounded-full flex items-center justify-center text-lg opacity-0 group-hover:opacity-100 transition-opacity"
+            >
+              ×
+            </button>
+          </div>
+
+          <input
+            type="file"
+            accept="image/*"
+            class="hidden"
+            ref="fileInput"
+            @change="handleFileSelect"
+          />
+        </div>
+
         <div class="py-3"></div>
         <!-- Date Section -->
         <div class="flex flex-row">
