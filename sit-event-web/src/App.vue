@@ -11,12 +11,14 @@ onMounted(async () => {
   await authStore.checkSession()
 })
 import ToastContainer from '@/features/toast/views/ToastContainer.vue'
+import NavBar from './shared/components/NavBar.vue'
 </script>
 
 <template>
   <div>
     <div>
       <ToastContainer />
+      <NavBar />
       <RouterView />
     </div>
   </div>

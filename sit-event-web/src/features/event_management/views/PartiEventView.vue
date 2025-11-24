@@ -139,22 +139,7 @@ const errorMessage = ref('')
 //   }
 // };
 
-const handleLogin = async () => {
-  if (authStore.isAuthenticated) {
-    console.log('User is already authenticated, no need to login again.')
-    return
-  }
-  isLoading.value = true
-  errorMessage.value = ''
-  authStore.loginRedirect()
-}
 
-const handleLogout = async () => {
-  console.log('Initiating logout process...')
-  isLoading.value = true
-  errorMessage.value = ''
-  authStore.logoutRedirect()
-}
 
 function formatDate(date: string | number | Date) {
   return new Date(date).toLocaleDateString('en-US', {
@@ -171,110 +156,6 @@ const goToPage = (path: string) => {
 
 <template>
   <div class="min-h-screen">
-    <NavBar HeadText="SIT Event">
-      <template #right>
-        <div class="flex flex-row">
-          <!-- <button @click="ChangeLng">{{ AppLang }}</button> -->
-          <div>{{ authStore.userFullName }}</div>
-          <div>{{ authStore.user?.userRole }}</div>
-          <div v-if="authStore.isAuthenticated" class="w-7 h-7 items-center">
-            <img
-              src="../../../assets/images/mock_profile.png"
-              alt="mockProfile"
-              class="border border-slate-300 w-full h-full object-cover rounded-full items-center"
-            />
-          </div>
-          <div class="w-5"></div>
-          <div>
-            <!-- Hamburger Button -->
-            <div class="relative">
-              <button class="items-center" @click.stop="toggleMenu" ref="menuButton">
-                <img src="../../../../src/assets/icons/hamburger.svg" alt="hamburger" />
-              </button>
-
-              <!-- Floating Menu -->
-              <transition name="fade">
-                <div
-                  v-if="isOpenMenu"
-                  ref="menuRef"
-                  class="absolute right-0 mt-3 flex flex-col gap-3 bg-white rounded-xl p-4 w-56 shadow-lg border border-slate-200 z-50"
-                >
-                  <button
-                    @click="goToPage(`/admin/events`)"
-                    v-if="authStore.isAuthenticated && userRole === 'ADMIN'"
-                    class="flex flex-row items-center w-full hover:bg-slate-100 rounded-lg p-2"
-                  >
-                    <img src="../../../assets/icons/admin_icon.svg" alt="Member" class="w-5 h-5" />
-                    <span class="ml-3 font-medium">My Admin</span>
-                  </button>
-
-                  <button
-                    @click="goToPage(`/myactivities`)"
-                    class="flex flex-row items-center w-full hover:bg-slate-100 rounded-lg p-2"
-                  >
-                    <img
-                      src="../../../assets/icons/mybooking_icon.svg"
-                      alt="Member"
-                      class="w-5 h-5"
-                    />
-                    <span class="ml-3 font-medium">My Activities</span>
-                  </button>
-
-                  <button
-                    @click="console.log('Edit Profile')"
-                    class="flex flex-row items-center w-full hover:bg-slate-100 rounded-lg p-2"
-                  >
-                    <img
-                      src="../../../assets/icons/edit_profile_icon.svg"
-                      alt="Edit Profile"
-                      class="w-5 h-5"
-                    />
-                    <span class="ml-3 font-medium">Edit Profile</span>
-                  </button>
-
-                  <button
-                    @click="ChangeLng"
-                    class="flex flex-row items-center w-full hover:bg-slate-100 rounded-lg p-2"
-                  >
-                    <img
-                      src="../../../assets/icons/language_icon.svg"
-                      alt="Change Language"
-                      class="w-5 h-5"
-                    />
-                    <span class="ml-3 font-medium">{{ AppLang }}</span>
-                  </button>
-
-                  <button
-                    @click="console.log('Help')"
-                    class="flex flex-row items-center w-full hover:bg-slate-100 rounded-lg p-2"
-                  >
-                    <img src="../../../assets/icons/help_icon.svg" alt="Help" class="w-5 h-5" />
-                    <span class="ml-3 font-medium">Help</span>
-                  </button>
-
-                  <button
-                    v-if="authStore.isAuthenticated"
-                    @click="handleLogout"
-                    class="flex flex-row items-center w-full hover:bg-slate-100 rounded-lg p-2 text-red-600"
-                  >
-                    <img src="../../../assets/icons/logout_icon.svg" alt="Logout" class="w-5 h-5" />
-                    <span class="ml-3 font-medium">Logout</span>
-                  </button>
-                  <button
-                    v-else
-                    @click="handleLogin"
-                    class="flex flex-row items-center w-full hover:bg-slate-100 rounded-lg p-2"
-                  >
-                    <img src="../../../assets/icons/login_icon.svg" alt="Login" class="w-6 h-6" />
-                    <span class="ml-3 font-medium">Login</span>
-                  </button>
-                </div>
-              </transition>
-            </div>
-          </div>
-        </div>
-      </template>
-    </NavBar>
     <div>
       <!-- Swiper Section -->
       <div class="flex flex-row">

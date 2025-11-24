@@ -2,7 +2,6 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import authService from '@/features/auth/services/auth.service';
-import { Import } from 'lucide-vue-next';
 
 export interface AuthUser {
   id: string;
