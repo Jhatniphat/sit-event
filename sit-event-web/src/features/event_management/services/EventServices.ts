@@ -38,10 +38,10 @@ export interface Event {
   name: string
   description: string
   thumbnail: File // uri
-  registrationOpenDate: Date // date-time [cite: 9, 10]
-  registrationEndDate: Date // date-time [cite: 10]
-  eventStartDate: Date // date-time [cite: 10]
-  eventEndDate: Date // date-time [cite: 10]
+  registrationOpenDate: string // date-time [cite: 9, 10]
+  registrationEndDate: string // date-time [cite: 10]
+  eventStartDate: string // date-time [cite: 10]
+  eventEndDate: string // date-time [cite: 10]
   targetAudience: TargetAudience[]
   tags: EventTag[]
   creatorId: Date // uuid, readOnly [cite: 11, 12]

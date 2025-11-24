@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import NavBar from '@/components/ui/commons/NavBar.vue'
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, onUnmounted, ref } from 'vue'
 import 'swiper/css'
 import 'swiper/css/pagination'
 import { Swiper, SwiperSlide } from 'swiper/vue'
@@ -9,10 +8,8 @@ import paginationComponent from '@/components/ui/commons/pagination.vue'
 import { useEventStore } from '../store/EventStore'
 // import authService from '@/features/auth/services/auth.service'
 import { useRouter } from 'vue-router'
-import { useAuthStore } from '@/features/auth/stores/auth.store'
 import { useRegistrationStore } from '@/features/registration/store/RegistrationStore'
 
-const AppLang = ref('EN')
 const isOpenMenu = ref(false)
 const menuRef = ref<HTMLElement | null>(null)
 const menuButton = ref<HTMLElement | null>(null)
@@ -22,21 +19,7 @@ const paginations = computed(() => eventStore.pagination)
 const currentPage = ref(1)
 const currentLimit = ref(5)
 const router = useRouter()
-const authStore = useAuthStore()
 const registerStore = useRegistrationStore()
-const userRole = computed(() => authStore.user?.userRole)
-
-const ChangeLng = () => {
-  if (AppLang.value === 'EN') {
-    AppLang.value = 'TH'
-  } else {
-    AppLang.value = 'EN'
-  }
-}
-
-const toggleMenu = () => {
-  isOpenMenu.value = !isOpenMenu.value
-}
 
 const handleClickOutside = (event: MouseEvent) => {
   const target = event.target as Node
@@ -139,8 +122,6 @@ const errorMessage = ref('')
 //   }
 // };
 
-
-
 function formatDate(date: string | number | Date) {
   return new Date(date).toLocaleDateString('en-US', {
     month: 'short',
@@ -152,6 +133,40 @@ function formatDate(date: string | number | Date) {
 const goToPage = (path: string) => {
   router.push(path)
 }
+
+const objectUrlMap = new Map<any, string>()
+
+function getThumbnailUrl(event: any) {
+  const thumbnail = (event && event.thumbnail) ?? null
+  if (!thumbnail) {
+    return new URL('../../../assets/images/mock_sub_session1.png', import.meta.url).href
+  }
+  if (typeof thumbnail === 'string') {
+    return thumbnail
+  }
+  // If thumbnail is a File or Blob, create an object URL and cache it.
+  const key = event.id ?? event
+  const existing = objectUrlMap.get(key)
+  if (existing) return existing
+  try {
+    const url = URL.createObjectURL(thumbnail as Blob)
+    objectUrlMap.set(key, url)
+    return url
+  } catch {
+    return new URL('../../../assets/images/mock_sub_session1.png', import.meta.url).href
+  }
+}
+
+onUnmounted(() => {
+  for (const url of objectUrlMap.values()) {
+    try {
+      URL.revokeObjectURL(url)
+    } catch {
+      // ignore
+    }
+  }
+  objectUrlMap.clear()
+})
 </script>
 
 <template>
@@ -204,7 +219,7 @@ const goToPage = (path: string) => {
             >
               <div @click="goToPage(`/event/${event.id}`)" class="">
                 <div class="p-2">
-                  <img :src="event.thumbnail" class="w-full h-52 object-cover rounded-lg" />
+                  <img :src="getThumbnailUrl(event)" class="w-full h-52 object-cover rounded-lg" />
                 </div>
 
                 <!-- todo : bring back when image URLs are available -->
