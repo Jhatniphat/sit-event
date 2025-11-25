@@ -1,6 +1,6 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma.service';
-import { Event, Prisma } from 'generated/prisma';
+import { Event, Prisma, UserRole } from 'generated/prisma';
 import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
 import { UsersService } from '../users/users.service';
@@ -94,26 +94,110 @@ export class EventsService {
     return this.transformEventWithUrls(event);
   }
 
-  async update(id: string, updateEventDto: UpdateEventDto) {
-    await this.findOne(id);
+  // src/events/events.service.ts
 
-    return this.prisma.event.update({
-      where: {
-        id,
-      },
-      data: {
-        ...updateEventDto,
-      },
+  async update(
+    id: string, 
+    updateEventDto: UpdateEventDto, 
+    authenticatedUser?: AuthenticatedUser,
+    newThumbnailName?: string, 
+    uploadedImageNames?: string[] // รับชื่อไฟล์ใหม่ที่เพิ่งอัปโหลดเสร็จ
+  ) {
+    // 1. ดึงข้อมูลเดิมจาก DB
+    const existingEvent = await this.prisma.event.findUnique({ where: { id } });
+    if (!existingEvent) {
+      throw new NotFoundException(`Event with ID '${id}' not found.`);
+    }
+
+    if (authenticatedUser) {
+      const user = await this.usersService.findByEmail(authenticatedUser.email);
+      
+      if (!user) {
+        throw new NotFoundException(`User with email '${authenticatedUser.email}' not found.`);
+      }
+
+      // Add validation logic here if needed (e.g., check if user is event creator or admin)
+    }
+
+    // --- ส่วนจัดการ THUMBNAIL ---
+    if (newThumbnailName && existingEvent.thumbnail) {
+      // ลบไฟล์ thumbnail เก่าออกจาก MinIO
+      await this.minioClientService.deleteFile(existingEvent.thumbnail);
+    }
+
+    let finalImages: string[] = [];
+
+    if (uploadedImageNames && uploadedImageNames.length > 0) {
+      if (existingEvent.images && existingEvent.images.length > 0) {
+        await Promise.all(
+          existingEvent.images.map(img => this.minioClientService.deleteFile(img))
+        );
+      }
+      
+      finalImages = [...uploadedImageNames];
+      
+    } else if (updateEventDto.images !== undefined) {
+      const keptImages = updateEventDto.images || [];
+      if (existingEvent.images && existingEvent.images.length > 0) {
+        const imagesToDelete = existingEvent.images.filter(
+          (oldImg) => !keptImages.includes(oldImg)
+        );
+        if (imagesToDelete.length > 0) {
+          await Promise.all(imagesToDelete.map(img => this.minioClientService.deleteFile(img)));
+        }
+      }
+
+      finalImages = [...keptImages];
+      
+    } else {
+      finalImages = [...(existingEvent.images || [])];
+    }
+
+    const cleanData = {
+      ...updateEventDto,
+      images: finalImages,
+    };
+    
+    if (!newThumbnailName) {
+        delete cleanData.thumbnail;
+    }
+
+    const updatedEvent = await this.prisma.event.update({
+      where: { id },
+      data: cleanData,
     });
-  } 
 
-  async remove(id:string): Promise<Event> {
-    await this.findOne(id)
+    return this.transformEventWithUrls(updatedEvent);
+  }
+
+  async remove(id: string): Promise<Event> {
+    // ดึงข้อมูล event ก่อนลบ (ใช้ raw data จาก DB ไม่ใช่ transformed URLs)
+    const existingEvent = await this.prisma.event.findUnique({
+      where: { id },
+    });
+    
+    if (!existingEvent) {
+      throw new NotFoundException(`Event with ID '${id}' not found.`);
+    }
+
+    // ลบ thumbnail จาก MinIO (ถ้ามี)
+    if (existingEvent.thumbnail) {
+      await this.minioClientService.deleteFile(existingEvent.thumbnail);
+    }
+
+    // ลบ images ทั้งหมดจาก MinIO (ถ้ามี)
+    if (existingEvent.images && existingEvent.images.length > 0) {
+      await Promise.all(
+        existingEvent.images.map(image => this.minioClientService.deleteFile(image))
+      );
+    }
+
+    // ลบ event จากฐานข้อมูล
     return this.prisma.event.delete({
       where: {
         id
       }
-    })
+    });
   }
 
   private async transformEventWithUrls(event: Event): Promise<Event> {
