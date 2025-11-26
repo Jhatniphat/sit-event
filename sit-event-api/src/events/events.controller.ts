@@ -101,34 +101,13 @@ export class EventsController {
     @Body() updateEventDto: UpdateEventDto,
     @CurrentUser() user: AuthenticatedUser
   ) {
-    let newThumbnailFileName: string | undefined = undefined;
-    if (files.thumbnail && files.thumbnail.length > 0) {
-      const uploadResult = await this.minioClientService.uploadFile(files.thumbnail[0]);
-      newThumbnailFileName = uploadResult.fileName;
-    }
-
-    let newImageFileNames: string[] = [];
-    if (files.images && files.images.length > 0) {
-      const uploadPromises = files.images.map(file => 
-        this.minioClientService.uploadFile(file)
-      );
-      const results = await Promise.all(uploadPromises);
-      newImageFileNames = results.map(res => res.fileName);
-    }
-
-    // เตรียม updateDto สำหรับส่งไป service
-    const finalUpdateDto = {
-      ...updateEventDto,
-      // ถ้ามีการอัพโหลด thumbnail ใหม่ ให้ใส่ filename ลงใน DTO
-      ...(newThumbnailFileName && { thumbnail: newThumbnailFileName }),
-    };
-
+    // ส่ง files ไปให้ service จัดการทั้งหมด (ลบเก่า + upload ใหม่)
     return this.eventService.update(
       id, 
-      finalUpdateDto, 
+      updateEventDto, 
       user,
-      newThumbnailFileName, 
-      newImageFileNames
+      files.thumbnail?.[0],
+      files.images
     );
   }
 
