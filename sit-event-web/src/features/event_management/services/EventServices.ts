@@ -37,7 +37,7 @@ export interface Event {
   id: string // readOnly [cite: 9]
   name: string
   description: string
-  thumbnail: File // uri
+  thumbnail: string 
   registrationOpenDate: Date // date-time [cite: 9, 10]
   registrationEndDate: Date // date-time [cite: 10]
   eventStartDate: Date // date-time [cite: 10]

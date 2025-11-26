@@ -22,7 +22,7 @@ const isMobileMenuOpen = ref(false); // State สำหรับเปิด/ป
 // --- Computed ---
 const isAdminOrOrganizer = computed(() => {
   const role = authStore.user?.userRole;
-  return role === 'Organizer' || role === 'Admin';
+  return role === 'Organizer' || role === 'Admin' || role === 'ADMIN' || role === 'ORGANIZER';
 });
 
 const userInitials = computed(() => {
@@ -42,6 +42,8 @@ const navigateTo = (path: string) => {
 const toggleMobileMenu = () => {
   isMobileMenuOpen.value = !isMobileMenuOpen.value;
 };
+
+const isAuthenticated = computed(() => authStore.isAuthenticated);
 </script>
 
 <template>
@@ -59,9 +61,9 @@ const toggleMobileMenu = () => {
           </a>
 
           <div class="hidden md:flex items-center gap-4">
-            <Button 
+            <Button v-if="isAuthenticated"
               variant="ghost" 
-              @click="navigateTo('/my-booking')"
+              @click="navigateTo('/myactivities')"
               class="text-sm font-medium"
             >
               My Booking
@@ -117,7 +119,7 @@ const toggleMobileMenu = () => {
                 </DropdownMenuItem>
                 <DropdownMenuItem>
                   <Globe class="mr-2 h-4 w-4" />
-                  <span>ภาษาไทย</span>
+                  <span>English</span>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem @click="handleLogout" class="text-red-600 focus:text-red-600">
