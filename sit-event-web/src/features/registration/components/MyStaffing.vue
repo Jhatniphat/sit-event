@@ -2,7 +2,6 @@
 import { computed } from 'vue'
 import router from '@/router'
 import type { StaffApplication } from '../store/RegistrationStore'
-import ScanQRCode from '../views/ScanQRCode.vue'
 
 const props = defineProps<{
   myRegis: StaffApplication[]

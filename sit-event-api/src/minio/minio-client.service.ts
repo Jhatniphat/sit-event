@@ -20,7 +20,12 @@ export class MinioClientService {
     // ถ้ามี http หรือ / แสดงว่าเป็น URL ให้ตัดเอาตัวสุดท้าย
     if (urlOrName.includes('http') || urlOrName.includes('/')) {
         const segments = urlOrName.split('/');
-        return segments[segments.length - 1];
+        let fileName = segments[segments.length - 1];
+        // Remove query parameters if they exist (for presigned URLs)
+        if (fileName.includes('?')) {
+          fileName = fileName.split('?')[0];
+        }
+        return fileName;
     }
     return urlOrName;
   }

@@ -1,10 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, onUnmounted, ref } from 'vue'
 import 'swiper/css'
 import 'swiper/css/pagination'
 import { useEventStore } from '../store/EventStore'
 import { useRouter } from 'vue-router'
-import { useAuthStore } from '@/features/auth/stores/auth.store'
 import { useRegistrationStore } from '@/features/registration/store/RegistrationStore'
 import HeroSlider, { type HeroSlide } from '@/features/event_management/components/HeroSlider.vue'
 import EventCard, { type EventItem } from '@/features/event_management/components/EventCard.vue'
@@ -12,9 +11,9 @@ import { mapEventToEventItem } from '@/features/event_management/mappers/eventMa
 import { type Event } from '@/features/event_management/services/EventServices'
 import RegistrationDialog , { type RegisterPayload , type RegistrationRole }  from '@/features/registration/components/RegistrationDialog.vue'
 
-// const isOpenMenu = ref(false)
-// const menuRef = ref<HTMLElement | null>(null)
-// const menuButton = ref<HTMLElement | null>(null)
+const isOpenMenu = ref(false)
+const menuRef = ref<HTMLElement | null>(null)
+const menuButton = ref<HTMLElement | null>(null)
 const eventStore = useEventStore()
 const events = computed(() => eventStore.events)
 // const paginations = computed(() => eventStore.pagination)
@@ -24,7 +23,7 @@ const currentLimit = ref(5)
 const authStore = useAuthStore()
 const registerStore = useRegistrationStore()
 const userRole = computed(() => authStore.user?.userRole)
-
+const router = useRouter()
 // const handlePageChange = async (page: number) => {
 //   await eventStore.fetchAllEvents(page, currentLimit.value)
 //   currentPage.value = page
@@ -102,6 +101,12 @@ const handleRegister = (payload: RegisterPayload) => {
   console.log('Open dialog for:', payload.id)
   currentRegistrationPayload.value = payload
   isDialogOpen.value = true
+function formatDate(date: string | number | Date) {
+  return new Date(date).toLocaleDateString('en-US', {
+    month: 'short',
+    day: '2-digit',
+    year: 'numeric',
+  })
 }
 
 // Function ที่รับ event ยืนยันจาก Dialog เพื่อยิง API ต่อไป
@@ -115,6 +120,40 @@ const onConfirmRegistration = async (eventId: string, role: RegistrationRole) =>
   }
   isDialogOpen.value = false
 }
+
+const objectUrlMap = new Map<any, string>()
+
+function getThumbnailUrl(event: any) {
+  const thumbnail = (event && event.thumbnail) ?? null
+  if (!thumbnail) {
+    return new URL('../../../assets/images/mock_sub_session1.png', import.meta.url).href
+  }
+  if (typeof thumbnail === 'string') {
+    return thumbnail
+  }
+  // If thumbnail is a File or Blob, create an object URL and cache it.
+  const key = event.id ?? event
+  const existing = objectUrlMap.get(key)
+  if (existing) return existing
+  try {
+    const url = URL.createObjectURL(thumbnail as Blob)
+    objectUrlMap.set(key, url)
+    return url
+  } catch {
+    return new URL('../../../assets/images/mock_sub_session1.png', import.meta.url).href
+  }
+}
+
+onUnmounted(() => {
+  for (const url of objectUrlMap.values()) {
+    try {
+      URL.revokeObjectURL(url)
+    } catch {
+      // ignore
+    }
+  }
+  objectUrlMap.clear()
+})
 </script>
 
 <template>

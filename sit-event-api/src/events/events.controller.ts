@@ -89,11 +89,47 @@ export class EventsController {
   
   @Patch(':id')
   @EventOrganizerAccess()
-  updateEventById(
+  @UseInterceptors(
+    FileFieldsInterceptor([
+      { name: 'images', maxCount: 5 },
+      { name: 'thumbnail', maxCount: 1 },
+    ]),
+  )
+  async updateEventById(
     @Param('id') id: string,
+    @UploadedFiles() files: { thumbnail?: Express.Multer.File[], images?: Express.Multer.File[] },
     @Body() updateEventDto: UpdateEventDto,
+    @CurrentUser() user: AuthenticatedUser
   ) {
-    return this.eventService.update(id, updateEventDto);
+    let newThumbnailFileName: string | undefined = undefined;
+    if (files.thumbnail && files.thumbnail.length > 0) {
+      const uploadResult = await this.minioClientService.uploadFile(files.thumbnail[0]);
+      newThumbnailFileName = uploadResult.fileName;
+    }
+
+    let newImageFileNames: string[] = [];
+    if (files.images && files.images.length > 0) {
+      const uploadPromises = files.images.map(file => 
+        this.minioClientService.uploadFile(file)
+      );
+      const results = await Promise.all(uploadPromises);
+      newImageFileNames = results.map(res => res.fileName);
+    }
+
+    // เตรียม updateDto สำหรับส่งไป service
+    const finalUpdateDto = {
+      ...updateEventDto,
+      // ถ้ามีการอัพโหลด thumbnail ใหม่ ให้ใส่ filename ลงใน DTO
+      ...(newThumbnailFileName && { thumbnail: newThumbnailFileName }),
+    };
+
+    return this.eventService.update(
+      id, 
+      finalUpdateDto, 
+      user,
+      newThumbnailFileName, 
+      newImageFileNames
+    );
   }
 
   // Only admins can delete events
