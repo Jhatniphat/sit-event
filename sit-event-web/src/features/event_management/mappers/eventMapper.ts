@@ -1,38 +1,62 @@
-// src/utils/eventMapper.ts
-import type { EventItem } from '@/features/event_management/components/EventCard.vue'; // path ตามที่คุณเก็บ interface
+// src/features/event_management/mappers/eventMapper.ts
+import type { EventItem } from '@/features/event_management/components/EventCard.vue';
 import type { Event, TargetAudience } from '@/features/event_management/services/EventServices';
+import type { StaffApplication } from '@/features/registration/store/RegistrationStore';
+import type { EventRegistration } from '@/features/registration/services/RegistrationService';
 
-// รับ input เป็น any ไปก่อนเพื่อให้ยืดหยุ่นกับข้อมูลจริงที่ Backend ส่งมา (ซึ่งมักเป็น JSON String)
-// หรือถ้าคุณมั่นใจใน Interface Event สามารถใส่ type Event ได้ครับ
 export const mapEventToEventItem = (
     backendEvent: Event,
-    currentUserRole: string = 'GUEST' // รับ Role ของ user ปัจจุบัน (Default เป็น Guest)
+    currentUserRole: string = 'GUEST',
+    myRegistrations: EventRegistration[] = [],
+    myStaffStatus: StaffApplication[] = []
 ): EventItem => {
 
-    // Logic 1: canRegisterAtStaff
-    // เงื่อนไข: ผู้ใช้ต้องเป็น INTERNAL_STUDENT เท่านั้น
+    // Logic 1: สิทธิ์ Staff
     const isInternalStudent = currentUserRole === 'INTERNAL_STUDENT';
     const canRegisterAtStaff = isInternalStudent;
 
-    // Logic 2: canRegisterAtParticipant
-    // เงื่อนไข: User role ต้องตรงกับ targetAudience
-    // (เพิ่มเงื่อนไข PUBLIC ให้ด้วยเผื่อกรณีเปิดกว้าง)
+    // Logic 2: สิทธิ์ Participant
     const targetAudiences = backendEvent.targetAudience || [];
     const canRegisterAtParticipant =
         targetAudiences.includes(currentUserRole as TargetAudience) ||
         targetAudiences.includes('PUBLIC');
 
+    // Logic 3: ตรวจสอบ hasRegister
+    let hasRegister = '';
+
+    // เช็คว่าลงทะเบียนเป็น Participant หรือไม่
+    const isRegisteredAsParticipant = myRegistrations.some(reg => reg.eventId === backendEvent.id);
+    if (isRegisteredAsParticipant) {
+        hasRegister = 'PARTICIPANT';
+    }
+
+    // เช็คว่าลงทะเบียนเป็น Staff หรือไม่ (ถ้ายังไม่ได้เป็น Participant หรือจะให้ Staff overwrite ก็ตาม business logic)
+    // สมมติว่าถ้าเป็น Staff ให้ขึ้น STAFF (หรือถ้าเป็นทั้งคู่ให้เลือกอย่างใดอย่างหนึ่ง)
+    if (!hasRegister) {
+        // เช็คใน myStaffStatus ว่ามี eventId นี้และ status ไม่ใช่ REFUSED หรือ WITHDRAWN
+        const staffApp = myStaffStatus.find(s => s.eventId === backendEvent.id);
+        if (staffApp && staffApp.status !== 'REFUSED' && staffApp.status !== 'WITHDRAWN') {
+             hasRegister = 'STAFF';
+        }
+    }
+    
+    // Logic 4: Thumbnail
+    let thumbnail = backendEvent.thumbnail; 
+    if (backendEvent.thumbnail === null || backendEvent.thumbnail === undefined || backendEvent.thumbnail === '') {
+        const firstWord = backendEvent.name.trim().split(' ')[0];
+        thumbnail = `https://placehold.co/600x400?text=${firstWord}`;
+    }
+
     return {
         id: backendEvent.id,
         name: backendEvent.name,
         description: backendEvent.description ?? '',
-        thumbnail: backendEvent.thumbnail ?? '',
+        thumbnail: thumbnail,
         eventStartDate: new Date(backendEvent.eventStartDate),
         eventEndDate: new Date(backendEvent.eventEndDate),
         registrationEndDate: new Date(backendEvent.registrationEndDate),
-
-        // Map ค่า Boolean ที่คำนวณได้
         canRegisterAtStaff,
-        canRegisterAtParticipant
+        canRegisterAtParticipant,
+        hasRegister // return ค่านี้กลับไป
     };
 };
