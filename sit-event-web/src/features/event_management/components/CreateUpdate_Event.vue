@@ -1,26 +1,37 @@
 <script setup lang="ts">
-import TextField from '@/components/ui/commons/TextField.vue'
-import TextArea from '@/components/ui/commons/TextArea.vue'
-import BaseButton from '@/components/ui/button/BaseButton.vue'
-import Modal from '@/components/ui/commons/ModalBox.vue'
-import TagInput from '@/components/ui/commons/TagInput.vue'
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useEventStore } from '@/features/event_management/store/EventStore'
 import { useDateTimeInputAdapter } from '@/shared/useDateTimeInput'
-// import { type CreateEventDto } from '@/features/event_management/services/EventServices'
-import { useRouter } from 'vue-router'
+
+// --- Shadcn UI Components ---
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Label } from '@/components/ui/label'
+
+// --- Custom Components & Types ---
+import TagInput from '@/components/ui/commons/TagInput.vue'
+import { type CreateEventDto, type UpdateEventDto } from '@/features/event_management/services/EventServices'
+import { type EventTag, type TargetAudience } from '@/features/event_management/services/EventServices'
 
 const router = useRouter()
-
 const props = defineProps<{
   id?: string
 }>()
 
 const eventStore = useEventStore()
+const isEditMode = computed(() => !!props.id)
+
+// --- Constants ---
+const ALL_EVENT_TARGET_AUDIENCE = ['EXTERNAL_STUDENT', 'INTERNAL_STUDENT', 'TEACHER', 'PUBLIC']
+const ALL_EVENT_TAGS = ['SPEAK', 'EDUCATION', 'WORKSHOP', 'SEMINAR', 'COMPETITION', 'SOCIAL', 'CAREER']
+
+// --- Form State ---
 const eventForm = ref<{
   name: string
   description: string
-  thumbnail: File | string | null
+  thumbnail: File | null
   images: File[]
   registrationOpenDate: Date
   registrationEndDate: Date
@@ -38,35 +49,55 @@ const eventForm = ref<{
   eventStartDate: new Date(),
   eventEndDate: new Date(),
   targetAudience: [],
-  tags: ['SPEAK'],
+  tags: [],
 })
 
+// --- Date Adapters ---
 const regOpenInput = useDateTimeInputAdapter(eventForm, 'registrationOpenDate')
 const regEndInput = useDateTimeInputAdapter(eventForm, 'registrationEndDate')
 const eventStartInput = useDateTimeInputAdapter(eventForm, 'eventStartDate')
 const eventEndInput = useDateTimeInputAdapter(eventForm, 'eventEndDate')
 
-const ALL_EVENT_TARGET_AUDIENCE = ['EXTERNAL_STUDENT', 'INTERNAL_STUDENT', 'TEACHER', 'PUBLIC']
+// --- Image Handling ---
+const fileInput = ref<HTMLInputElement | null>(null)
+const previewUrl = ref<string | null>(null)
 
-const isEditMode = computed(() => !!props.id)
-console.log('isEditMode:', isEditMode.value)
-console.log('Event ID:', props.id)
+const openFileDialog = () => fileInput.value?.click()
 
-const modalOpen = ref(false)
-
-const returnToDashboard = () => {
-  if (modalOpen.value) {
-    modalOpen.value = false
+const handleFileSelect = (e: Event) => {
+  const target = e.target as HTMLInputElement
+  const file = target.files?.[0]
+  if (file && file.type.startsWith('image/')) {
+    setThumbnail(file)
   }
-  router.push('/')
 }
 
+const handleDrop = (e: DragEvent) => {
+  const file = e.dataTransfer?.files?.[0]
+  if (file && file.type.startsWith('image/')) {
+    setThumbnail(file)
+  }
+}
+
+const setThumbnail = (file: File) => {
+  eventForm.value.thumbnail = file
+  previewUrl.value = URL.createObjectURL(file)
+}
+
+const removeImage = () => {
+  eventForm.value.thumbnail = null
+  previewUrl.value = null
+  if (fileInput.value) fileInput.value.value = ''
+}
+
+// --- Lifecycle ---
 onMounted(async () => {
   if (isEditMode.value) {
     await eventStore.fetchEventById(props.id!)
     const eventToEdit = eventStore.currentEvent
 
     if (eventToEdit) {
+      // Map basic data
       eventForm.value = {
         name: eventToEdit.name,
         description: eventToEdit.description,
@@ -74,383 +105,221 @@ onMounted(async () => {
         registrationEndDate: new Date(eventToEdit.registrationEndDate),
         eventStartDate: new Date(eventToEdit.eventStartDate),
         eventEndDate: new Date(eventToEdit.eventEndDate),
-        thumbnail: eventToEdit.thumbnail ?? null,
-        images: Array.isArray(eventToEdit.images)
-          ? eventToEdit.images
-          : eventToEdit.images
-            ? [eventToEdit.images]
-            : [],
+        thumbnail: null, // จะถูก set ด้านล่าง
+        images: [], // ถ้ามี logic ดึง images อื่นๆ ให้เพิ่มตรงนี้
         targetAudience: eventToEdit.targetAudience ?? [],
         tags: eventToEdit.tags ?? [],
       }
 
-      // ถ้ามี thumbnail จาก backend ให้ preview
-      if (eventToEdit.thumbnail) {
-        // backend may return either a URL string or a File/Blob; normalize to a string URL
-        previewUrl.value =
-          typeof eventToEdit.thumbnail === 'string'
-            ? eventToEdit.thumbnail
-            : URL.createObjectURL(eventToEdit.thumbnail)
+      // Handle Thumbnail: Convert URL string to File object
+      if (eventToEdit.thumbnail && typeof eventToEdit.thumbnail === 'string') {
+        try {
+          // 1. Fetch the image blob
+          const response = await fetch(eventToEdit.thumbnail)
+          const blob = await response.blob()
+          
+          // 2. Create a File object
+          const fileName = eventToEdit.thumbnail.split('/').pop() || 'thumbnail.jpg'
+          const file = new File([blob], fileName, { type: blob.type })
+          
+          // 3. Set to form state
+          eventForm.value.thumbnail = file
+          previewUrl.value = URL.createObjectURL(file)
+        } catch (error) {
+          console.error("Failed to load thumbnail image:", error)
+          // Fallback: Show URL but keep file as null if fetch fails
+          previewUrl.value = eventToEdit.thumbnail
+        }
       }
     }
   }
 })
 
+// --- Submit ---
 const onSubmit = async () => {
-  if (isEditMode.value) {
-    console.log('Updating Event:', props.id, eventForm.value)
-    // eventStore.updateEvent(props.id!, eventForm.value)
-    if (eventStore.error != '' || eventStore.error != null) {
-      console.log('No error')
+  console.log('isEditMode', isEditMode.value)
+  try {
+    // เตรียมข้อมูลพื้นฐานที่ใช้ร่วมกัน และใส่ property 'images' เพื่อแก้ Type Error
+    const baseEventData = {
+      name: eventForm.value.name,
+      description: eventForm.value.description,
+      registrationOpenDate: eventForm.value.registrationOpenDate.toISOString(),
+      registrationEndDate: eventForm.value.registrationEndDate.toISOString(),
+      eventStartDate: eventForm.value.eventStartDate.toISOString(),
+      eventEndDate: eventForm.value.eventEndDate.toISOString(),
+      targetAudience: eventForm.value.targetAudience as TargetAudience[], 
+      tags: eventForm.value.tags as EventTag[],
+      images: eventForm.value.images // [!] เพิ่มบรรทัดนี้ตาม Interface
+    }
+
+    if (isEditMode.value) {
+      console.log('Updating Event:', props.id)
+
+      const updateDto: UpdateEventDto = {
+        ...baseEventData,
+        // ถ้ามี thumbnail (File) ให้ส่งไป (Note: Store/Service ต้องรองรับการแปลงเป็น FormData)
+        thumbnail: eventForm.value.thumbnail instanceof File ? eventForm.value.thumbnail : undefined
+      }
+
+      await eventStore.updateEvent(props.id!, updateDto)
+
     } else {
-      modalOpen.value = true
-    }
-  } else {
-    const formData = new FormData()
+      console.log('Creating Event:', eventForm.value)
 
-    formData.append('name', eventForm.value.name)
-    formData.append('description', eventForm.value.description)
-    formData.append('registrationOpenDate', eventForm.value.registrationOpenDate.toISOString())
-    formData.append('registrationEndDate', eventForm.value.registrationEndDate.toISOString())
-    formData.append('eventStartDate', eventForm.value.eventStartDate.toISOString())
-    formData.append('eventEndDate', eventForm.value.eventEndDate.toISOString())
-    console.log('Creating Event:', eventForm.value)
+      const createDto: CreateEventDto = {
+        ...baseEventData,
+        thumbnail: eventForm.value.thumbnail instanceof File ? eventForm.value.thumbnail : undefined
+      }
 
-    // targetAudience (array)
-    eventForm.value.targetAudience?.forEach((t) => formData.append('targetAudience', t))
-
-    // tags (array)
-    eventForm.value.tags?.forEach((tag) => formData.append('tags', tag))
-
-    // รูปภาพ
-    if (selectedFile.value) {
-      formData.append('thumbnail', selectedFile.value)
-      formData.append('images', selectedFile.value)
+      await eventStore.createEvent(createDto)
     }
 
-    await eventStore.createEvent(formData)
     if (!eventStore.error) {
-      console.log('No error')
-      modalOpen.value = true
-    } else {
-      console.log('Error occurred:', eventStore.error)
+      alert(isEditMode.value ? 'Event Updated!' : 'Event Created!')
+      router.push('/admin/events')
     }
+  } catch (err) {
+    console.error(err)
   }
 }
 
-// ===================== Image Upload (Drag & Drop + Browse) =====================
-const fileInput = ref<HTMLInputElement | null>(null)
-const selectedFile = ref<File | null>(null)
-const previewUrl = ref<string | null>(null)
-
-const openFileDialog = () => {
-  // Safely trigger the file input click only when the element is present
-  fileInput.value?.click()
-}
-
-const handleFileSelect = (e: Event) => {
-  const target = e.target as HTMLInputElement
-  const file = target.files?.[0]
-
-  if (file && file.type.startsWith('image/')) {
-    selectedFile.value = file
-    eventForm.value.thumbnail = file
-    previewUrl.value = URL.createObjectURL(file)
-  }
-}
-
-const handleDrop = (e: DragEvent) => {
-  const file = e.dataTransfer?.files?.[0]
-  if (file && file.type.startsWith('image/')) {
-    selectedFile.value = file
-    previewUrl.value = URL.createObjectURL(file)
-  }
-}
-
-const removeImage = () => {
-  selectedFile.value = null
-  eventForm.value.thumbnail = null
-  previewUrl.value = null
-  if (fileInput.value) fileInput.value.value = ''
+const onCancel = () => {
+  router.back()
 }
 </script>
 
 <template>
-  <div>
-    <div class="flex justify-between p-5">
-      <div class="container flex-1">
-        <!-- <div>SpaceLeft</div> -->
+  <div class="min-h-screen bg-gray-50/50 p-6 flex justify-center">
+    <div class="w-full max-w-4xl bg-white rounded-lg shadow-sm border border-gray-200 p-8">
+      
+      <div class="mb-8 border-b border-gray-100 pb-4">
+        <h1 class="text-3xl font-bold tracking-tight text-gray-900">
+          {{ isEditMode ? 'Edit Event' : 'Create New Event' }}
+        </h1>
+        <p class="text-sm text-gray-500 mt-1">
+          Fill in the details below to {{ isEditMode ? 'update' : 'create' }} your event.
+        </p>
       </div>
-      <div class="container flex-8">
-        <!-- Event Name, Description, Location -->
-        <div>
-          <div>
-            <div class="text-3xl font-bold">
-              {{ isEditMode ? 'Edit Event' : 'Create New Event' }}
-            </div>
-          </div>
-          <div class="py-3"></div>
-          <div class="flex flex-row">
-            <div class="container">
-              <div>
-                <TextField
-                  label="Event Name"
-                  placeholder="Enter event name"
-                  v-model="eventForm.name"
-                />
-              </div>
-              <div class="py-2"></div>
-              <div><TextArea label="Event Description" v-model="eventForm.description" /></div>
-              <div class="py-2"></div>
-              <div><TextField label="Event Location" placeholder="Enter event location" /></div>
-              <!-- todo : location -->
-            </div>
-            <div class="container"></div>
-          </div>
-        </div>
-        <div class="py-3"></div>
-        <!-- Sub-sessions Section -->
-        <div>
-          <div>
-            <div class="text-xl font-bold">Sub-sessions</div>
-          </div>
-          <div class="py-3"></div>
-          <div class="container">
-            <img class="w-full h-64" src="@/assets/images/mock_sub_session1.png" alt="mock1" />
-          </div>
-          <div class="py-3"></div>
-          <div class="container">
-            <img class="w-full h-64" src="@/assets/images/mock_sub_session2.png" alt="mock1" />
-          </div>
-          <div class="py-2"></div>
-          <div><BaseButton label="Add Sub-sessions" color="grey"></BaseButton></div>
-          <!-- todo : subsessions -->
-        </div>
-        <div class="py-3"></div>
-        <!-- Images Section -->
-        <div>
-          <div class="text-xl font-bold">Images</div>
-        </div>
-        <div class="py-3"></div>
-        <div
-          class="border-2 border-dashed border-slate-300 rounded-xl p-2 cursor-pointer relative group h-64"
-          @dragover.prevent
-          @drop.prevent="handleDrop"
-          @click="openFileDialog()"
-        >
-          <!-- ถ้ายังไม่มีรูป -->
-          <div
-            v-if="!previewUrl"
-            class="w-full h-full flex flex-col items-center justify-center text-slate-400"
-          >
-            <p>Drag & Drop image</p>
-            <p class="text-sm">or click to upload</p>
+
+      <form @submit.prevent="onSubmit" class="space-y-8">
+        
+        <div class="space-y-4">
+          <h2 class="text-lg font-semibold text-gray-800">General Information</h2>
+          
+          <div class="space-y-2">
+            <Label for="name">Event Name</Label>
+            <Input id="name" v-model="eventForm.name" placeholder="Enter event name" required />
           </div>
 
-          <!-- ถ้ามีรูป -->
-          <div v-else class="w-full h-full relative">
-            <img :src="previewUrl" class="w-full h-full object-cover rounded-lg" />
-
-            <!-- ปุ่ม X ลบรูป (แสดงเมื่อ hover) -->
-            <button
-              @click.stop="removeImage"
-              class="absolute top-2 right-2 bg-red-500 text-white w-7 h-7 rounded-full flex items-center justify-center text-lg opacity-0 group-hover:opacity-100 transition-opacity"
-            >
-              ×
-            </button>
+          <div class="space-y-2">
+            <Label for="description">Description</Label>
+            <Textarea 
+              id="description" 
+              v-model="eventForm.description" 
+              placeholder="Describe your event..." 
+              class="min-h-[120px]" 
+              required
+            />
           </div>
-
-          <input
-            type="file"
-            accept="image/*"
-            class="hidden"
-            ref="fileInput"
-            @change="handleFileSelect"
-          />
         </div>
 
-        <div class="py-3"></div>
-        <!-- Date Section -->
-        <div class="flex flex-row">
-          <div class="container">
-            <div>
-              <div>
-                <div class="text-xl font-bold">Dates</div>
-              </div>
-              <div class="py-3"></div>
-              <div class="flex">
-                <div class="pr-2 pl-2 pb-2 w-full">
-                  <TextField
-                    label="Registration Start Date"
-                    type="datetime-local"
-                    placeholder="Select Startdate"
-                    v-model="regOpenInput"
-                  ></TextField>
-                </div>
-                <div class="pr-2 pl-2 pb-2 w-full">
-                  <TextField
-                    label="Registration End Date"
-                    type="datetime-local"
-                    placeholder="Select End Date"
-                    v-model="regEndInput"
-                  ></TextField>
-                </div>
-              </div>
-              <div class="flex">
-                <div class="p-2 w-full">
-                  <TextField
-                    label="Event Start Date"
-                    type="datetime-local"
-                    placeholder="Select Startdate"
-                    v-model="eventStartInput"
-                  ></TextField>
-                </div>
-                <div class="p-2 w-full">
-                  <TextField
-                    label="Event End Date"
-                    type="datetime-local"
-                    placeholder="Select End Date"
-                    v-model="eventEndInput"
-                  ></TextField>
-                </div>
-              </div>
+        <div class="space-y-4">
+          <h2 class="text-lg font-semibold text-gray-800">Schedule & Registration</h2>
+          
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="space-y-2">
+              <Label>Event Start</Label>
+              <Input type="datetime-local" v-model="eventStartInput" class="block w-full" />
             </div>
-            <div class="py-3"></div>
-            <!-- Staff Section -->
-            <div>
-              <div>
-                <div class="text-xl font-bold">Staff Requirements</div>
-              </div>
-              <div class="py-3"></div>
-              <div>
-                <TextField
-                  label="Staff Required"
-                  placeholder="Enter number of staff required"
-                ></TextField>
-              </div>
-              <div class="py-2"></div>
-              <div>
-                <TextField
-                  label="Responsible Person"
-                  placeholder="Enter responsible person's name"
-                ></TextField>
-              </div>
+            <div class="space-y-2">
+              <Label>Event End</Label>
+              <Input type="datetime-local" v-model="eventEndInput" class="block w-full" />
             </div>
-            <div class="py-3"></div>
-            <!-- Additional Options -->
-            <div>
-              <div>
-                <div class="text-xl font-bold">Additional Options</div>
-              </div>
-              <div class="py-3"></div>
-              <div class="flex flex-row">
-                <input
-                  type="checkbox"
-                  class="text-blue-500 rounded-xl border-gray-300 focus:ring-blue-400"
-                />
-                <div class="pl-2">On-site Registration Available</div>
-              </div>
-              <div class="py-2"></div>
-              <div class="flex flex-row">
-                <input
-                  type="checkbox"
-                  class="text-blue-500 rounded-xl border-gray-300 focus:ring-blue-400"
-                />
-                <div class="pl-2">Wi-Fi Needed</div>
-              </div>
-              <div class="py-3"></div>
-              <div>
-                <!-- <TextField label="Target Audience" placeholder="Enter target audience" /> -->
-                <TagInput
-                  label="Target Audience"
-                  placeholder="ค้นหา Tag..."
-                  :choices="ALL_EVENT_TARGET_AUDIENCE"
-                  v-model="eventForm.targetAudience"
-                />
-              </div>
-              <div class="py-2"></div>
-              <div><TextField label="Activity Hours" placeholder="Enter activity hours" /></div>
-              <!-- todo : Activity Hours -->
+
+            <div class="space-y-2">
+              <Label>Registration Open</Label>
+              <Input type="datetime-local" v-model="regOpenInput" class="block w-full" />
             </div>
-            <div class="py-3"></div>
-            <!-- FAQ-->
-            <!-- <div>
-              <div>
-                <div class="text-xl font-bold">FAQ</div>
-              </div>
-              <div class="py-3"></div>
-              <TextArea label="FAQ"></TextArea>
-            </div> -->
-            <!-- Invitation Message -->
-            <div>
-              <div>
-                <div class="text-xl font-bold">Invitation Message</div>
-              </div>
-              <div class="py-3"></div>
-              <TextArea label="Invitation Message"></TextArea>
-            </div>
-            <div class="py-3"></div>
-            <!-- Website -->
-            <div>
-              <div class="text-xl font-bold">Website</div>
-            </div>
-            <div class="py-3"></div>
-            <div>
-              <TextField label="Website URL" placeholder="Enter website URL"></TextField>
-            </div>
-            <div class="py-3"></div>
-            <!-- Certicate Details -->
-            <div>
-              <div class="text-xl font-bold">Certicate Details</div>
-            </div>
-            <div class="py-3"></div>
-            <div>
-              <TextField
-                label="Certificate Template"
-                placeholder="Select certificate template"
-              ></TextField>
-            </div>
-            <div class="py-2"></div>
-            <div>
-              <TextField
-                label="Certificate Issuer"
-                placeholder="Enter certificate issuer"
-              ></TextField>
+            <div class="space-y-2">
+              <Label>Registration Close</Label>
+              <Input type="datetime-local" v-model="regEndInput" class="block w-full" />
             </div>
           </div>
-          <div class="container"></div>
         </div>
-        <div class="py-3"></div>
-        <!-- Create Button -->
-        <div class="container flex justify-end">
-          <BaseButton label="Cancel" color="red" @click="returnToDashboard"></BaseButton>
-          <div class="w-4"></div>
-          <BaseButton
-            :label="isEditMode ? 'Edit Event' : 'Create New Event'"
-            color="blue"
-            @click="onSubmit"
-          ></BaseButton>
-          <Modal v-model="modalOpen">
-            <div class="flex flex-row justify-center">
-              <img
-                src="../../../assets/icons/success_icon.svg"
-                alt="Suscess Icon"
-                class="w-24 h-24 my-4"
+
+        <div class="space-y-4">
+          <h2 class="text-lg font-semibold text-gray-800">Categorization</h2>
+          
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="space-y-2">
+              <TagInput
+                label="Target Audience"
+                placeholder="Select audience..."
+                :choices="ALL_EVENT_TARGET_AUDIENCE"
+                v-model="eventForm.targetAudience"
               />
             </div>
-            <div class="flex flex-row justify-center">
-              <h2 class="text-xl font-bold my-4">Create Event Suscessfull!!</h2>
+            <div class="space-y-2">
+              <TagInput
+                label="Event Tags"
+                placeholder="Select tags..."
+                :choices="ALL_EVENT_TAGS"
+                v-model="eventForm.tags"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div class="space-y-4">
+          <h2 class="text-lg font-semibold text-gray-800">Event Thumbnail</h2>
+          
+          <div 
+            class="relative border-2 border-dashed border-gray-300 rounded-lg p-6 flex flex-col items-center justify-center text-center hover:bg-gray-50 transition-colors cursor-pointer h-64"
+            @dragover.prevent
+            @drop.prevent="handleDrop"
+            @click="openFileDialog"
+          >
+            <input type="file" ref="fileInput" class="hidden" accept="image/*" @change="handleFileSelect" />
+            
+            <div v-if="!previewUrl" class="space-y-2">
+              <div class="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto text-gray-400">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+              </div>
+              <div class="text-sm text-gray-600">
+                <span class="font-semibold text-blue-600">Click to upload</span> or drag and drop
+              </div>
+              <p class="text-xs text-gray-500">PNG, JPG, GIF up to 5MB</p>
             </div>
 
-            <div class="flex justify-center my-4">
-              <BaseButton @click="returnToDashboard" color="blue" label="Close" />
+            <div v-else class="w-full h-full relative group">
+              <img :src="previewUrl" alt="Thumbnail Preview" class="w-full h-full object-contain rounded-md" />
+              <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-md">
+                <Button 
+                  type="button" 
+                  variant="destructive" 
+                  size="sm" 
+                  @click.stop="removeImage"
+                >
+                  Remove Image
+                </Button>
+              </div>
             </div>
-          </Modal>
+          </div>
         </div>
-      </div>
-      <div class="container flex-1"></div>
+
+        <div class="flex justify-end gap-4 pt-4 border-t border-gray-100">
+          <Button type="button" variant="outline" @click="onCancel">
+            Cancel
+          </Button>
+          <Button type="submit" :disabled="eventStore.isLoadingList">
+            {{ eventStore.isLoadingList ? 'Saving...' : (isEditMode ? 'Update Event' : 'Create Event') }}
+          </Button>
+        </div>
+
+      </form>
     </div>
   </div>
 </template>
 
-<style scoped></style>
+<style scoped>
+</style>

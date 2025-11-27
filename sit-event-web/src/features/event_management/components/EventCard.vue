@@ -21,6 +21,8 @@ export interface EventItem {
   registrationEndDate: string | Date
   canRegisterAtStaff: boolean
   canRegisterAtParticipant: boolean
+  // เพิ่ม field นี้
+  hasRegister: string // '' | 'PARTICIPANT' | 'STAFF'
 }
 
 const props = defineProps<{
@@ -29,6 +31,8 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'register', payload: { id: string; canRegisterAtStaff: boolean; canRegisterAtParticipant: boolean }): void
+  // เพิ่ม event unregister
+  (e: 'unregister', payload: { id: string; role: string }): void
 }>()
 
 const daysRemaining = computed(() => {
@@ -63,32 +67,56 @@ const truncatedDescription = computed(() => {
   return props.event.description.substring(0, limit) + '...'
 })
 
-// 2. Logic สำหรับข้อความบนปุ่ม
+// Logic สำหรับข้อความบนปุ่ม
 const buttonText = computed(() => {
+  // กรณีลงทะเบียนไปแล้ว (แสดงปุ่ม Unregister เสมอ ไม่ว่าจะหมดเวลาหรือไม่ หรือจะให้กดออกได้ตลอดก็แล้วแต่ Requirement แต่ปกติควรออกได้)
+  if (props.event.hasRegister) {
+    return 'ยกเลิกการลงทะเบียน'
+  }
+
   if (daysRemaining.value <= 0) {
     return 'ปิดรับสมัครแล้ว'
   }
-  // ถ้ามีสิทธิ์อย่างใดอย่างหนึ่ง
+  
   if (props.event.canRegisterAtStaff || props.event.canRegisterAtParticipant) {
     return 'ลงทะเบียนเข้าร่วม'
   }
-  // เวลายังเหลือ แต่ไม่มีสิทธิ์
+  
   return 'ไม่สามารถลงทะเบียนได้'
 })
 
-// 3. Logic สำหรับสถานะ Disable ของปุ่ม
+// Logic สำหรับสถานะ Disable ของปุ่ม
 const isButtonDisabled = computed(() => {
-  // หมดเวลา หรือ (ไม่มีสิทธิ์ Staff และ ไม่มีสิทธิ์ Participant)
+  // ถ้าลงทะเบียนแล้ว ปุ่มไม่ Disable (เพื่อให้กดยกเลิกได้)
+  if (props.event.hasRegister) {
+    return false
+  }
+
+  // กรณีทั่วไป
   return daysRemaining.value <= 0 || (!props.event.canRegisterAtStaff && !props.event.canRegisterAtParticipant)
 })
 
-// ฟังก์ชันสำหรับส่งค่าเมื่อกดปุ่ม
-const handleRegisterClick = () => {
-  emit('register', {
-    id: props.event.id,
-    canRegisterAtStaff: props.event.canRegisterAtStaff,
-    canRegisterAtParticipant: props.event.canRegisterAtParticipant
-  })
+// Logic สีปุ่ม
+const buttonVariant = computed(() => {
+  if (props.event.hasRegister) {
+    return 'destructive' // สีแดงสำหรับยกเลิก
+  }
+  return 'default'
+})
+
+const handleButtonClick = () => {
+  if (props.event.hasRegister) {
+    emit('unregister', {
+      id: props.event.id,
+      role: props.event.hasRegister
+    })
+  } else {
+    emit('register', {
+      id: props.event.id,
+      canRegisterAtStaff: props.event.canRegisterAtStaff,
+      canRegisterAtParticipant: props.event.canRegisterAtParticipant
+    })
+  }
 }
 </script>
 
@@ -98,11 +126,15 @@ const handleRegisterClick = () => {
       <img 
         :src="event.thumbnail" 
         :alt="event.name" 
-        class="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+        :class="['w-full h-full object-cover transition-transform duration-300', { 'hover:scale-105': !event.hasRegister }]"
       />
-      <div class="absolute top-2 right-2">
+      <div class="absolute top-2 right-2 flex flex-col gap-1 items-end">
+         <Badge v-if="event.hasRegister" class="bg-green-600 hover:bg-green-700">
+          ลงทะเบียนแล้ว ({{ event.hasRegister }})
+        </Badge>
+
         <Badge 
-          v-if="daysRemaining > 0" 
+          v-else-if="daysRemaining > 0" 
           :variant="daysRemaining <= 3 ? 'destructive' : 'secondary'"
         >
           เหลือเวลา {{ daysRemaining }} วัน
@@ -133,8 +165,9 @@ const handleRegisterClick = () => {
     <CardFooter class="pt-2">
       <Button 
         class="w-full" 
+        :variant="buttonVariant"
         :disabled="isButtonDisabled"
-        @click="handleRegisterClick"
+        @click="handleButtonClick"
       >
         {{ buttonText }}
       </Button>

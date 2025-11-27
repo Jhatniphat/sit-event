@@ -28,7 +28,7 @@ const routes: Array<RouteRecordRaw> = [
     },
   },
   {
-    path: '/event/create',
+    path: '/admin/events/create',
     name: 'createEvent',
     component: () => import('../features/event_management/components/CreateUpdate_Event.vue'),
     meta: {
@@ -37,7 +37,7 @@ const routes: Array<RouteRecordRaw> = [
     },
   },
   {
-    path: '/event/edit/:id',
+    path: '/admin/events/edit/:id',
     name: 'editEvent',
     component: () => import('../features/event_management/components/CreateUpdate_Event.vue'),
     props: true,

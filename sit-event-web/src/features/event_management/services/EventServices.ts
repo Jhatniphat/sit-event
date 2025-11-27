@@ -107,7 +107,7 @@ export const EventService = {
    * สร้าง Event ใหม่
    * [POST] /events [cite: 34]
    */
-  async createEvent(formData: FormData): Promise<Event> {
+  async createEvent(formData: CreateEventDto): Promise<Event> {
     try {
       const newEvent = await apiClient.post<Event, Event>('/events', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
