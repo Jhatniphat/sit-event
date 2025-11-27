@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import 'swiper/css'
 import 'swiper/css/pagination'
 import { useEventStore } from '../store/EventStore'
@@ -8,49 +8,61 @@ import { useRegistrationStore } from '@/features/registration/store/Registration
 import HeroSlider, { type HeroSlide } from '@/features/event_management/components/HeroSlider.vue'
 import EventCard, { type EventItem } from '@/features/event_management/components/EventCard.vue'
 import { mapEventToEventItem } from '@/features/event_management/mappers/eventMapper'
-import { type Event } from '@/features/event_management/services/EventServices'
-import RegistrationDialog , { type RegisterPayload , type RegistrationRole }  from '@/features/registration/components/RegistrationDialog.vue'
+import RegistrationDialog, {
+  type RegisterPayload,
+  type RegistrationRole,
+} from '@/features/registration/components/RegistrationDialog.vue'
+import { useAuthStore } from '@/features/auth/stores/auth.store'
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogDescription,
+  DialogFooter 
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
 
-const isOpenMenu = ref(false)
-const menuRef = ref<HTMLElement | null>(null)
-const menuButton = ref<HTMLElement | null>(null)
 const eventStore = useEventStore()
 const events = computed(() => eventStore.events)
-// const paginations = computed(() => eventStore.pagination)
 const currentPage = ref(1)
 const currentLimit = ref(5)
-// const router = useRouter()
+
 const authStore = useAuthStore()
 const registerStore = useRegistrationStore()
 const userRole = computed(() => authStore.user?.userRole)
 const router = useRouter()
-// const handlePageChange = async (page: number) => {
-//   await eventStore.fetchAllEvents(page, currentLimit.value)
-//   currentPage.value = page
-// }
 
-// const handleLimitChange = async (newLimit: number) => {
-//   currentLimit.value = newLimit
-//   currentPage.value = 1
-//   await eventStore.fetchAllEvents(1, newLimit)
-// }
+const isLoading = ref(false)
 
-const eventsForEventCards = ref<EventItem[]>([])
+// ใช้ Computed เพื่อ Map ข้อมูลใหม่ทุกครั้งที่ store.events หรือ registerStore เปลี่ยนแปลง
+const eventsForEventCards = computed<EventItem[]>(() => {
+  return events.value.map((evt) =>
+    mapEventToEventItem(
+        evt, 
+        userRole.value, 
+        registerStore.myRegistrations, 
+        registerStore.myStaffStatus || [] // ใส่ fallback empty array
+    ),
+  )
+})
 
 onMounted(async () => {
   isLoading.value = true
   try {
     await eventStore.fetchAllEvents(currentPage.value, currentLimit.value)
-    await registerStore.fetchMyRegistrations()
-    await registerStore.fetchMyStaffStatus()
-    eventsForEventCards.value = events.value.map((evt: Event) => mapEventToEventItem(evt,userRole.value))
+    if (authStore.isAuthenticated) {
+        await registerStore.fetchMyRegistrations()
+        await registerStore.fetchMyStaffStatus()
+    }
   } catch (error) {
-    console.error('Error fetching events:', error)
+    console.error('Error fetching data:', error)
   } finally {
     isLoading.value = false
   }
 })
 
+// --- Hero Slider Data ---
 const heroSlides = ref<HeroSlide[]>([
   {
     id: 1,
@@ -77,80 +89,71 @@ const heroSlides = ref<HeroSlide[]>([
   },
 ])
 
-const isLoading = ref(false)
-// const errorMessage = ref('')
-
-// function formatDate(date: string | number | Date) {
-//   return new Date(date).toLocaleDateString('en-US', {
-//     month: 'short',
-//     day: '2-digit',
-//     year: 'numeric',
-//   })
-// }
-
-// const goToPage = (path: string) => {
-//   router.push(path)
-// }
-
-//
-const isDialogOpen = ref(false)
+// --- Registration Logic ---
+const isRegisDialogOpen = ref(false)
 const currentRegistrationPayload = ref<RegisterPayload | null>(null)
 
-// Function ที่รับ event @register จาก EventCard
 const handleRegister = (payload: RegisterPayload) => {
-  console.log('Open dialog for:', payload.id)
+  if (!authStore.isAuthenticated) {
+     router.push('/login')
+     return
+  }
   currentRegistrationPayload.value = payload
-  isDialogOpen.value = true
-function formatDate(date: string | number | Date) {
-  return new Date(date).toLocaleDateString('en-US', {
-    month: 'short',
-    day: '2-digit',
-    year: 'numeric',
-  })
+  isRegisDialogOpen.value = true
 }
 
-// Function ที่รับ event ยืนยันจาก Dialog เพื่อยิง API ต่อไป
 const onConfirmRegistration = async (eventId: string, role: RegistrationRole) => {
-  console.log(`Registering event ${eventId} as ${role}`)
   if (role === null) return
-  if (role === 'STAFF') {
-    await registerStore.applyToBeStaff(eventId, {eventRole : 'STAFF'})
-  } else if (role === 'PARTICIPANT') {
-    await registerStore.registerForEvent(eventId, {sessionId : ''})
-  }
-  isDialogOpen.value = false
-}
-
-const objectUrlMap = new Map<any, string>()
-
-function getThumbnailUrl(event: any) {
-  const thumbnail = (event && event.thumbnail) ?? null
-  if (!thumbnail) {
-    return new URL('../../../assets/images/mock_sub_session1.png', import.meta.url).href
-  }
-  if (typeof thumbnail === 'string') {
-    return thumbnail
-  }
-  // If thumbnail is a File or Blob, create an object URL and cache it.
-  const key = event.id ?? event
-  const existing = objectUrlMap.get(key)
-  if (existing) return existing
   try {
-    const url = URL.createObjectURL(thumbnail as Blob)
-    objectUrlMap.set(key, url)
-    return url
-  } catch {
-    return new URL('../../../assets/images/mock_sub_session1.png', import.meta.url).href
+    if (role === 'STAFF') {
+        await registerStore.applyToBeStaff(eventId, { eventRole: 'STAFF' })
+    } else if (role === 'PARTICIPANT') {
+        await registerStore.registerForEvent(eventId, { sessionId: '' })
+    }
+    // Refresh data logic is handled by reactivity (store updates -> computed updates)
+  } catch (err) {
+    console.error(err)
+    alert("การลงทะเบียนล้มเหลว")
   }
+  isRegisDialogOpen.value = false
 }
+
+// --- Unregistration Logic ---
+const isUnregisDialogOpen = ref(false)
+const unregisterTarget = ref<{ id: string, role: string } | null>(null)
+
+const handleUnregister = (payload: { id: string; role: string }) => {
+    unregisterTarget.value = payload
+    isUnregisDialogOpen.value = true
+}
+
+const onConfirmUnregister = async () => {
+    if (!unregisterTarget.value) return
+    const { id, role } = unregisterTarget.value
+    
+    try {
+        if (role === 'PARTICIPANT') {
+            await registerStore.unregisterFromEvent(id)
+        } else if (role === 'STAFF') {
+            await registerStore.deleteMyStaffStatus(id)
+        }
+    } catch (err) {
+        console.error(err)
+        alert("การยกเลิกการลงทะเบียนล้มเหลว")
+    } finally {
+        isUnregisDialogOpen.value = false
+        unregisterTarget.value = null
+    }
+}
+
+// --- Thumbnail Cache Logic ---
+const objectUrlMap = new Map<any, string>()
 
 onUnmounted(() => {
   for (const url of objectUrlMap.values()) {
     try {
       URL.revokeObjectURL(url)
-    } catch {
-      // ignore
-    }
+    } catch { /* ignore */ }
   }
   objectUrlMap.clear()
 })
@@ -159,91 +162,50 @@ onUnmounted(() => {
 <template>
   <div class="min-h-screen">
     <div>
-      <!-- Swiper Section -->
       <HeroSlider :slides="heroSlides" />
 
-      <!-- Upcoming Events Section -->
       <div class="container mx-auto p-6">
         <div class="flex flex-wrap -mx-4">
-          <div v-for="event in eventsForEventCards" :key="event.id" class="w-full lg:w-1/3 px-4 mb-8">
-            <EventCard :event="event" @register="handleRegister" />
+          <div
+            v-for="event in eventsForEventCards"
+            :key="event.id"
+            class="w-full lg:w-1/3 px-4 mb-8"
+          >
+            <EventCard 
+                :event="event" 
+                @register="handleRegister" 
+                @unregister="handleUnregister"
+            />
           </div>
         </div>
       </div>
 
-      <RegistrationDialog 
-      v-model:open="isDialogOpen"
-      :payload="currentRegistrationPayload"
-      @confirm="onConfirmRegistration"
-    />
+      <RegistrationDialog
+        v-model:open="isRegisDialogOpen"
+        :payload="currentRegistrationPayload"
+        @confirm="onConfirmRegistration"
+      />
+
+      <Dialog :open="isUnregisDialogOpen" @update:open="(val) => isUnregisDialogOpen = val">
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>ยืนยันการยกเลิก</DialogTitle>
+                <DialogDescription>
+                    คุณต้องการยกเลิกการลงทะเบียนในฐานะ 
+                    <span class="font-bold text-primary">{{ unregisterTarget?.role }}</span> 
+                    ใช่หรือไม่?
+                </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+                <Button variant="outline" @click="isUnregisDialogOpen = false">ยกเลิก</Button>
+                <Button variant="destructive" @click="onConfirmUnregister">ยืนยันการยกเลิก</Button>
+            </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
     </div>
   </div>
 </template>
 
 <style scoped>
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.15s ease;
-}
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
-.swiper-pagination-bullet {
-  background-color: rgba(0, 0, 0, 0.4);
-  width: 10px;
-  height: 10px;
-  opacity: 1;
-  transition: all 0.3s;
-}
-
-.swiper-pagination-bullet-active {
-  background-color: white;
-  width: 20px;
-  border-radius: 10px;
-}
-:deep(.swiper-pagination) {
-  background: rgba(10, 30, 50, 0.6); /* ดำเข้มหน่อย */
-  padding: 5px 5px;
-  border-radius: 9999px;
-  bottom: 16px !important;
-  width: auto !important;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex !important;
-  justify-content: center;
-  align-items: center;
-  gap: 2px;
-}
-
-:deep(.swiper-pagination-bullet) {
-  width: 7px;
-  height: 7px;
-  background: rgba(255, 255, 255, 0.35); /* เทาอ่อน */
-  opacity: 1;
-  transition: all 0.3s ease;
-}
-
-:deep(.swiper-pagination-bullet-active) {
-  background: #ffffff; /* จุด active เป็นขาว */
-  width: 7px;
-  height: 7px;
-}
-
-.desc-clamp {
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: normal; /* ✅ อนุญาตให้ขึ้นบรรทัดใหม่ได้ */
-  word-break: break-word; /* ✅ ตัดคำกลางประโยคได้ถ้าคำยาวเกิน */
-}
-
-.icon {
-  width: 22px;
-  height: 22px;
-  color: slategrey; /* สี default */
-}
 </style>
