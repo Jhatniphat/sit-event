@@ -113,10 +113,11 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="flex flex-col h-screen overflow-hidden">
-    <!-- TOP CONTENT (scrollable) -->
+  <div></div>
+  <!-- <div class="flex flex-col h-screen overflow-hidden">
+
     <div class="flex-1 overflow-y-auto">
-      <!-- Header -->
+
       <div class="flex flex-row justify-between p-4 mb-2 items-center">
         <img
           @click="returnToHomePage"
@@ -126,12 +127,12 @@ onUnmounted(() => {
         <div class="text-lg font-bold">Event Details</div>
         <div class="w-4"></div>
       </div>
-      <!-- Event Images -->
+
       <div v-for="(imgUrl, index) in event?.images" :key="index" class="w-full bg-slate-500">
         <img :src="getImageSrc(imgUrl, index)" class="w-full object-contain" />
       </div>
 
-      <!-- Details -->
+
       <div class="p-4">
         <div class="font-bold text-2xl my-2">{{ event?.name }}</div>
         <div class="mt-3 mb-5 whitespace-pre-line">
@@ -215,7 +216,6 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <!-- FIXED BOTTOM BUTTON -->
     <div
       class="py-4 px-3 h-20 justify-center bg-white shadow-[0_-4px_10px_rgba(0,0,0,0.08)] rounded-t-lg"
     >
@@ -248,7 +248,7 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <!-- UNREGISTER MODALS -->
+
     <Modal v-model="modalUnregis">
       <div class="flex flex-row justify-center">
         <img src="../../../assets/icons/alert_icon.svg" alt="Suscess Icon" class="w-24 h-24 my-4" />
@@ -291,5 +291,5 @@ onUnmounted(() => {
         <BaseButton @click="returnToHomePage" color="blue" label="Close" class="w-full" />
       </div>
     </Modal>
-  </div>
+  </div> -->
 </template>
