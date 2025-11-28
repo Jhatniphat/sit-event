@@ -37,7 +37,7 @@ export interface Event {
   id: string // readOnly [cite: 9]
   name: string
   description: string
-  thumbnail: string 
+  thumbnail: string
   registrationOpenDate: Date // date-time [cite: 9, 10]
   registrationEndDate: Date // date-time [cite: 10]
   eventStartDate: Date // date-time [cite: 10]
@@ -173,9 +173,15 @@ export const EventService = {
    * อัปเดตข้อมูล Event (api spec ใช้ PUT)
    * [PUT] /events/{eventId}
    */
-  async updateEvent(id: string, eventData: UpdateEventDto): Promise<Event> {
+  async updateEvent(id: string, eventData: FormData | UpdateEventDto): Promise<Event> {
     try {
-      const updatedEvent = await apiClient.patch<Event, Event>(`/events/${id}`, eventData)
+      // [!] แก้ไข: ตรวจสอบว่าเป็น FormData หรือไม่ เพื่อกำหนด Header
+      const config = eventData instanceof FormData
+        ? { headers: { 'Content-Type': 'multipart/form-data' } }
+        : undefined;
+
+      // ส่ง config ไปกับ request
+      const updatedEvent = await apiClient.patch<Event, Event>(`/events/${id}`, eventData, config)
       return updatedEvent
     } catch (error: unknown) {
       if (isApiError(error)) {

@@ -135,43 +135,48 @@ onMounted(async () => {
   }
 })
 
-// --- Submit ---
+// sit-event-web/src/features/event_management/components/CreateUpdate_Event.vue
+
 const onSubmit = async () => {
   console.log('isEditMode', isEditMode.value)
   try {
-    // เตรียมข้อมูลพื้นฐานที่ใช้ร่วมกัน และใส่ property 'images' เพื่อแก้ Type Error
-    const baseEventData = {
-      name: eventForm.value.name,
-      description: eventForm.value.description,
-      registrationOpenDate: eventForm.value.registrationOpenDate.toISOString(),
-      registrationEndDate: eventForm.value.registrationEndDate.toISOString(),
-      eventStartDate: eventForm.value.eventStartDate.toISOString(),
-      eventEndDate: eventForm.value.eventEndDate.toISOString(),
-      targetAudience: eventForm.value.targetAudience as TargetAudience[], 
-      tags: eventForm.value.tags as EventTag[],
-      images: eventForm.value.images // [!] เพิ่มบรรทัดนี้ตาม Interface
+    // ใช้ FormData สำหรับทั้ง Create และ Update ถ้ามีการส่งไฟล์
+    const formData = new FormData()
+    
+    // Append ข้อมูลพื้นฐาน
+    formData.append('name', eventForm.value.name)
+    formData.append('description', eventForm.value.description)
+    formData.append('registrationOpenDate', eventForm.value.registrationOpenDate.toISOString())
+    formData.append('registrationEndDate', eventForm.value.registrationEndDate.toISOString())
+    formData.append('eventStartDate', eventForm.value.eventStartDate.toISOString())
+    formData.append('eventEndDate', eventForm.value.eventEndDate.toISOString())
+    
+    // Append Array
+    eventForm.value.targetAudience.forEach((t) => formData.append('targetAudience', t))
+    eventForm.value.tags.forEach((tag) => formData.append('tags', tag))
+
+    // Append Images (ถ้ามี)
+    // สำหรับ images array
+    if (eventForm.value.images && eventForm.value.images.length > 0) {
+       eventForm.value.images.forEach((img) => formData.append('images', img))
+    }
+
+    // Append Thumbnail (เฉพาะเมื่อเป็น File ใหม่)
+    // กรณี Edit: 
+    // - ถ้าเป็น File (อัปโหลดใหม่) -> ส่งไป
+    // - ถ้าเป็น null (ลบรูป) -> อาจต้องคุยกับ Backend ว่าส่งค่าอะไรไปเพื่อบอกว่าลบ หรือไม่ส่ง
+    // - ถ้าเป็น string (รูปเดิม) -> ไม่ต้องส่งไป หรือส่งไป Backend ก็ต้องจัดการไม่ให้อัปเดต
+    if (eventForm.value.thumbnail instanceof File) {
+      formData.append('thumbnail', eventForm.value.thumbnail)
     }
 
     if (isEditMode.value) {
       console.log('Updating Event:', props.id)
-
-      const updateDto: UpdateEventDto = {
-        ...baseEventData,
-        // ถ้ามี thumbnail (File) ให้ส่งไป (Note: Store/Service ต้องรองรับการแปลงเป็น FormData)
-        thumbnail: eventForm.value.thumbnail instanceof File ? eventForm.value.thumbnail : undefined
-      }
-
-      await eventStore.updateEvent(props.id!, updateDto)
-
+      // ส่ง FormData ไปที่ Store -> Service
+      await eventStore.updateEvent(props.id!, formData as any) 
     } else {
       console.log('Creating Event:', eventForm.value)
-
-      const createDto: CreateEventDto = {
-        ...baseEventData,
-        thumbnail: eventForm.value.thumbnail instanceof File ? eventForm.value.thumbnail : undefined
-      }
-
-      await eventStore.createEvent(createDto)
+      await eventStore.createEvent(formData as any)
     }
 
     if (!eventStore.error) {
@@ -257,6 +262,7 @@ const onCancel = () => {
                 placeholder="Select audience..."
                 :choices="ALL_EVENT_TARGET_AUDIENCE"
                 v-model="eventForm.targetAudience"
+                :required="true"
               />
             </div>
             <div class="space-y-2">
@@ -265,6 +271,7 @@ const onCancel = () => {
                 placeholder="Select tags..."
                 :choices="ALL_EVENT_TAGS"
                 v-model="eventForm.tags"
+                :required="true"
               />
             </div>
           </div>

@@ -8,6 +8,7 @@ interface Props {
   choices: TagType[]
   label?: string
   placeholder?: string
+  required?: boolean // รับ prop required
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -62,6 +63,9 @@ function removeTag(tag: TagType) {
 /**
  * จัดการการกดปุ่มบน keyboard
  */
+/**
+ * จัดการการกดปุ่มบน keyboard
+ */
 function handleKeydown(event: KeyboardEvent) {
   if (event.key === 'Backspace' && searchText.value === '') {
     event.preventDefault()
@@ -73,10 +77,14 @@ function handleKeydown(event: KeyboardEvent) {
 
   if (event.key === 'Enter') {
     event.preventDefault()
-    const firstChoice = filteredChoices.value[0]
-    if (firstChoice) {
-      addTag(firstChoice)
-    }
+    // ถ้า dropdown เปิดอยู่และมีตัวเลือก ให้เลือกตัวแรก
+    if (isDropdownOpen.value && filteredChoices.value.length > 0) {
+        const firstChoice = filteredChoices.value[0]
+        // ตรวจสอบว่า firstChoice ไม่ใช่ undefined ก่อนเรียก addTag
+        if (firstChoice) {
+            addTag(firstChoice)
+        }
+    } 
   }
 }
 
@@ -101,12 +109,12 @@ function focusInput() {
       v-if="label" 
       class="block text-sm font-medium text-gray-700 mb-1"
     >
-      {{ label }}
+      {{ label }} <span v-if="required" class="text-red-500">*</span>
     </label>
 
     <div
       @click="focusInput"
-      class="flex flex-wrap items-center gap-2 p-2 min-h-[42px] border border-gray-300 rounded-md shadow-sm bg-white cursor-text"
+      class="flex flex-wrap items-center gap-2 p-2 min-h-[42px] border border-gray-300 rounded-md shadow-sm bg-white cursor-text relative"
     >
       <span
         v-for="tag in internalModel"
@@ -118,6 +126,7 @@ function focusInput() {
           @click.stop="removeTag(tag)"
           class="ml-1.5 -mr-1 text-blue-600 hover:text-blue-800 focus:outline-none"
           aria-label="Remove tag"
+          type="button" 
         >
           &times;
         </button>
@@ -132,6 +141,15 @@ function focusInput() {
         @keydown="handleKeydown"
         :placeholder="internalModel.length === 0 ? placeholder : ''"
         class="flex-1 text-sm outline-none bg-transparent min-w-[120px]"
+      />
+      
+      <input 
+        v-if="required"
+        tabindex="-1"
+        class="absolute opacity-0 pointer-events-none w-full h-full top-0 left-0 -z-10"
+        :value="internalModel.length > 0 ? 'valid' : ''"
+        required
+        @invalid="focusInput"
       />
     </div>
 
@@ -154,5 +172,4 @@ function focusInput() {
 </template>
 
 <style scoped>
-/* เราสามารถเพิ่ม style ที่ซับซ้อนกว่า Tailwind ได้ที่นี่ (ถ้าต้องการ) */
 </style>
