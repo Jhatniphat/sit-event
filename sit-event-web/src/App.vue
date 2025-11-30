@@ -2,24 +2,24 @@
 import { onMounted, ref } from 'vue'
 import { RouterView } from 'vue-router'
 import { useAuthStore } from '@/features/auth/stores/auth.store'
-import ToastContainer from '@/features/toast/views/ToastContainer.vue'
 import NavBar from './shared/components/NavBar.vue'
-// ปกติ shadcn-vue จะใช้ lucide-vue-next ถ้ายังไม่มีให้ติดตั้งเพิ่ม หรือเปลี่ยนเป็น svg ธรรมดาได้ครับ
 import { Loader2 } from 'lucide-vue-next' 
+import 'vue-sonner/style.css'
+import { Toaster } from '@/components/ui/sonner'
+import { toast } from 'vue-sonner'
 
 const authStore = useAuthStore()
 const isAppLoading = ref<boolean>(true)
 
 onMounted(async () => {
   try {
-    // เริ่มต้นตรวจสอบ Session
     await authStore.checkSession()
   } catch (error) {
     console.error('Session check failed:', error)
   } finally {
-    // หน่วงเวลาเล็กน้อย (500ms) เพื่อให้ Loading ไม่กระพริบเร็วเกินไปจน User ตกใจ
     setTimeout(() => {
       isAppLoading.value = false
+      toast.success('Welcome to SIT Event')
     }, 500)
   }
 })
@@ -35,7 +35,7 @@ onMounted(async () => {
       
       <div class="space-y-2">
         <h2 class="text-2xl font-semibold tracking-tight text-slate-900">
-          Welcome to Sit Event
+          Welcome to SIT Event
         </h2>
         <p class="text-sm text-slate-500">
           We're getting things ready for you...
@@ -45,8 +45,9 @@ onMounted(async () => {
   </div>
 
   <div v-else class="min-h-screen bg-background font-sans antialiased animate-in fade-in duration-500">
-    <ToastContainer />
     <NavBar />
     <RouterView />
   </div>
+
+  <Toaster position="top-center"/>
 </template>

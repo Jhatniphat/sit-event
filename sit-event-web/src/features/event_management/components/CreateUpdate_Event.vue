@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useEventStore } from '@/features/event_management/store/EventStore'
 import { useDateTimeInputAdapter } from '@/shared/useDateTimeInput'
+import { toast } from 'vue-sonner' // ✅ Import Toast
 
 // --- Shadcn UI Components ---
 import { Button } from '@/components/ui/button'
@@ -12,8 +13,6 @@ import { Label } from '@/components/ui/label'
 
 // --- Custom Components & Types ---
 import TagInput from '@/components/ui/commons/TagInput.vue'
-import { type CreateEventDto, type UpdateEventDto } from '@/features/event_management/services/EventServices'
-import { type EventTag, type TargetAudience } from '@/features/event_management/services/EventServices'
 
 const router = useRouter()
 const props = defineProps<{
@@ -93,54 +92,50 @@ const removeImage = () => {
 // --- Lifecycle ---
 onMounted(async () => {
   if (isEditMode.value) {
-    await eventStore.fetchEventById(props.id!)
-    const eventToEdit = eventStore.currentEvent
+    try {
+      await eventStore.fetchEventById(props.id!)
+      const eventToEdit = eventStore.currentEvent
 
-    if (eventToEdit) {
-      // Map basic data
-      eventForm.value = {
-        name: eventToEdit.name,
-        description: eventToEdit.description,
-        registrationOpenDate: new Date(eventToEdit.registrationOpenDate),
-        registrationEndDate: new Date(eventToEdit.registrationEndDate),
-        eventStartDate: new Date(eventToEdit.eventStartDate),
-        eventEndDate: new Date(eventToEdit.eventEndDate),
-        thumbnail: null, // จะถูก set ด้านล่าง
-        images: [], // ถ้ามี logic ดึง images อื่นๆ ให้เพิ่มตรงนี้
-        targetAudience: eventToEdit.targetAudience ?? [],
-        tags: eventToEdit.tags ?? [],
-      }
+      if (eventToEdit) {
+        // Map basic data
+        eventForm.value = {
+          name: eventToEdit.name,
+          description: eventToEdit.description,
+          registrationOpenDate: new Date(eventToEdit.registrationOpenDate),
+          registrationEndDate: new Date(eventToEdit.registrationEndDate),
+          eventStartDate: new Date(eventToEdit.eventStartDate),
+          eventEndDate: new Date(eventToEdit.eventEndDate),
+          thumbnail: null, // จะถูก set ด้านล่าง
+          images: [], 
+          targetAudience: eventToEdit.targetAudience ?? [],
+          tags: eventToEdit.tags ?? [],
+        }
 
-      // Handle Thumbnail: Convert URL string to File object
-      if (eventToEdit.thumbnail && typeof eventToEdit.thumbnail === 'string') {
-        try {
-          // 1. Fetch the image blob
-          const response = await fetch(eventToEdit.thumbnail)
-          const blob = await response.blob()
-          
-          // 2. Create a File object
-          const fileName = eventToEdit.thumbnail.split('/').pop() || 'thumbnail.jpg'
-          const file = new File([blob], fileName, { type: blob.type })
-          
-          // 3. Set to form state
-          eventForm.value.thumbnail = file
-          previewUrl.value = URL.createObjectURL(file)
-        } catch (error) {
-          console.error("Failed to load thumbnail image:", error)
-          // Fallback: Show URL but keep file as null if fetch fails
-          previewUrl.value = eventToEdit.thumbnail
+        // Handle Thumbnail: Convert URL string to File object
+        if (eventToEdit.thumbnail && typeof eventToEdit.thumbnail === 'string') {
+          try {
+            const response = await fetch(eventToEdit.thumbnail)
+            const blob = await response.blob()
+            const fileName = eventToEdit.thumbnail.split('/').pop() || 'thumbnail.jpg'
+            const file = new File([blob], fileName, { type: blob.type })
+            
+            eventForm.value.thumbnail = file
+            previewUrl.value = URL.createObjectURL(file)
+          } catch (error) {
+            console.error("Failed to load thumbnail image:", error)
+            previewUrl.value = eventToEdit.thumbnail
+          }
         }
       }
+    } catch (error) {
+        console.error("Error fetching event details:", error)
+        toast.error('ไม่สามารถโหลดข้อมูลกิจกรรมได้')
     }
   }
 })
 
-// sit-event-web/src/features/event_management/components/CreateUpdate_Event.vue
-
 const onSubmit = async () => {
-  console.log('isEditMode', isEditMode.value)
   try {
-    // ใช้ FormData สำหรับทั้ง Create และ Update ถ้ามีการส่งไฟล์
     const formData = new FormData()
     
     // Append ข้อมูลพื้นฐาน
@@ -155,36 +150,48 @@ const onSubmit = async () => {
     eventForm.value.targetAudience.forEach((t) => formData.append('targetAudience', t))
     eventForm.value.tags.forEach((tag) => formData.append('tags', tag))
 
-    // Append Images (ถ้ามี)
-    // สำหรับ images array
+    // Append Images
     if (eventForm.value.images && eventForm.value.images.length > 0) {
        eventForm.value.images.forEach((img) => formData.append('images', img))
     }
 
-    // Append Thumbnail (เฉพาะเมื่อเป็น File ใหม่)
-    // กรณี Edit: 
-    // - ถ้าเป็น File (อัปโหลดใหม่) -> ส่งไป
-    // - ถ้าเป็น null (ลบรูป) -> อาจต้องคุยกับ Backend ว่าส่งค่าอะไรไปเพื่อบอกว่าลบ หรือไม่ส่ง
-    // - ถ้าเป็น string (รูปเดิม) -> ไม่ต้องส่งไป หรือส่งไป Backend ก็ต้องจัดการไม่ให้อัปเดต
+    // Append Thumbnail
     if (eventForm.value.thumbnail instanceof File) {
       formData.append('thumbnail', eventForm.value.thumbnail)
     }
 
-    if (isEditMode.value) {
-      console.log('Updating Event:', props.id)
-      // ส่ง FormData ไปที่ Store -> Service
-      await eventStore.updateEvent(props.id!, formData as any) 
-    } else {
-      console.log('Creating Event:', eventForm.value)
-      await eventStore.createEvent(formData as any)
+    // ✅ สร้าง Promise สำหรับการทำงาน (Create/Update)
+    const submitPromise = async () => {
+        if (isEditMode.value) {
+            await eventStore.updateEvent(props.id!, formData as any)
+        } else {
+            await eventStore.createEvent(formData as any)
+        }
+        
+        // เช็คว่า Store มี Error ค้างหรือไม่ (กรณี Store ไม่ได้ throw error ออกมา)
+        if (eventStore.error) {
+            throw new Error(typeof eventStore.error === 'string' ? eventStore.error : 'เกิดข้อผิดพลาดจากระบบ')
+        }
     }
 
-    if (!eventStore.error) {
-      alert(isEditMode.value ? 'Event Updated!' : 'Event Created!')
-      router.push('/admin/events')
-    }
-  } catch (err) {
+    // ✅ ใช้ toast.promise เพื่อแสดง Loading -> Success/Error
+    toast.promise(submitPromise(), {
+        loading: isEditMode.value ? 'กำลังอัปเดตกิจกรรมและอัปโหลดรูปภาพ...' : 'กำลังสร้างกิจกรรมและอัปโหลดรูปภาพ...',
+        success: isEditMode.value ? 'อัปเดตกิจกรรมเรียบร้อยแล้ว' : 'สร้างกิจกรรมใหม่สำเร็จ',
+        error: (err: any) => {
+            // ✅ แสดงสาเหตุ Error ที่ชัดเจน
+            return err?.response?.data?.message || err?.message || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล'
+        }
+    })
+
+    // ✅ Redirect ทันทีไม่ต้องรอเสร็จ (Optimistic UI Flow)
+    router.push({ name: 'OrgEventView' })
+
+  } catch (err: any) {
     console.error(err)
+    toast.error('เกิดข้อผิดพลาดในการเตรียมข้อมูล', {
+        description: err.message
+    })
   }
 }
 
@@ -318,8 +325,8 @@ const onCancel = () => {
           <Button type="button" variant="outline" @click="onCancel">
             Cancel
           </Button>
-          <Button type="submit" :disabled="eventStore.isLoadingList">
-            {{ eventStore.isLoadingList ? 'Saving...' : (isEditMode ? 'Update Event' : 'Create Event') }}
+          <Button type="submit">
+            {{ isEditMode ? 'Update Event' : 'Create Event' }}
           </Button>
         </div>
 

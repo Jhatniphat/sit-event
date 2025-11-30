@@ -59,11 +59,11 @@ function formatEventRange(start: string | Date, end: string | Date): string {
 }
 
 const seeEventDetail = (eventId: string) => {
-  router.push(`/event/${eventId}`)
+  router.push({ name: 'EventDetail', params: { id: eventId } })
 }
 
 function scanQRCode(eventId: string) {
-  router.push(`/event/${eventId}/register/scan-qrcode`)
+  router.push({ name: 'ScanQRCode', params: { id: eventId } })
 }
 </script>
 
