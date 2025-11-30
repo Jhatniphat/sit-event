@@ -172,34 +172,33 @@ export class AuthService {
     const existingUser = await this.usersService.findByEmail(keycloakUser.email);
     
     if (existingUser) {
-      // For existing users, get their roles from Keycloak
+      // For existing users, get their role from Keycloak
       this.logger.log(`Updating existing user: ${keycloakUser.email}`);
       
       try {
-        // Get roles from Keycloak
-        const keycloakRoles = await this.keycloakAdminService.getUserRoles(keycloakUser.sub);
-        const mappedRoles = this.keycloakAdminService.mapKeycloakRolesToEnum(keycloakRoles);
+        // Get role from Keycloak
+        const keycloakRole = await this.keycloakAdminService.getUserRole(keycloakUser.sub);
         
-        // If user has roles in Keycloak, sync them to database
-        if (mappedRoles.length > 0) {
-          this.logger.log(`Syncing ${mappedRoles.length} roles from Keycloak to database for user: ${keycloakUser.email}`);
+        // If user has a role in Keycloak, sync it to database
+        if (keycloakRole) {
+          this.logger.log(`Syncing role ${keycloakRole} from Keycloak to database for user: ${keycloakUser.email}`);
           
           const user = await this.usersService.updateUser(existingUser.id, {
             firstName: keycloakUser.given_name,
             lastName: keycloakUser.family_name,
             email: keycloakUser.email,
-            userRole: mappedRoles, // Update roles from Keycloak
+            userRole: keycloakRole, // Update role from Keycloak
           });
           
           return { user, isNewUser: false };
         } else {
-          // No roles in Keycloak, preserve existing database roles and sync them to Keycloak
-          this.logger.log(`No roles found in Keycloak, syncing database roles to Keycloak for user: ${keycloakUser.email}`);
+          // No role in Keycloak, preserve existing database role and sync it to Keycloak
+          this.logger.log(`No role found in Keycloak, syncing database role to Keycloak for user: ${keycloakUser.email}`);
           
-          if (existingUser.userRole && existingUser.userRole.length > 0) {
-            await this.keycloakAdminService.assignRolesToUser(
+          if (existingUser.userRole) {
+            await this.keycloakAdminService.assignRoleToUser(
               keycloakUser.sub, 
-              existingUser.userRole as string[]
+              existingUser.userRole
             );
           }
           
@@ -212,7 +211,7 @@ export class AuthService {
           return { user, isNewUser: false };
         }
       } catch (error) {
-        this.logger.error(`Failed to sync roles for user ${keycloakUser.email}: ${error.message}`);
+        this.logger.error(`Failed to sync role for user ${keycloakUser.email}: ${error.message}`);
         
         // Fallback: just update basic user info
         const user = await this.usersService.updateUser(existingUser.id, {
@@ -231,12 +230,12 @@ export class AuthService {
       // Assign initial role to Keycloak
       await this.keycloakAdminService.assignRoleToUser(keycloakUser.sub, initialRole);
 
-      // Create new user with initial role as array
+      // Create new user with initial role
       const user = await this.usersService.createUser({
         email: keycloakUser.email,
         firstName: keycloakUser.given_name,
         lastName: keycloakUser.family_name,
-        userRole: [initialRole], // Store as array
+        userRole: initialRole,
       });
       
       return { user, isNewUser: true };

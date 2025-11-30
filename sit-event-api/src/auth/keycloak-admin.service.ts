@@ -29,9 +29,10 @@ export class KeycloakAdminService {
   }
 
   /**
-   * Get all realm roles assigned to a user from Keycloak
+   * Get the primary realm role assigned to a user from Keycloak
+   * Returns the first matching role from our UserRole enum
    */
-  async getUserRoles(userId: string): Promise<string[]> {
+  async getUserRole(userId: string): Promise<UserRole | null> {
     try {
       await this.authenticate();
 
@@ -42,18 +43,20 @@ export class KeycloakAdminService {
       const roleNames = roles.map(role => role.name).filter(name => name !== undefined) as string[];
       this.logger.log(`Retrieved ${roleNames.length} roles for user '${userId}': ${roleNames.join(', ')}`);
       
-      return roleNames;
+      // Map and return the first valid role
+      const mappedRole = this.mapKeycloakRoleToEnum(roleNames);
+      return mappedRole;
     } catch (error) {
-      this.logger.error(`Failed to get user roles from Keycloak: ${error.message}`);
-      return [];
+      this.logger.error(`Failed to get user role from Keycloak: ${error.message}`);
+      return null;
     }
   }
 
   /**
-   * Map Keycloak role names to UserRole enum array
-   * Filters out unrecognized roles
+   * Map Keycloak role names to a single UserRole enum
+   * Returns the first recognized role, prioritizing ADMIN > ORGANIZER > INTERNAL_STUDENT > EXTERNAL_STUDENT
    */
-  mapKeycloakRolesToEnum(keycloakRoles: string[]): UserRole[] {
+  mapKeycloakRoleToEnum(keycloakRoles: string[]): UserRole | null {
     const roleMap: Record<string, UserRole> = {
       'ADMIN': UserRole.ADMIN,
       'ORGANIZER': UserRole.ORGANIZER,
@@ -61,13 +64,19 @@ export class KeycloakAdminService {
       'EXTERNAL_STUDENT': UserRole.EXTERNAL_STUDENT,
     };
 
-    const mappedRoles = keycloakRoles
-      .map(role => roleMap[role.toUpperCase()])
-      .filter(role => role !== undefined);
+    // Priority order for roles
+    const rolePriority = ['ADMIN', 'ORGANIZER', 'INTERNAL_STUDENT', 'EXTERNAL_STUDENT'];
 
-    this.logger.log(`Mapped Keycloak roles [${keycloakRoles.join(', ')}] to [${mappedRoles.join(', ')}]`);
-    
-    return mappedRoles;
+    for (const priority of rolePriority) {
+      if (keycloakRoles.some(r => r.toUpperCase() === priority)) {
+        const mappedRole = roleMap[priority];
+        this.logger.log(`Mapped Keycloak roles [${keycloakRoles.join(', ')}] to ${mappedRole}`);
+        return mappedRole;
+      }
+    }
+
+    this.logger.warn(`No recognized roles found in [${keycloakRoles.join(', ')}]`);
+    return null;
   }
 
   async assignRoleToUser(userId: string, roleName: string) {
@@ -99,43 +108,6 @@ export class KeycloakAdminService {
       this.logger.log(`Assigned role '${roleName}' to user '${userId}' in Keycloak`);
     } catch (error) {
       this.logger.error(`Failed to assign role in Keycloak: ${error.message}`);
-    }
-  }
-
-  /**
-   * Assign multiple roles to a user in Keycloak
-   */
-  async assignRolesToUser(userId: string, roleNames: string[]) {
-    try {
-      await this.authenticate();
-
-      const rolesToAssign: Array<{ id: string; name: string }> = [];
-      
-      for (const roleName of roleNames) {
-        const role = await this.kcAdminClient.roles.findOneByName({
-          name: roleName,
-        });
-
-        if (role) {
-          rolesToAssign.push({
-            id: role.id!,
-            name: role.name!,
-          });
-        } else {
-          this.logger.warn(`Role '${roleName}' not found in Keycloak, skipping`);
-        }
-      }
-
-      if (rolesToAssign.length > 0) {
-        await this.kcAdminClient.users.addRealmRoleMappings({
-          id: userId,
-          roles: rolesToAssign,
-        });
-
-        this.logger.log(`Assigned ${rolesToAssign.length} roles to user '${userId}' in Keycloak`);
-      }
-    } catch (error) {
-      this.logger.error(`Failed to assign roles in Keycloak: ${error.message}`);
     }
   }
 }

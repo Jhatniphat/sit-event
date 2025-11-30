@@ -66,7 +66,7 @@ model User {
   age                     Int?
   school                  String?
   roleInSchool            RoleInSchool?
-  userRole                UserRole[]  
+  userRole                UserRole  @default(EXTERNAL_STUDENT)
   province                String?
   dietaryRequirements     String?
   notificationPreferences Boolean   @default(false)
