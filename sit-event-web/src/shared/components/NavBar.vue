@@ -61,7 +61,7 @@ const isAuthenticated = computed(() => authStore.isAuthenticated);
           </a>
 
           <div class="hidden md:flex items-center gap-4">
-            <Button v-if="isAuthenticated"
+            <Button v-if="isAuthenticated && !isAdminOrOrganizer"
               variant="ghost" 
               @click="navigateTo('/myactivities')"
               class="text-sm font-medium"

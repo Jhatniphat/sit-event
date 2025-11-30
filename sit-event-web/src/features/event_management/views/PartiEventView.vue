@@ -49,10 +49,12 @@ const eventsForEventCards = computed<EventItem[]>(() => {
   )
 })
 
+const objectUrlMap = new Map<string, string>()
+
 onMounted(async () => {
   isLoading.value = true
   try {
-    await eventStore.fetchAllEvents(currentPage.value, currentLimit.value)
+    await eventStore.fetchAllEvents(currentPage.value, 100) // ดึงข้อมูลทั้งหมดมาเลย
     console.log('isAuthenticated:' ,authStore.isAuthenticated)
     if (authStore.isAuthenticated) {
       await registerStore.fetchMyRegistrations()
@@ -119,22 +121,20 @@ const onConfirmRegistration = async (eventId: string, role: RegistrationRole) =>
   try {
     if (role === 'STAFF') {
       await registerStore.applyToBeStaff(eventId, { eventRole: 'STAFF' })
-      // ✅ 3. Success Toast สำหรับ Staff
       toast.success('สมัคร Staff สำเร็จ', {
-        description: 'ระบบได้รับคำขอสมัครเป็น Staff ของคุณแล้ว',
+        description: 'คุณได้สมัครเป็น Staff สำหรับกิจกรรมนี้แล้ว',
       })
     } else if (role === 'PARTICIPANT') {
       await registerStore.registerForEvent(eventId, { sessionId: '' })
-      // ✅ 4. Success Toast สำหรับ Participant
       toast.success('ลงทะเบียนสำเร็จ', {
         description: 'คุณได้ลงทะเบียนเข้าร่วมกิจกรรมเรียบร้อยแล้ว',
       })
     }
-  } catch (err: any) {
+  } catch (err: unknown) { 
     console.error(err)
-    // ✅ 5. Error Toast พร้อมสาเหตุ (ดึงจาก response.data.message หรือ message ปกติ)
+    const error = err as any
     const errorMessage =
-      err?.response?.data?.message || err?.message || 'เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ'
+      error?.response?.data?.message || error?.message || 'เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ'
     toast.error('การลงทะเบียนล้มเหลว', {
       description: errorMessage,
     })
@@ -158,22 +158,20 @@ const onConfirmUnregister = async () => {
   try {
     if (role === 'PARTICIPANT') {
       await registerStore.unregisterFromEvent(id)
-      // ✅ 6. Success Toast ยกเลิก Participant
       toast.success('ยกเลิกการลงทะเบียนสำเร็จ', {
         description: 'คุณได้ออกจากกิจกรรมนี้เรียบร้อยแล้ว',
       })
     } else if (role === 'STAFF') {
       await registerStore.deleteMyStaffStatus(id)
-      // ✅ 7. Success Toast ยกเลิก Staff
       toast.success('ยกเลิกสถานะ Staff สำเร็จ', {
         description: 'คำขอหรือสถานะ Staff ของคุณถูกลบแล้ว',
       })
     }
-  } catch (err: any) {
+  } catch (err: unknown) { // ✅ FIX: เปลี่ยน any เป็น unknown
     console.error(err)
-    // ✅ 8. Error Toast พร้อมสาเหตุ
+    const error = err as any
     const errorMessage =
-      err?.response?.data?.message || err?.message || 'เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ'
+      error?.response?.data?.message || error?.message || 'เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ'
     toast.error('การยกเลิกการลงทะเบียนล้มเหลว', {
       description: errorMessage,
     })
@@ -182,9 +180,6 @@ const onConfirmUnregister = async () => {
     unregisterTarget.value = null
   }
 }
-
-// --- Thumbnail Cache Logic ---
-const objectUrlMap = new Map<any, string>()
 
 onUnmounted(() => {
   for (const url of objectUrlMap.values()) {

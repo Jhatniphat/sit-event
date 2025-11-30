@@ -139,7 +139,6 @@ export const useAuthStore = defineStore('auth', () => {
   async function handleLogoutCallback() {
     try {
       // const response = await authService.handleAuthCallback(code);
-      await authService.logout();
       user.value = null;
       accessToken.value = null;
       refreshToken.value = null;

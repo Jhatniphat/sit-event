@@ -3,7 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useEventStore } from '@/features/event_management/store/EventStore'
 import BaseButton from '@/components/ui/button/BaseButton.vue'
-import { toast } from 'vue-sonner' // ✅ 1. Import Toast
+import { toast } from 'vue-sonner'
 
 const router = useRouter()
 const eventStore = useEventStore()
@@ -42,20 +42,16 @@ const confirmDelete = (id: string) => {
 const executeDelete = async () => {
   if (!eventToDeleteId.value) return
 
-  // ✅ 2. ใช้ toast.promise จัดการสถานะการลบ (Loading -> Success/Error)
   const deletePromise = eventStore.deleteEvent(eventToDeleteId.value)
 
   toast.promise(deletePromise, {
     loading: 'Deleting event...',
     success: () => {
-      // ทำงานเมื่อลบสำเร็จ
       showDeleteModal.value = false
       eventToDeleteId.value = null
       return 'Event deleted successfully'
     },
     error: (err: any) => {
-      // ทำงานเมื่อลบไม่สำเร็จ (Modal จะยังเปิดอยู่เผื่อ user อยากลองใหม่ หรือจะปิดก็ได้)
-      // ดึง Error message มาแสดง
       return err?.response?.data?.message || err?.message || 'Failed to delete event'
     }
   })
@@ -90,6 +86,12 @@ const getEventStatus = (start: string | Date, end: string | Date) => {
     return { label: 'Ended', class: 'bg-gray-100 text-gray-700 border-gray-200' }
   }
 }
+
+// Helper function to format Enums (e.g. INTERNAL_STUDENT -> Internal Student)
+const formatEnum = (value: string) => {
+  if (!value) return '-'
+  return value.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase())
+}
 </script>
 
 <template>
@@ -111,19 +113,20 @@ const getEventStatus = (start: string | Date, end: string | Date) => {
           <table class="w-full text-sm text-left">
             <thead class="bg-gray-50 border-b border-gray-200 text-gray-600 font-medium">
               <tr>
-                <th class="px-6 py-4">Event Name</th>
-                <th class="px-6 py-4">Date & Time</th>
-                <th class="px-6 py-4">Location</th>
+                <th class="px-6 py-4 w-[250px]">Event Name</th>
+                <th class="px-6 py-4 w-[220px]">Date & Time</th>
+                <th class="px-6 py-4">Target Audience</th>
+                <th class="px-6 py-4">Tags</th>
                 <th class="px-6 py-4">Status</th>
                 <th class="px-6 py-4 text-right">Actions</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
               <tr v-if="isLoading" class="animate-pulse">
-                <td colspan="5" class="px-6 py-8 text-center text-gray-500">Loading events...</td>
+                <td colspan="6" class="px-6 py-8 text-center text-gray-500">Loading events...</td>
               </tr>
               <tr v-else-if="events.length === 0">
-                <td colspan="5" class="px-6 py-8 text-center text-gray-500">No events found. Create one to get started.</td>
+                <td colspan="6" class="px-6 py-8 text-center text-gray-500">No events found. Create one to get started.</td>
               </tr>
               
               <tr 
@@ -132,15 +135,42 @@ const getEventStatus = (start: string | Date, end: string | Date) => {
                 class="hover:bg-gray-50/80 transition-colors"
               >
                 <td class="px-6 py-4 font-medium text-gray-900">
-                  {{ event.name }}
+                  <div class="truncate max-w-[200px]" :title="event.name">
+                    {{ event.name }}
+                  </div>
                 </td>
 
                 <td class="px-6 py-4 text-gray-600">
-                  {{ formatDateRange(event.eventStartDate, event.eventEndDate) }}
+                  <div class="flex flex-col">
+                    <span>{{ formatDateRange(event.eventStartDate, event.eventEndDate).split(' - ')[0] }}</span>
+                    <span class="text-xs text-gray-400">to {{ formatDateRange(event.eventStartDate, event.eventEndDate).split(' - ')[1] }}</span>
+                  </div>
                 </td>
 
                 <td class="px-6 py-4 text-gray-600">
-                  {{ (event as any).location || '-' }}
+                  <div class="flex flex-wrap gap-1">
+                    <span 
+                      v-for="aud in event.targetAudience" 
+                      :key="aud"
+                      class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-50 text-purple-700 border border-purple-100"
+                    >
+                      {{ formatEnum(aud) }}
+                    </span>
+                    <span v-if="!event.targetAudience?.length" class="text-gray-400">-</span>
+                  </div>
+                </td>
+
+                <td class="px-6 py-4 text-gray-600">
+                  <div class="flex flex-wrap gap-1">
+                     <span 
+                      v-for="tag in event.tags" 
+                      :key="tag"
+                      class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-50 text-orange-700 border border-orange-100"
+                    >
+                      {{ formatEnum(tag) }}
+                    </span>
+                    <span v-if="!event.tags?.length" class="text-gray-400">-</span>
+                  </div>
                 </td>
 
                 <td class="px-6 py-4">

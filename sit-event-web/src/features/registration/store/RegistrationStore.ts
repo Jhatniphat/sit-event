@@ -127,7 +127,13 @@ export const useRegistrationStore = defineStore('registration', {
       this.error = null
       try {
         await RegistrationService.unregisterFromEvent(eventId)
-        this.myRegistrations = this.myRegistrations.filter((r) => r.eventId !== eventId)
+        
+        // ✅ FIX: ใช้การตรวจสอบที่ครอบคลุม (Fallback ไปหา r.event.id หาก r.eventId ไม่มีค่า)
+        this.myRegistrations = this.myRegistrations.filter((r) => {
+           const registrationEventId = r.eventId ?? r.event?.id
+           return registrationEventId !== eventId
+        })
+        
       } catch (error) {
         this.error = handleError(error, 'Failed to unregister from event.')
         throw error
@@ -226,17 +232,18 @@ export const useRegistrationStore = defineStore('registration', {
     async applyToBeStaff(
       eventId: string,
       body: ApplyToBeStaffDto,
-    ): Promise<EventStaffApplication[]> {
+    ): Promise<StaffApplication> {
       this.isLoading = true
       this.error = null
       try {
-        const created = (await RegistrationService.applyToBeStaff(
-          eventId,
-          body,
-        )) as EventStaffApplication[]
+        // Cast ข้อมูลให้ตรงกับ Interface (สมมติว่า Service return มาถูกต้องแล้ว)
+        const created = (await RegistrationService.applyToBeStaff(eventId, body)) as unknown as StaffApplication
 
-        this.myStaffStatus = created
-
+        if (this.myStaffStatus) {
+          this.myStaffStatus.push(created)
+        } else {
+          this.myStaffStatus = [created]
+        }
         return created
       } catch (error) {
         this.error = handleError(error, 'Failed to apply to be staff.')
@@ -251,7 +258,13 @@ export const useRegistrationStore = defineStore('registration', {
       this.error = null
       try {
         await RegistrationService.deleteMyStaffStatus(eventId)
-        this.myStaffStatus = null
+        if (this.myStaffStatus) {
+          this.myStaffStatus = this.myStaffStatus.filter((s) => {
+             const appEventId = s.eventId ?? s.event?.id
+             return appEventId !== eventId
+          })
+        }
+
       } catch (error) {
         this.error = handleError(error, 'Failed to delete staff status.')
         throw error
