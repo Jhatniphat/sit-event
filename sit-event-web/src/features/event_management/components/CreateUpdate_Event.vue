@@ -327,7 +327,7 @@ const toDateTimeLocal = (date?: Date) => {
                         type="datetime-local" 
                         class="block w-full"
                         :value="toDateTimeLocal(field.value)"
-                        @change="(e) => handleChange(new Date((e.target as HTMLInputElement).value))"
+                        @change="(e:any) => handleChange(new Date((e.target as HTMLInputElement).value))"
                     />
                 </FormControl>
                 <FormMessage />
@@ -342,7 +342,7 @@ const toDateTimeLocal = (date?: Date) => {
                         type="datetime-local" 
                         class="block w-full"
                         :value="toDateTimeLocal(field.value)"
-                        @change="(e) => handleChange(new Date((e.target as HTMLInputElement).value))"
+                        @change="(e:any) => handleChange(new Date((e.target as HTMLInputElement).value))"
                     />
                 </FormControl>
                 <FormMessage />
@@ -357,7 +357,7 @@ const toDateTimeLocal = (date?: Date) => {
                         type="datetime-local" 
                         class="block w-full"
                         :value="toDateTimeLocal(field.value)"
-                        @change="(e) => handleChange(new Date((e.target as HTMLInputElement).value))"
+                        @change="(e:any) => handleChange(new Date((e.target as HTMLInputElement).value))"
                     />
                 </FormControl>
                 <FormMessage />
@@ -372,7 +372,7 @@ const toDateTimeLocal = (date?: Date) => {
                         type="datetime-local" 
                         class="block w-full"
                         :value="toDateTimeLocal(field.value)"
-                        @change="(e) => handleChange(new Date((e.target as HTMLInputElement).value))"
+                        @change="(e:any) => handleChange(new Date((e.target as HTMLInputElement).value))"
                     />
                 </FormControl>
                 <FormMessage />
