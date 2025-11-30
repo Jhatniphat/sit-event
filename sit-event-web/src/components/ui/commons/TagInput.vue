@@ -8,7 +8,7 @@ interface Props {
   choices: TagType[]
   label?: string
   placeholder?: string
-  required?: boolean // รับ prop required
+  required?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -32,9 +32,6 @@ const internalModel = computed({
   }
 })
 
-/**
- * Computed: กรองตัวเลือก
- */
 const filteredChoices = computed(() => {
   const searchLower = searchText.value.toLowerCase()
   
@@ -60,12 +57,6 @@ function removeTag(tag: TagType) {
   inputRef.value?.focus()
 }
 
-/**
- * จัดการการกดปุ่มบน keyboard
- */
-/**
- * จัดการการกดปุ่มบน keyboard
- */
 function handleKeydown(event: KeyboardEvent) {
   if (event.key === 'Backspace' && searchText.value === '') {
     event.preventDefault()
@@ -77,10 +68,8 @@ function handleKeydown(event: KeyboardEvent) {
 
   if (event.key === 'Enter') {
     event.preventDefault()
-    // ถ้า dropdown เปิดอยู่และมีตัวเลือก ให้เลือกตัวแรก
     if (isDropdownOpen.value && filteredChoices.value.length > 0) {
         const firstChoice = filteredChoices.value[0]
-        // ตรวจสอบว่า firstChoice ไม่ใช่ undefined ก่อนเรียก addTag
         if (firstChoice) {
             addTag(firstChoice)
         }
@@ -92,8 +81,29 @@ function openDropdown() {
   isDropdownOpen.value = true
 }
 
+/**
+ * แก้ไข: เพิ่ม Logic ตรวจสอบเมื่อ Blur (เสีย Focus)
+ */
 function closeDropdown() {
+  // ใช้ setTimeout เพื่อให้ event click (กรณี user คลิกเลือกจาก dropdown) ทำงานเสร็จก่อน
   setTimeout(() => {
+    const text = searchText.value.trim()
+
+    if (text) {
+      // หาตัวเลือกที่ตรงกัน (Case-insensitive) เช่นพิมพ์ "java" แต่ตัวเลือกเป็น "Java" ก็ให้เจอ
+      const matchedChoice = props.choices.find(
+        choice => choice.toLowerCase() === text.toLowerCase()
+      )
+
+      if (matchedChoice) {
+        // ถ้าเจอ Tag ที่ตรงกัน ให้เพิ่ม Tag นั้นเลย
+        addTag(matchedChoice)
+      } else {
+        // ถ้าไม่เจอ ให้เคลียร์ข้อความทิ้ง
+        searchText.value = ''
+      }
+    }
+
     isDropdownOpen.value = false
   }, 200)
 }
