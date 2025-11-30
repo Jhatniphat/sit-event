@@ -21,7 +21,6 @@ export interface EventItem {
   registrationEndDate: string | Date
   canRegisterAtStaff: boolean
   canRegisterAtParticipant: boolean
-  // เพิ่ม field นี้
   hasRegister: string // '' | 'PARTICIPANT' | 'STAFF'
 }
 
@@ -31,8 +30,8 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'register', payload: { id: string; canRegisterAtStaff: boolean; canRegisterAtParticipant: boolean }): void
-  // เพิ่ม event unregister
   (e: 'unregister', payload: { id: string; role: string }): void
+  (e: 'click', id: string): void
 }>()
 
 const daysRemaining = computed(() => {
@@ -47,9 +46,7 @@ const formattedDateRange = computed(() => {
   const end = new Date(props.event.eventEndDate)
   
   const options: Intl.DateTimeFormatOptions = { 
-    day: 'numeric', 
-    month: 'short', 
-    year: 'numeric' 
+    day: 'numeric', month: 'short', year: 'numeric' 
   }
   
   const startDateStr = start.toLocaleDateString('th-TH', options)
@@ -67,40 +64,20 @@ const truncatedDescription = computed(() => {
   return props.event.description.substring(0, limit) + '...'
 })
 
-// Logic สำหรับข้อความบนปุ่ม
 const buttonText = computed(() => {
-  // กรณีลงทะเบียนไปแล้ว (แสดงปุ่ม Unregister เสมอ ไม่ว่าจะหมดเวลาหรือไม่ หรือจะให้กดออกได้ตลอดก็แล้วแต่ Requirement แต่ปกติควรออกได้)
-  if (props.event.hasRegister) {
-    return 'ยกเลิกการลงทะเบียน'
-  }
-
-  if (daysRemaining.value <= 0) {
-    return 'ปิดรับสมัครแล้ว'
-  }
-  
-  if (props.event.canRegisterAtStaff || props.event.canRegisterAtParticipant) {
-    return 'ลงทะเบียนเข้าร่วม'
-  }
-  
+  if (props.event.hasRegister) return 'ยกเลิกการลงทะเบียน'
+  if (daysRemaining.value <= 0) return 'ปิดรับสมัครแล้ว'
+  if (props.event.canRegisterAtStaff || props.event.canRegisterAtParticipant) return 'ลงทะเบียนเข้าร่วม'
   return 'ไม่สามารถลงทะเบียนได้'
 })
 
-// Logic สำหรับสถานะ Disable ของปุ่ม
 const isButtonDisabled = computed(() => {
-  // ถ้าลงทะเบียนแล้ว ปุ่มไม่ Disable (เพื่อให้กดยกเลิกได้)
-  if (props.event.hasRegister) {
-    return false
-  }
-
-  // กรณีทั่วไป
+  if (props.event.hasRegister) return false
   return daysRemaining.value <= 0 || (!props.event.canRegisterAtStaff && !props.event.canRegisterAtParticipant)
 })
 
-// Logic สีปุ่ม
 const buttonVariant = computed(() => {
-  if (props.event.hasRegister) {
-    return 'destructive' // สีแดงสำหรับยกเลิก
-  }
+  if (props.event.hasRegister) return 'destructive'
   return 'default'
 })
 
@@ -121,18 +98,20 @@ const handleButtonClick = () => {
 </script>
 
 <template>
-  <Card class="w-full max-w-sm overflow-hidden flex flex-col h-full hover:shadow-lg transition-shadow duration-300">
-    <div class="relative w-full h-48">
+  <Card 
+    class="w-full max-w-sm overflow-hidden flex flex-col h-full hover:shadow-lg transition-shadow duration-300 cursor-pointer group"
+    @click="emit('click', event.id)"
+  >
+    <div class="relative w-full h-48 overflow-hidden">
       <img 
         :src="event.thumbnail" 
         :alt="event.name" 
-        :class="['w-full h-full object-cover transition-transform duration-300', { 'hover:scale-105': !event.hasRegister }]"
+        class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
       />
       <div class="absolute top-2 right-2 flex flex-col gap-1 items-end">
          <Badge v-if="event.hasRegister" class="bg-green-600 hover:bg-green-700">
           ลงทะเบียนแล้ว ({{ event.hasRegister }})
         </Badge>
-
         <Badge 
           v-else-if="daysRemaining > 0" 
           :variant="daysRemaining <= 3 ? 'destructive' : 'secondary'"
@@ -146,7 +125,7 @@ const handleButtonClick = () => {
     </div>
 
     <CardHeader class="pb-2">
-      <CardTitle class="text-xl font-bold line-clamp-1" :title="event.name">
+      <CardTitle class="text-xl font-bold line-clamp-1 group-hover:text-primary transition-colors" :title="event.name">
         {{ event.name }}
       </CardTitle>
       
@@ -157,7 +136,7 @@ const handleButtonClick = () => {
     </CardHeader>
 
     <CardContent class="flex-grow">
-      <p class="text-sm text-gray-600 dark:text-gray-300">
+      <p class="text-sm text-gray-600 dark:text-gray-300 line-clamp-3">
         {{ truncatedDescription }}
       </p>
     </CardContent>
@@ -167,7 +146,7 @@ const handleButtonClick = () => {
         class="w-full" 
         :variant="buttonVariant"
         :disabled="isButtonDisabled"
-        @click="handleButtonClick"
+        @click.stop="handleButtonClick"
       >
         {{ buttonText }}
       </Button>

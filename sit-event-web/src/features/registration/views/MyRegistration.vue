@@ -10,7 +10,7 @@ const registerStore = useRegistrationStore()
 const myBookRegis = computed(() => registerStore.myRegistrations ?? [])
 const myStaffRegis = computed(() => registerStore.myStaffStatus ?? [])
 const returnToHomePage = () => {
-  router.push('/event/Listing')
+  router.push({ name: 'Home' })
 }
 
 type regisType = 'Book' | 'Staff'

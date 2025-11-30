@@ -2,7 +2,8 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useEventStore } from '@/features/event_management/store/EventStore'
-import BaseButton from '@/components/ui/button/BaseButton.vue' // ใช้ Button เดิมที่มี
+import BaseButton from '@/components/ui/button/BaseButton.vue'
+import { toast } from 'vue-sonner' // ✅ 1. Import Toast
 
 const router = useRouter()
 const eventStore = useEventStore()
@@ -17,21 +18,20 @@ const isLoading = computed(() => eventStore.isLoadingList)
 
 // --- Hooks ---
 onMounted(() => {
-  // ดึงข้อมูล Event ทั้งหมด (Pagination: page 1, limit 100 เพื่อแสดงทั้งหมดในตัวอย่าง)
   eventStore.fetchAllEvents(1, 100)
 })
 
 // --- Actions ---
 const handleCreate = () => {
-  router.push('/admin/events/create')
+  router.push({ name: 'CreateEvent' }) 
 }
 
 const handleView = (id: string) => {
-  router.push(`/admin/events/detail/${id}`)
+  router.push({ name: 'EventDetail', params: { id } })
 }
 
 const handleEdit = (id: string) => {
-  router.push(`/admin/events/edit/${id}`)
+  router.push({ name: 'EditEvent', params: { id } })
 }
 
 const confirmDelete = (id: string) => {
@@ -40,11 +40,25 @@ const confirmDelete = (id: string) => {
 }
 
 const executeDelete = async () => {
-  if (eventToDeleteId.value) {
-    await eventStore.deleteEvent(eventToDeleteId.value)
-    showDeleteModal.value = false
-    eventToDeleteId.value = null
-  }
+  if (!eventToDeleteId.value) return
+
+  // ✅ 2. ใช้ toast.promise จัดการสถานะการลบ (Loading -> Success/Error)
+  const deletePromise = eventStore.deleteEvent(eventToDeleteId.value)
+
+  toast.promise(deletePromise, {
+    loading: 'Deleting event...',
+    success: () => {
+      // ทำงานเมื่อลบสำเร็จ
+      showDeleteModal.value = false
+      eventToDeleteId.value = null
+      return 'Event deleted successfully'
+    },
+    error: (err: any) => {
+      // ทำงานเมื่อลบไม่สำเร็จ (Modal จะยังเปิดอยู่เผื่อ user อยากลองใหม่ หรือจะปิดก็ได้)
+      // ดึง Error message มาแสดง
+      return err?.response?.data?.message || err?.message || 'Failed to delete event'
+    }
+  })
 }
 
 const cancelDelete = () => {
@@ -60,9 +74,7 @@ const formatDateRange = (start: string | Date, end: string | Date) => {
     day: 'numeric', month: 'short', year: 'numeric', 
     hour: '2-digit', minute: '2-digit' 
   }
-  // format: 12 Jan 2025, 09:00 - 16:00 (ถ้าวันเดียวกัน) หรือแสดงเต็มถ้าคนละวัน
-  // เพื่อความง่ายแสดงแบบสั้นๆ: Start - End
-  return `${s.toLocaleDateString('th-TH', options)} - ${e.toLocaleDateString('th-TH', options)}`
+  return `${s.toLocaleDateString('en-US', options)} - ${e.toLocaleDateString('en-US', options)}`
 }
 
 const getEventStatus = (start: string | Date, end: string | Date) => {
@@ -198,5 +210,4 @@ const getEventStatus = (start: string | Date, end: string | Date) => {
 </template>
 
 <style scoped>
-/* Add any specific overrides here if needed */
 </style>

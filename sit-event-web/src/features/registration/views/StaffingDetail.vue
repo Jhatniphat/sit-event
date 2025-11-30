@@ -15,7 +15,7 @@ const modalSuccess = ref(false)
 const event = eventStore.currentEvent
 
 const returnToHomePage = () => {
-  router.push('/event/Listing')
+  router.push({ name: 'Home' })
 }
 
 const confirmRegisterStaff = async () => {

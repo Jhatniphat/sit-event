@@ -3,9 +3,11 @@ import { computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/features/auth/stores/auth.store' // path ไปยัง store ของคุณ
 import QrcodeVue from 'qrcode.vue'
+import { toast } from 'vue-sonner'
 
 // เรียกใช้ Hooks
 const route = useRoute()
+const router = useRouter()
 const authStore = useAuthStore()
 
 // 1. ดึง Event ID จาก Route Params
@@ -22,8 +24,8 @@ const qrCodeValue = computed(() => {
 // (Optional) ตรวจสอบว่าถ้าไม่มี user ให้เด้งไปหน้า login หรือหน้าอื่น
 onMounted(() => {
   if (!authStore.isAuthenticated) {
-    alert('กรุณาเข้าสู่ระบบก่อน')
-    // router.push('/login') 
+    toast.error('กรุณาเข้าสู่ระบบก่อน')
+    router.push({ name: 'Login' }) // เปลี่ยนเป็นชื่อ route ของหน้า login ของคุณ
   }
 })
 </script>

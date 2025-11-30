@@ -13,15 +13,17 @@ import RegistrationDialog, {
   type RegistrationRole,
 } from '@/features/registration/components/RegistrationDialog.vue'
 import { useAuthStore } from '@/features/auth/stores/auth.store'
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
   DialogDescription,
-  DialogFooter 
+  DialogFooter,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import UnregistrationDialog from '@/features/registration/components/UnregistrationDialog.vue'
+import { toast } from 'vue-sonner'
 
 const eventStore = useEventStore()
 const events = computed(() => eventStore.events)
@@ -39,10 +41,10 @@ const isLoading = ref(false)
 const eventsForEventCards = computed<EventItem[]>(() => {
   return events.value.map((evt) =>
     mapEventToEventItem(
-        evt, 
-        userRole.value, 
-        registerStore.myRegistrations, 
-        registerStore.myStaffStatus || [] // ใส่ fallback empty array
+      evt,
+      userRole.value,
+      registerStore.myRegistrations,
+      registerStore.myStaffStatus || [], // ใส่ fallback empty array
     ),
   )
 })
@@ -51,12 +53,16 @@ onMounted(async () => {
   isLoading.value = true
   try {
     await eventStore.fetchAllEvents(currentPage.value, currentLimit.value)
+    console.log('isAuthenticated:' ,authStore.isAuthenticated)
     if (authStore.isAuthenticated) {
-        await registerStore.fetchMyRegistrations()
-        await registerStore.fetchMyStaffStatus()
+      await registerStore.fetchMyRegistrations()
+      await registerStore.fetchMyStaffStatus()
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching data:', error)
+    toast.error('เกิดข้อผิดพลาดในการโหลดข้อมูล', {
+      description: error?.response?.data?.message || error?.message || 'กรุณาลองใหม่อีกครั้ง',
+    })
   } finally {
     isLoading.value = false
   }
@@ -64,21 +70,21 @@ onMounted(async () => {
 
 // --- Hero Slider Data ---
 const heroSlides = ref<HeroSlide[]>([
-  {
+    {
     id: 1,
-    title: 'Empowering Students',
-    description: "Enhance students' potential in the digital era.",
-    buttonText: 'Learn More',
-    eventStartDate: '2025-01-15T09:00:00Z',
-    logos: ['https://www.sit.kmutt.ac.th/wp-content/uploads/2024/11/1-1024x238.png'],
-  },
-  {
-    id: 2,
     title: 'SIT Hackathon 2025',
     description: 'Join us for 48 hours of innovation and coding.',
     buttonText: 'Register Now',
     eventStartDate: '2025-03-20T18:00:00Z',
     bgImage: 'https://www.sit.kmutt.ac.th/wp-content/uploads/2023/06/ZBT_2239-scaled.jpg',
+  },
+  {
+    id: 2,
+    title: 'Empowering Students',
+    description: "Enhance students' potential in the digital era.",
+    buttonText: 'Learn More',
+    eventStartDate: '2025-01-15T09:00:00Z',
+    logos: ['https://www.sit.kmutt.ac.th/wp-content/uploads/2024/11/1-1024x238.png'],
   },
   {
     id: 3,
@@ -89,14 +95,20 @@ const heroSlides = ref<HeroSlide[]>([
   },
 ])
 
+// --- Navigation ---
+// ✅ ฟังก์ชันสำหรับ Redirect ไปหน้า Detail
+const handleCardClick = (id: string) => {
+  router.push({ name: 'EventDetail', params: { id } })
+}
+
 // --- Registration Logic ---
 const isRegisDialogOpen = ref(false)
 const currentRegistrationPayload = ref<RegisterPayload | null>(null)
 
 const handleRegister = (payload: RegisterPayload) => {
   if (!authStore.isAuthenticated) {
-     router.push('/login')
-     return
+    toast.error('กรุณาเข้าสู่ระบบก่อน')
+    return
   }
   currentRegistrationPayload.value = payload
   isRegisDialogOpen.value = true
@@ -106,44 +118,69 @@ const onConfirmRegistration = async (eventId: string, role: RegistrationRole) =>
   if (role === null) return
   try {
     if (role === 'STAFF') {
-        await registerStore.applyToBeStaff(eventId, { eventRole: 'STAFF' })
+      await registerStore.applyToBeStaff(eventId, { eventRole: 'STAFF' })
+      // ✅ 3. Success Toast สำหรับ Staff
+      toast.success('สมัคร Staff สำเร็จ', {
+        description: 'ระบบได้รับคำขอสมัครเป็น Staff ของคุณแล้ว',
+      })
     } else if (role === 'PARTICIPANT') {
-        await registerStore.registerForEvent(eventId, { sessionId: '' })
+      await registerStore.registerForEvent(eventId, { sessionId: '' })
+      // ✅ 4. Success Toast สำหรับ Participant
+      toast.success('ลงทะเบียนสำเร็จ', {
+        description: 'คุณได้ลงทะเบียนเข้าร่วมกิจกรรมเรียบร้อยแล้ว',
+      })
     }
-    // Refresh data logic is handled by reactivity (store updates -> computed updates)
-  } catch (err) {
+  } catch (err: any) {
     console.error(err)
-    alert("การลงทะเบียนล้มเหลว")
+    // ✅ 5. Error Toast พร้อมสาเหตุ (ดึงจาก response.data.message หรือ message ปกติ)
+    const errorMessage =
+      err?.response?.data?.message || err?.message || 'เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ'
+    toast.error('การลงทะเบียนล้มเหลว', {
+      description: errorMessage,
+    })
   }
   isRegisDialogOpen.value = false
 }
 
 // --- Unregistration Logic ---
 const isUnregisDialogOpen = ref(false)
-const unregisterTarget = ref<{ id: string, role: string } | null>(null)
+const unregisterTarget = ref<{ id: string; role: string } | null>(null)
 
 const handleUnregister = (payload: { id: string; role: string }) => {
-    unregisterTarget.value = payload
-    isUnregisDialogOpen.value = true
+  unregisterTarget.value = payload
+  isUnregisDialogOpen.value = true
 }
 
 const onConfirmUnregister = async () => {
-    if (!unregisterTarget.value) return
-    const { id, role } = unregisterTarget.value
-    
-    try {
-        if (role === 'PARTICIPANT') {
-            await registerStore.unregisterFromEvent(id)
-        } else if (role === 'STAFF') {
-            await registerStore.deleteMyStaffStatus(id)
-        }
-    } catch (err) {
-        console.error(err)
-        alert("การยกเลิกการลงทะเบียนล้มเหลว")
-    } finally {
-        isUnregisDialogOpen.value = false
-        unregisterTarget.value = null
+  if (!unregisterTarget.value) return
+  const { id, role } = unregisterTarget.value
+
+  try {
+    if (role === 'PARTICIPANT') {
+      await registerStore.unregisterFromEvent(id)
+      // ✅ 6. Success Toast ยกเลิก Participant
+      toast.success('ยกเลิกการลงทะเบียนสำเร็จ', {
+        description: 'คุณได้ออกจากกิจกรรมนี้เรียบร้อยแล้ว',
+      })
+    } else if (role === 'STAFF') {
+      await registerStore.deleteMyStaffStatus(id)
+      // ✅ 7. Success Toast ยกเลิก Staff
+      toast.success('ยกเลิกสถานะ Staff สำเร็จ', {
+        description: 'คำขอหรือสถานะ Staff ของคุณถูกลบแล้ว',
+      })
     }
+  } catch (err: any) {
+    console.error(err)
+    // ✅ 8. Error Toast พร้อมสาเหตุ
+    const errorMessage =
+      err?.response?.data?.message || err?.message || 'เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ'
+    toast.error('การยกเลิกการลงทะเบียนล้มเหลว', {
+      description: errorMessage,
+    })
+  } finally {
+    isUnregisDialogOpen.value = false
+    unregisterTarget.value = null
+  }
 }
 
 // --- Thumbnail Cache Logic ---
@@ -153,7 +190,9 @@ onUnmounted(() => {
   for (const url of objectUrlMap.values()) {
     try {
       URL.revokeObjectURL(url)
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
   objectUrlMap.clear()
 })
@@ -171,10 +210,11 @@ onUnmounted(() => {
             :key="event.id"
             class="w-full lg:w-1/3 px-4 mb-8"
           >
-            <EventCard 
-                :event="event" 
-                @register="handleRegister" 
-                @unregister="handleUnregister"
+            <EventCard
+              :event="event"
+              @register="handleRegister"
+              @unregister="handleUnregister"
+              @click="handleCardClick"
             />
           </div>
         </div>
@@ -186,7 +226,7 @@ onUnmounted(() => {
         @confirm="onConfirmRegistration"
       />
 
-      <Dialog :open="isUnregisDialogOpen" @update:open="(val) => isUnregisDialogOpen = val">
+      <!-- <Dialog :open="isUnregisDialogOpen" @update:open="(val) => isUnregisDialogOpen = val">
         <DialogContent>
             <DialogHeader>
                 <DialogTitle>ยืนยันการยกเลิก</DialogTitle>
@@ -201,11 +241,15 @@ onUnmounted(() => {
                 <Button variant="destructive" @click="onConfirmUnregister">ยืนยันการยกเลิก</Button>
             </DialogFooter>
         </DialogContent>
-      </Dialog>
+      </Dialog> -->
 
+      <UnregistrationDialog
+        v-model:open="isUnregisDialogOpen"
+        :targetRole="unregisterTarget?.role"
+        @confirm="onConfirmUnregister"
+      />
     </div>
   </div>
 </template>
 
-<style scoped>
-</style>
+<style scoped></style>

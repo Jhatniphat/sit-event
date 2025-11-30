@@ -1,295 +1,264 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useEventStore } from '../store/EventStore'
 import { useRegistrationStore } from '@/features/registration/store/RegistrationStore'
-import Modal from '@/components/ui/commons/ModalBox.vue'
-import BaseButton from '@/components/ui/button/BaseButton.vue'
-const eventStore = useEventStore()
-const regisStore = useRegistrationStore()
+import { useAuthStore } from '@/features/auth/stores/auth.store'
+import { mapEventToEventItem } from '../mappers/eventMapper'
+import { toast } from 'vue-sonner'
+
+// UI Components
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Calendar, Clock, MapPin, Tag } from 'lucide-vue-next'
+import RegistrationDialog, {
+  type RegisterPayload,
+  type RegistrationRole,
+} from '@/features/registration/components/RegistrationDialog.vue'
+import UnregistrationDialog from '@/features/registration/components/UnregistrationDialog.vue'
 
 const route = useRoute()
 const router = useRouter()
-const event = computed(() => eventStore.currentEvent)
-const myRegis = computed(() => regisStore.myRegistrations)
-const isBooked = computed(() => {
-  if (!event.value) return false
-  return myRegis.value.some((reg) => reg.eventId === event.value?.id)
-})
+const eventId = route.params.id as string
 
-const isBookedByStaff = computed(() => {
-  if (!event.value) return false
-  return !!regisStore.myStaffStatus?.some((s) => s.eventId === event.value?.id)
-})
-const wasStaff = ref(false)
-const modalUnregis = ref(false)
-const modalUnregisSuccess = ref(false)
+const eventStore = useEventStore()
+const authStore = useAuthStore()
+const registerStore = useRegistrationStore()
+
+const isLoading = ref(true)
 
 onMounted(async () => {
-  const id = route.params.id
-  console.log('Event Detail Mounted with ID:', id)
-  // fetch ข้อมูลจาก backend
-  await eventStore.fetchEventById(id as string)
-  await regisStore.fetchMyRegistrations()
+  isLoading.value = true
+  try {
+    // โหลดข้อมูล Event
+    await eventStore.fetchEventById(eventId)
+
+    // โหลดสถานะการลงทะเบียนของผู้ใช้ (ถ้า login)
+    if (authStore.isAuthenticated) {
+      await registerStore.fetchMyRegistrations()
+      await registerStore.fetchMyStaffStatus()
+    }
+  } catch (error) {
+    console.error(error)
+    toast.error('ไม่พบข้อมูลกิจกรรม')
+    router.push('/')
+  } finally {
+    isLoading.value = false
+  }
 })
 
-const returnToHomePage = () => {
-  router.push('/event/Listing')
-}
+// แปลงข้อมูล Event ให้มี status การลงทะเบียน (hasRegister)
+const eventItem = computed(() => {
+  if (!eventStore.currentEvent) return null
+  return mapEventToEventItem(
+    eventStore.currentEvent,
+    authStore.user?.userRole,
+    registerStore.myRegistrations,
+    registerStore.myStaffStatus || [],
+  )
+})
 
-const goToBooking = () => {
-  console.log('Navigating to booking page for event ID:', event.value?.id)
-  router.push(`/event/${event.value?.id}/register`)
-}
-const goToApplyStaff = () => {
-  router.push(`/event/${event.value?.id}/register/staff`)
-}
-
-const unregisMe = async () => {
-  if (!event.value) return
-  // เก็บค่าว่าก่อน unregister เป็น staff หรือไม่
-  wasStaff.value = isBookedByStaff.value
-  if (isBooked.value) {
-    await regisStore.unregisterFromEvent(event.value.id)
-  } else if (isBookedByStaff.value) {
-    await regisStore.deleteMyStaffStatus(event.value.id)
-  }
-  modalUnregis.value = false
-  if (regisStore.error == null) {
-    modalUnregisSuccess.value = true
-  }
-}
-
-const returnToDetail = () => {
-  modalUnregis.value = false
-}
-
-function formatDateTime(dateString: string | undefined) {
-  if (!dateString) return ''
-  const date = new Date(dateString)
-
-  const options: Intl.DateTimeFormatOptions = {
-    day: '2-digit',
+// --- Formatter Helpers ---
+const formatDate = (dateStr: string | Date) => {
+  if (!dateStr) return '-'
+  return new Date(dateStr).toLocaleDateString('th-TH', {
+    day: 'numeric',
     month: 'long',
     year: 'numeric',
-  }
-
-  const datePart = date?.toLocaleDateString('en-GB', options)
-
-  const hours = date?.getHours()
-  const minutes = date?.getMinutes().toString().padStart(2, '0')
-  const ampm = hours >= 12 ? 'PM' : 'AM'
-  const hour12 = hours % 12 || 12
-
-  return `${datePart} - ${hour12}:${minutes} ${ampm}`
-}
-
-const imageObjectUrls = new Map<number, string>()
-
-function getImageSrc(img: unknown, index: number) {
-  if (!img) return ''
-  if (typeof img === 'string') return img
-  // treat as File/Blob
-  if (imageObjectUrls.has(index)) return imageObjectUrls.get(index)!
-  try {
-    const url = URL.createObjectURL(img as Blob)
-    imageObjectUrls.set(index, url)
-    return url
-  } catch {
-    return ''
-  }
-}
-
-onUnmounted(() => {
-  imageObjectUrls.forEach((url) => {
-    try {
-      URL.revokeObjectURL(url)
-    } catch {
-      // ignore
-    }
+    hour: '2-digit',
+    minute: '2-digit',
   })
-  imageObjectUrls.clear()
+}
+
+// --- Action Button Logic ---
+const isButtonDisabled = computed(() => {
+  if (!eventItem.value) return true
+  // ถ้ายกเลิกได้ (ลงทะเบียนแล้ว) ให้ไม่ disable
+  if (eventItem.value.hasRegister) return false
+
+  const now = new Date().getTime()
+  const regEnd = new Date(eventItem.value.registrationEndDate).getTime()
+
+  // ถ้ายังไม่ลงทะเบียน แต่หมดเวลา หรือ ไม่มีสิทธิ์ลง
+  return (
+    now > regEnd ||
+    (!eventItem.value.canRegisterAtStaff && !eventItem.value.canRegisterAtParticipant)
+  )
 })
+
+const buttonText = computed(() => {
+  if (!eventItem.value) return 'Loading...'
+  if (eventItem.value.hasRegister) return 'ยกเลิกการลงทะเบียน'
+
+  const now = new Date().getTime()
+  const regEnd = new Date(eventItem.value.registrationEndDate).getTime()
+  if (now > regEnd) return 'ปิดรับสมัครแล้ว'
+
+  return 'ลงทะเบียนเข้าร่วม'
+})
+
+// --- Registration / Unregistration Dialogs ---
+const isRegisDialogOpen = ref(false)
+const isUnregisDialogOpen = ref(false)
+const currentPayload = ref<RegisterPayload | null>(null)
+const unregisterRole = ref('')
+
+const handleActionClick = () => {
+  if (!eventItem.value) return
+
+  if (!authStore.isAuthenticated) {
+    router.push('/login')
+    return
+  }
+
+  // กรณีลงทะเบียนแล้ว -> เปิด Unregister Dialog
+  if (eventItem.value.hasRegister) {
+    unregisterRole.value = eventItem.value.hasRegister
+    isUnregisDialogOpen.value = true
+  }
+  // กรณีจอง -> เปิด Register Dialog
+  else {
+    currentPayload.value = {
+      id: eventItem.value.id,
+      canRegisterAtStaff: eventItem.value.canRegisterAtStaff,
+      canRegisterAtParticipant: eventItem.value.canRegisterAtParticipant,
+    }
+    isRegisDialogOpen.value = true
+  }
+}
+
+// Confirm Register
+const onConfirmRegister = async (eid: string, role: RegistrationRole) => {
+  if (!role) return
+  try {
+    if (role === 'STAFF') {
+      await registerStore.applyToBeStaff(eid, { eventRole: 'STAFF' })
+      toast.success('สมัคร Staff สำเร็จ')
+    } else {
+      await registerStore.registerForEvent(eid, { sessionId: '' })
+      toast.success('ลงทะเบียนสำเร็จ')
+    }
+  } catch (err: any) {
+    toast.error('ลงทะเบียนไม่สำเร็จ', {
+      description: err?.response?.data?.message || err.message,
+    })
+  }
+  isRegisDialogOpen.value = false
+}
+
+// Confirm Unregister
+const onConfirmUnregister = async () => {
+  if (!eventItem.value) return
+  try {
+    if (unregisterRole.value === 'PARTICIPANT') {
+      await registerStore.unregisterFromEvent(eventItem.value.id)
+      toast.success('ยกเลิกการลงทะเบียนสำเร็จ')
+    } else if (unregisterRole.value === 'STAFF') {
+      await registerStore.deleteMyStaffStatus(eventItem.value.id)
+      toast.success('ยกเลิกสถานะ Staff สำเร็จ')
+    }
+  } catch (err: any) {
+    toast.error('ยกเลิกไม่สำเร็จ', {
+      description: err?.response?.data?.message || err.message,
+    })
+  } finally {
+    isUnregisDialogOpen.value = false
+  }
+}
 </script>
 
 <template>
-  <div></div>
-  <!-- <div class="flex flex-col h-screen overflow-hidden">
+  <div class="min-h-screen bg-gray-50/30 pb-10">
+    <div v-if="isLoading" class="container mx-auto p-6 space-y-4 text-center">
+      <p>Loading event details...</p>
+    </div>
 
-    <div class="flex-1 overflow-y-auto">
-
-      <div class="flex flex-row justify-between p-4 mb-2 items-center">
+    <div v-else-if="eventItem" class="container mx-auto p-4 md:p-8 max-w-5xl">
+      <div
+        class="w-full h-[300px] md:h-[400px] rounded-xl overflow-hidden shadow-md mb-8 bg-gray-200"
+      >
         <img
-          @click="returnToHomePage"
-          src="../../../assets/icons/back_arrow.svg"
-          alt="backToHome"
+          v-if="eventItem.thumbnail"
+          :src="eventItem.thumbnail"
+          alt="Event Cover"
+          class="w-full h-full object-cover"
         />
-        <div class="text-lg font-bold">Event Details</div>
-        <div class="w-4"></div>
       </div>
 
-      <div v-for="(imgUrl, index) in event?.images" :key="index" class="w-full bg-slate-500">
-        <img :src="getImageSrc(imgUrl, index)" class="w-full object-contain" />
-      </div>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div class="md:col-span-2 space-y-6">
+          <div>
+            <h1 class="text-3xl font-bold text-gray-900 mb-2">{{ eventItem.name }}</h1>
+            <div class="flex flex-wrap gap-2 mb-4">
+              <Badge variant="secondary" class="text-xs">SIT Event</Badge>
+            </div>
+          </div>
 
-
-      <div class="p-4">
-        <div class="font-bold text-2xl my-2">{{ event?.name }}</div>
-        <div class="mt-3 mb-5 whitespace-pre-line">
-          {{ event?.description }}
+          <div class="prose max-w-none text-gray-700">
+            <h3 class="text-xl font-semibold text-gray-900 mb-2">รายละเอียดกิจกรรม</h3>
+            <p class="whitespace-pre-line">{{ eventItem.description }}</p>
+          </div>
         </div>
-        <div class="h-4"></div>
-        <div class="mb-3 font-semibold">Event Details</div>
-        <div class="flex flex-row gap-2 justify-between w-full">
-          <div class="w-full">
-            <hr />
-            <div class="flex flex-row mt-3 w-full items-center gap-2">
-              <div>
-                <img
-                  src="../../../assets/icons/time_calendar_icon.svg"
-                  alt="timeCalendar"
-                  class="w-4 h-4"
-                />
-              </div>
-              <div>Date & Time</div>
+
+        <div class="space-y-6">
+          <div class="bg-white p-6 rounded-xl border shadow-sm space-y-6 sticky top-4">
+            <div class="space-y-4">
+              <Button
+                class="w-full text-lg h-12"
+                :variant="eventItem.hasRegister ? 'destructive' : 'default'"
+                :disabled="isButtonDisabled"
+                @click="handleActionClick"
+              >
+                {{ buttonText }}
+              </Button>
+              <p
+                v-if="eventItem.hasRegister"
+                class="text-center text-sm text-green-600 font-medium"
+              >
+                คุณลงทะเบียนในฐานะ {{ eventItem.hasRegister }} แล้ว
+              </p>
             </div>
-            <div class="h-4"></div>
-            <div class="flex flex-row gap-2">
-              <div class="flex flex-col">
-                <div class="text-slate-500 text-sm">Open Register :</div>
-                <div class="font-semibold">
-                  {{ formatDateTime(event?.registrationOpenDate) }}
+
+            <hr />
+
+            <div class="space-y-4 text-sm">
+              <div class="flex items-start gap-3">
+                <Calendar class="w-5 h-5 text-primary mt-0.5" />
+                <div>
+                  <p class="font-semibold">วันจัดกิจกรรม</p>
+                  <p class="text-gray-600">เริ่ม: {{ formatDate(eventItem.eventStartDate) }}</p>
+                  <p class="text-gray-600">สิ้นสุด: {{ formatDate(eventItem.eventEndDate) }}</p>
                 </div>
               </div>
-              <div class="flex flex-col">
-                <div class="text-slate-500 text-sm">Close Register :</div>
-                <div class="font-semibold">
-                  {{ formatDateTime(event?.registrationEndDate) }}
+
+              <div class="flex items-start gap-3">
+                <Clock class="w-5 h-5 text-primary mt-0.5" />
+                <div>
+                  <p class="font-semibold">ช่วงเวลารับสมัคร</p>
+                  <p class="text-gray-600">
+                    เริ่ม: {{ formatDate(eventStore.currentEvent?.registrationOpenDate || '') }}
+                  </p>
+                  <p class="text-gray-600">
+                    สิ้นสุด: {{ formatDate(eventItem.registrationEndDate) }}
+                  </p>
                 </div>
               </div>
             </div>
-            <div class="h-5"></div>
-            <div class="flex flex-row gap-2">
-              <div class="flex flex-col">
-                <div class="text-sm text-slate-500">Event Start :</div>
-                <div class="font-semibold">
-                  {{ formatDateTime(event?.registrationOpenDate) }}
-                </div>
-              </div>
-              <div class="flex flex-col">
-                <div class="text-sm text-slate-500">Event End :</div>
-                <div class="font-semibold">{{ formatDateTime(event?.registrationEndDate) }}</div>
-              </div>
-            </div>
-            <div class="h-4"></div>
-            <hr />
-            <div class="flex flex-row mt-3 w-full items-center gap-1">
-              <div>
-                <img
-                  src="../../../assets/icons/location_icon.svg"
-                  alt="timeCalendar"
-                  class="w-6 h-6"
-                />
-              </div>
-              <div>Location</div>
-            </div>
-            <div class="h-3"></div>
-            <div class="font-semibold">LX12-4</div>
-            <div class="h-4"></div>
-            <hr />
-            <div class="flex flex-row mt-3 w-full items-center gap-1">
-              <div>
-                <img src="../../../assets/icons/tags_icon.svg" alt="timeCalendar" class="w-6 h-6" />
-              </div>
-              <div>Tags</div>
-            </div>
-            <div class="h-3"></div>
-            <div v-for="(tag, index) in event?.tags" :key="index">
-              <div class="bg-slate-100 rounded-4xl px-3 py-1 inline-block text-sm mb-2 mr-2">
-                {{ tag }}
-              </div>
-            </div>
-            <div class="h-4"></div>
-            <hr />
           </div>
         </div>
       </div>
     </div>
 
-    <div
-      class="py-4 px-3 h-20 justify-center bg-white shadow-[0_-4px_10px_rgba(0,0,0,0.08)] rounded-t-lg"
-    >
-      <div v-if="!isBooked && !isBookedByStaff" class="flex flex-row gap-2">
-        <div class="flex-6">
-          <button
-            @click="goToBooking"
-            class="w-full bg-blue-500 hover:bg-blue-600 rounded-sm px-3 py-2 text-white"
-          >
-            Register Now
-          </button>
-        </div>
-        <div class="flex-4">
-          <button
-            @click="goToApplyStaff"
-            class="w-full rounded-sm px-3 py-2 text-black border border-slate-300 hover:bg-slate-100"
-          >
-            Apply as Staff
-          </button>
-        </div>
-      </div>
+    <RegistrationDialog
+      v-model:open="isRegisDialogOpen"
+      :payload="currentPayload"
+      @confirm="onConfirmRegister"
+    />
 
-      <div v-else>
-        <button
-          @click="modalUnregis = true"
-          class="w-full text-black border border-slate-300 hover:bg-slate-100 rounded-sm px-3 py-2"
-        >
-          {{ isBookedByStaff ? 'Unregistered as Staff' : 'Unregistered' }}
-        </button>
-      </div>
-    </div>
-
-
-    <Modal v-model="modalUnregis">
-      <div class="flex flex-row justify-center">
-        <img src="../../../assets/icons/alert_icon.svg" alt="Suscess Icon" class="w-24 h-24 my-4" />
-      </div>
-      <div class="flex flex-row justify-center text-center">
-        <div class="flex flex-col">
-          <h2 class="font-bold text-xl mt-4 mb-2">Are you sure you want to proceed?</h2>
-          <h2 class="text-sm text-slate-500 font-semibold mb-6">
-            {{
-              isBookedByStaff
-                ? `If you unregister, you will lose your staff role for "${event?.name}".`
-                : `If you unregister, you will lose your right to participate in "${event?.name}".`
-            }}
-          </h2>
-        </div>
-      </div>
-
-      <div class="flex gap-3 justify-center my-4">
-        <BaseButton @click="returnToDetail" color="grey" label="Cancel" class="w-full" />
-        <BaseButton @click="unregisMe" color="red" label="Unregister" class="w-full" />
-      </div>
-    </Modal>
-
-    <Modal v-model="modalUnregisSuccess">
-      <div class="flex flex-row justify-center">
-        <img
-          src="../../../assets/icons/success_icon.svg"
-          alt="Suscess Icon"
-          class="w-24 h-24 my-4"
-        />
-      </div>
-      <div class="flex flex-row justify-center text-center">
-        <div class="text-lg font-semibold my-4">
-          <h2>Successfully unregistered{{ wasStaff ? ' as staff' : '' }} for</h2>
-          <h2 class="font-bold">"{{ event?.name }}"</h2>
-        </div>
-      </div>
-
-      <div class="flex justify-center my-4">
-        <BaseButton @click="returnToHomePage" color="blue" label="Close" class="w-full" />
-      </div>
-    </Modal>
-  </div> -->
+    <UnregistrationDialog
+      v-model:open="isUnregisDialogOpen"
+      :targetRole="unregisterRole"
+      @confirm="onConfirmUnregister"
+    />
+  </div>
 </template>

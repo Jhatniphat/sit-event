@@ -69,10 +69,10 @@ export const useAuthStore = defineStore('auth', () => {
       accessToken.value = sessionResponse.session?.accessToken || null;
       refreshToken.value = sessionResponse.session?.refreshToken || null;
       
-      router.push('/');
+      router.push({ name: 'Home' });
     } catch (error) {
       console.error('Login callback failed:', error);
-      router.push('/');
+      router.push({ name: 'Home' });
     }
   }
 
@@ -144,10 +144,10 @@ export const useAuthStore = defineStore('auth', () => {
       accessToken.value = null;
       refreshToken.value = null;
 
-      router.push('/');
+      router.push({ name: 'Home' });
     } catch (error) {
       console.error('Login callback failed:', error);
-      router.push('/');
+      router.push({ name: 'Home' });
     }
   }
 
