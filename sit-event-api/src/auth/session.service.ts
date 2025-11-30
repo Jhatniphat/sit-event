@@ -1,8 +1,9 @@
-import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { Injectable, Logger, UnauthorizedException, Inject, forwardRef } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createClient, RedisClientType } from 'redis';
 import { v4 as uuidv4 } from 'uuid';
 import * as crypto from 'crypto';
+import { AuthService } from './auth.service';
 
 export interface SessionData {
   sessionId: string;
@@ -18,6 +19,7 @@ export interface SessionData {
   tokenType: string;
   createdAt: Date;
   expiresAt: Date;
+  tokenCreatedAt: Date; // Track when access token was issued
 }
 
 export interface CookieSession {
@@ -32,7 +34,11 @@ export class SessionService {
   private readonly sessionTTL = 24 * 60 * 60; // 24 hours in seconds
   private readonly sessionSecret: string;
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(
+    private readonly configService: ConfigService,
+    @Inject(forwardRef(() => AuthService))
+    private readonly authService: AuthService,
+  ) {
     this.sessionSecret = this.configService.get('SESSION_SECRET') || 'default-session-secret-change-me';
     this.initializeRedis();
   }
@@ -94,6 +100,7 @@ export class SessionService {
         tokenType: tokens.token_type,
         createdAt: new Date(),
         expiresAt,
+        tokenCreatedAt: new Date(), // Track when access token was issued
       };
 
       // Store session data in Redis with TTL
@@ -172,7 +179,10 @@ export class SessionService {
         throw new UnauthorizedException('Session not found or expired');
       }
 
-      return sessionData;
+      // Check if access token is expired and refresh if needed
+      const refreshedSession = await this.refreshAccessTokenIfNeeded(sessionData);
+      
+      return refreshedSession;
     } catch (error) {
       this.logger.error('Session validation failed:', error);
       if (error instanceof UnauthorizedException) {
@@ -237,6 +247,8 @@ export class SessionService {
       sessionData.refreshToken = tokens.refresh_token;
       sessionData.expiresIn = tokens.expires_in;
       sessionData.tokenType = tokens.token_type;
+      sessionData.tokenCreatedAt = new Date(); // Update token creation timestamp
+      sessionData.createdAt = new Date()
 
       // Save updated session
       const sessionKey = `session:${sessionId}`;
@@ -249,6 +261,62 @@ export class SessionService {
       this.logger.log(`Session tokens updated: ${sessionId}`);
     } catch (error) {
       this.logger.error('Failed to update session tokens:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Check if access token is expired and refresh if needed
+   */
+  async refreshAccessTokenIfNeeded(sessionData: SessionData): Promise<SessionData> {
+    try {
+      // Calculate token expiration time
+      const tokenCreatedAt = new Date(sessionData.tokenCreatedAt).getTime();
+      const tokenExpiresAt = tokenCreatedAt + (sessionData.expiresIn * 1000);
+      const now = Date.now();
+      const bufferTime = 5 * 60 * 1000; // Refresh 5 minutes before expiry
+
+      // Check if token needs refresh
+      if (now >= tokenExpiresAt - bufferTime) {
+        this.logger.log(
+          `Access token expired or expiring soon for user: ${sessionData.email}, refreshing...`
+        );
+
+        try {
+          // Call AuthService to refresh token using refresh_token
+          const newTokens = await this.authService.refreshAccessToken(
+            sessionData.refreshToken
+          );
+
+          // Update session with new tokens
+          await this.updateSessionTokens(sessionData.sessionId, newTokens);
+
+          // Return updated session
+          const updatedSession = await this.getSession(sessionData.sessionId);
+          if (!updatedSession) {
+            throw new Error('Failed to retrieve updated session');
+          }
+
+          this.logger.log(
+            `Access token refreshed successfully for user: ${sessionData.email}`
+          );
+          return updatedSession;
+        } catch (refreshError) {
+          this.logger.error(
+            `Failed to refresh access token for user ${sessionData.email}:`,
+            refreshError
+          );
+          // If refresh fails, throw unauthorized error to force re-login
+          throw new UnauthorizedException(
+            'Failed to refresh access token. Please log in again.'
+          );
+        }
+      }
+
+      // Token is still valid, return as is
+      return sessionData;
+    } catch (error) {
+      this.logger.error('Error in refreshAccessTokenIfNeeded:', error);
       throw error;
     }
   }
