@@ -172,38 +172,71 @@ export class AuthService {
     const existingUser = await this.usersService.findByEmail(keycloakUser.email);
     
     if (existingUser) {
-      // Update existing user but preserve their current role
-      this.logger.log(`Updating existing user: ${keycloakUser.email}, preserving role: ${existingUser.userRole}`);
+      // For existing users, get their roles from Keycloak
+      this.logger.log(`Updating existing user: ${keycloakUser.email}`);
       
-      // Ensure the user's role is synced to Keycloak
       try {
-        await this.keycloakAdminService.assignRoleToUser(keycloakUser.sub, existingUser.userRole);
-        this.logger.log(`Synced role ${existingUser.userRole} to Keycloak for existing user: ${keycloakUser.email}`);
+        // Get roles from Keycloak
+        const keycloakRoles = await this.keycloakAdminService.getUserRoles(keycloakUser.sub);
+        const mappedRoles = this.keycloakAdminService.mapKeycloakRolesToEnum(keycloakRoles);
+        
+        // If user has roles in Keycloak, sync them to database
+        if (mappedRoles.length > 0) {
+          this.logger.log(`Syncing ${mappedRoles.length} roles from Keycloak to database for user: ${keycloakUser.email}`);
+          
+          const user = await this.usersService.updateUser(existingUser.id, {
+            firstName: keycloakUser.given_name,
+            lastName: keycloakUser.family_name,
+            email: keycloakUser.email,
+            userRole: mappedRoles, // Update roles from Keycloak
+          });
+          
+          return { user, isNewUser: false };
+        } else {
+          // No roles in Keycloak, preserve existing database roles and sync them to Keycloak
+          this.logger.log(`No roles found in Keycloak, syncing database roles to Keycloak for user: ${keycloakUser.email}`);
+          
+          if (existingUser.userRole && existingUser.userRole.length > 0) {
+            await this.keycloakAdminService.assignRolesToUser(
+              keycloakUser.sub, 
+              existingUser.userRole as string[]
+            );
+          }
+          
+          const user = await this.usersService.updateUser(existingUser.id, {
+            firstName: keycloakUser.given_name,
+            lastName: keycloakUser.family_name,
+            email: keycloakUser.email,
+          });
+          
+          return { user, isNewUser: false };
+        }
       } catch (error) {
-        this.logger.error(`Failed to sync role to Keycloak for user ${keycloakUser.email}: ${error.message}`);
+        this.logger.error(`Failed to sync roles for user ${keycloakUser.email}: ${error.message}`);
+        
+        // Fallback: just update basic user info
+        const user = await this.usersService.updateUser(existingUser.id, {
+          firstName: keycloakUser.given_name,
+          lastName: keycloakUser.family_name,
+          email: keycloakUser.email,
+        });
+        
+        return { user, isNewUser: false };
       }
-      
-      const user = await this.usersService.updateUser(existingUser.id, {
-        firstName: keycloakUser.given_name,
-        lastName: keycloakUser.family_name,
-        email: keycloakUser.email,
-        // Do not update userRole - preserve existing role
-      });
-      
-      return { user, isNewUser: false };
     } else {
-      // Determine user role based on email domain only for new users
-      const userRole = this.determineUserRole(keycloakUser.email);
-      this.logger.log(`Creating new user: ${keycloakUser.email} with role: ${userRole}`);
+      // For new users, determine initial role based on email domain
+      const initialRole = this.determineUserRole(keycloakUser.email);
+      this.logger.log(`Creating new user: ${keycloakUser.email} with initial role: ${initialRole}`);
       
-      await this.keycloakAdminService.assignRoleToUser(keycloakUser.sub, userRole);
+      // Assign initial role to Keycloak
+      await this.keycloakAdminService.assignRoleToUser(keycloakUser.sub, initialRole);
 
-      // Create new user
+      // Create new user with initial role as array
       const user = await this.usersService.createUser({
         email: keycloakUser.email,
         firstName: keycloakUser.given_name,
         lastName: keycloakUser.family_name,
-        userRole: userRole,
+        userRole: [initialRole], // Store as array
       });
       
       return { user, isNewUser: true };

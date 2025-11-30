@@ -9,5 +9,5 @@ export class CreateUserDto {
   school?: string;
   province?: string;
   dietaryRequirements?: string;
-  userRole?: UserRole;
+  userRole?: UserRole[];
 }
