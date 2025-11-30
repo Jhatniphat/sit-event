@@ -224,7 +224,7 @@ export class AuthService {
     }
   }
 
-  private async refreshAccessToken(refreshToken: string): Promise<any> {
+  async refreshAccessToken(refreshToken: string): Promise<any> {
     const authServerUrl = this.configService.get('KC_AUTH_SERVER_URL');
     const realm = this.configService.get('KC_REALM');
     const clientId = this.configService.get('KC_CLIENT_ID');
