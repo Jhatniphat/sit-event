@@ -60,7 +60,7 @@ const isAuthenticated = computed(() => authStore.isAuthenticated);
             SIT Event
           </a>
 
-          <div class="hidden md:flex items-center gap-4">
+          <div class="hidden md:flex items-center gap-4 text-gray-800">
             <Button v-if="isAuthenticated && !isAdminOrOrganizer"
               variant="ghost" 
               @click="navigateTo('/myactivities')"
@@ -92,7 +92,7 @@ const isAuthenticated = computed(() => authStore.isAuthenticated);
 
         <div class="flex items-center gap-2">
           
-          <div v-if="authStore.isAuthenticated" class="flex items-center">
+          <div v-if="authStore.isAuthenticated" class="flex items-center text-gray-800">
             <DropdownMenu>
               <DropdownMenuTrigger as-child>
                 <Button variant="ghost" class="flex items-center gap-2 px-2 hover:bg-slate-100 rounded-full h-auto py-1">
@@ -151,10 +151,10 @@ const isAuthenticated = computed(() => authStore.isAuthenticated);
            <Button class="w-full" @click="handleLogin">Login</Button>
         </div>
 
-        <Button 
+        <Button v-if="isAuthenticated && !isAdminOrOrganizer"
           variant="ghost" 
           class="w-full justify-start text-base" 
-          @click="navigateTo('/my-booking')"
+          @click="navigateTo('/myactivities')"
         >
           My Booking
         </Button>

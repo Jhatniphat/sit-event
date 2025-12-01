@@ -68,14 +68,14 @@ export const useRegistrationStore = defineStore('registration', {
     // เช็คว่า user ลงทะเบียน event นี้หรือยัง
     isRegistered:
       (state) =>
-      (eventId: string): boolean =>
-        state.myRegistrations.some((r) => r.eventId === eventId),
+        (eventId: string): boolean =>
+          state.myRegistrations.some((r) => r.eventId === eventId),
 
     // ดึง registration ของ eventId นั้นๆ
     getRegistrationByEventId:
       (state) =>
-      (eventId: string): EventRegistration | undefined =>
-        state.myRegistrations.find((r) => r.eventId === eventId),
+        (eventId: string): EventRegistration | undefined =>
+          state.myRegistrations.find((r) => r.eventId === eventId),
 
     // isStaffAccepted: (state) => state.myStaffStatus?.status === 'ACCEPTED',
     // isStaffRefused: (state) => state.myStaffStatus?.status === 'REFUSED',
@@ -104,13 +104,15 @@ export const useRegistrationStore = defineStore('registration', {
     async registerForEvent(
       eventId: string,
       payload?: RegisterForEventDto,
-    ): Promise<EventRegistration> {
+    ): Promise<EventRegistration | void> { // เปลี่ยน Return type นิดหน่อย
       this.isLoading = true
       this.error = null
       try {
-        const registration = await RegistrationService.registerForEvent(eventId, payload)
-        this.myRegistrations.push(registration)
-        return registration
+        // 1. ยิง API ลงทะเบียนตามปกติ
+        await RegistrationService.registerForEvent(eventId, payload)
+        // 2. ดึงข้อมูลการลงทะเบียนของฉันใหม่อีกครั้ง เพื่ออัปเดต state
+        await this.fetchMyRegistrations()
+
       } catch (error) {
         this.error = handleError(error, 'Failed to register for event.')
         throw error
@@ -118,7 +120,6 @@ export const useRegistrationStore = defineStore('registration', {
         this.isLoading = false
       }
     },
-
     /**
      * Unregister
      */
@@ -127,13 +128,13 @@ export const useRegistrationStore = defineStore('registration', {
       this.error = null
       try {
         await RegistrationService.unregisterFromEvent(eventId)
-        
+
         // ✅ FIX: ใช้การตรวจสอบที่ครอบคลุม (Fallback ไปหา r.event.id หาก r.eventId ไม่มีค่า)
         this.myRegistrations = this.myRegistrations.filter((r) => {
-           const registrationEventId = r.eventId ?? r.event?.id
-           return registrationEventId !== eventId
+          const registrationEventId = r.eventId ?? r.event?.id
+          return registrationEventId !== eventId
         })
-        
+
       } catch (error) {
         this.error = handleError(error, 'Failed to unregister from event.')
         throw error
@@ -232,19 +233,18 @@ export const useRegistrationStore = defineStore('registration', {
     async applyToBeStaff(
       eventId: string,
       body: ApplyToBeStaffDto,
-    ): Promise<StaffApplication> {
+    ): Promise<StaffApplication | void> {
       this.isLoading = true
       this.error = null
       try {
-        // Cast ข้อมูลให้ตรงกับ Interface (สมมติว่า Service return มาถูกต้องแล้ว)
-        const created = (await RegistrationService.applyToBeStaff(eventId, body)) as unknown as StaffApplication
+        await RegistrationService.applyToBeStaff(eventId, body)
 
-        if (this.myStaffStatus) {
-          this.myStaffStatus.push(created)
-        } else {
-          this.myStaffStatus = [created]
-        }
-        return created
+        // ลบการ push แบบเดิมออก
+        // if (this.myStaffStatus) { ... }
+
+        // สั่งโหลดข้อมูล Staff ใหม่ทั้งหมด
+        await this.fetchMyStaffStatus()
+
       } catch (error) {
         this.error = handleError(error, 'Failed to apply to be staff.')
         throw error
@@ -260,8 +260,8 @@ export const useRegistrationStore = defineStore('registration', {
         await RegistrationService.deleteMyStaffStatus(eventId)
         if (this.myStaffStatus) {
           this.myStaffStatus = this.myStaffStatus.filter((s) => {
-             const appEventId = s.eventId ?? s.event?.id
-             return appEventId !== eventId
+            const appEventId = s.eventId ?? s.event?.id
+            return appEventId !== eventId
           })
         }
 

@@ -98,7 +98,6 @@ const heroSlides = ref<HeroSlide[]>([
 ])
 
 // --- Navigation ---
-// ✅ ฟังก์ชันสำหรับ Redirect ไปหน้า Detail
 const handleCardClick = (id: string) => {
   router.push({ name: 'EventDetail', params: { id } })
 }
@@ -167,7 +166,7 @@ const onConfirmUnregister = async () => {
         description: 'คำขอหรือสถานะ Staff ของคุณถูกลบแล้ว',
       })
     }
-  } catch (err: unknown) { // ✅ FIX: เปลี่ยน any เป็น unknown
+  } catch (err: unknown) {
     console.error(err)
     const error = err as any
     const errorMessage =

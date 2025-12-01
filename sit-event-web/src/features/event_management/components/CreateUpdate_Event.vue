@@ -283,7 +283,7 @@ const toDateTimeLocal = (date?: Date) => {
 
       <form @submit="onSubmit" class="space-y-8">
         
-        <div class="space-y-4">
+        <div class="space-y-4 text-gray-800">
           <h2 class="text-lg font-semibold text-gray-800">General Information</h2>
           
           <FormField v-slot="{ componentField }" name="name">
@@ -318,7 +318,7 @@ const toDateTimeLocal = (date?: Date) => {
         <div class="space-y-4">
           <h2 class="text-lg font-semibold text-gray-800">Schedule & Registration</h2>
           
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-gray-800">
             <FormField v-slot="{ field, handleChange }" name="eventStartDate">
               <FormItem>
                 <FormLabel>Event Start <span class="text-destructive">*</span></FormLabel>
@@ -458,7 +458,7 @@ const toDateTimeLocal = (date?: Date) => {
           </FormField>
         </div>
 
-        <div class="flex justify-end gap-4 pt-4 border-t border-gray-100">
+        <div class="flex justify-end gap-4 pt-4 border-t border-gray-100 text-gray-800">
           <Button type="button" variant="outline" @click="onCancel">
             Cancel
           </Button>
