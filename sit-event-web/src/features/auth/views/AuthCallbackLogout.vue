@@ -17,13 +17,11 @@ onMounted(async () => {
     // 2. ล้างข้อมูลที่ค้างอยู่ใน Registration Store (กลับไปเป็นค่าเริ่มต้น)
     registrationStore.$reset()
     
-    console.log('Cleared Registration Store data')
   } catch (error) {
     console.error('Logout process error:', error)
   } finally {
     // 3. เปลี่ยนหน้าไปที่ Home
     router.replace({ path: '/' })
-    console.log('Auth Callback Logout Mounted')
   }
 })
 </script>

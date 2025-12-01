@@ -165,7 +165,6 @@ router.beforeEach((to, from, next) => {
   // 1. Check if route requires authentication
   if (requiresAuth) {
     // 2. If user is not authenticated, redirect to Login
-    console.log('Route requires auth. User authenticated:', authStore.isAuthenticated)
     if (!authStore.isAuthenticated) {
       authStore.loginRedirect()
       return
@@ -175,7 +174,6 @@ router.beforeEach((to, from, next) => {
     if (requiredRoles && requiredRoles.length > 0) {
       const userRoleUpper = userRole?.toUpperCase()
       const requiredRolesUpper = requiredRoles.map((r) => r.toUpperCase())
-      console.log('User role:', userRoleUpper, 'Required roles:', requiredRolesUpper)
       if (userRoleUpper && requiredRolesUpper.includes(userRoleUpper)) {
         return next()
       } else {

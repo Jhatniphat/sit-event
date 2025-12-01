@@ -36,8 +36,6 @@ const errorMsg = ref('')
  */
 const parseQRData = (content: string): ScannedUser | null => {
   const parts = content.split('_')
-
-  console.log('Parsed QR Parts:', parts)
   
   // ตรวจสอบความถูกต้องเบื้องต้น
   if (parts.length !== 4) {
@@ -78,10 +76,7 @@ const onDetect = (detectedCodes: DetectedBarcode[]) => {
         return
       }
 
-      // 2. Console log object
-      console.log('Scanned Object:', parsedObj)
-
-      // 3. อัปเดต State และเปิด Popup
+      // 2. อัปเดต State และเปิด Popup
       scannedData.value = parsedObj
       isPaused.value = true // หยุดการอ่านซ้ำ
       showModal.value = true
@@ -94,13 +89,9 @@ const onDetect = (detectedCodes: DetectedBarcode[]) => {
  * เรียกเมื่อกดปุ่ม ยืนยัน หรือ ไม่ใช่
  */
 const processCheckIn = async (confirmed: boolean) => {
-  console.log(`Action Triggered. Confirmed: ${confirmed}`)
   
   if (confirmed && scannedData.value) {
-    // TODO: ใส่ Logic เรียก API ไปยัง NestJS ที่นี่
-    // เช่น await axios.post('/api/checkin', { ...scannedData.value })
     await useRegistrationStore().checkInUser(scannedData.value.eventId, scannedData.value.userId)
-    console.log('Sending data to Backend...')
   } else {
     console.log('Cancelled check-in')
   }

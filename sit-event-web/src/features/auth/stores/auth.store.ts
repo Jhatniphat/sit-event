@@ -20,9 +20,6 @@ export const useAuthStore = defineStore('auth', () => {
 
   // --- GETTERS ---
   const isAuthenticated = computed(() => {
-    console.log('Checking if user is authenticated...', !!user.value && !!accessToken.value);
-    console.log('User:', user.value);
-    console.log('Access Token:', accessToken.value);
     return !!user.value && !!accessToken.value
   });
   const userFullName = computed(() => {
@@ -37,9 +34,7 @@ export const useAuthStore = defineStore('auth', () => {
    * (A) เริ่มกระบวนการ Login
    */
   async function startLogin() {
-    console.log('Starting login process...');
     if (isAuthenticated.value) {
-      console.log('User is already authenticated, skipping login redirect.');
       return;
     }
     try {
@@ -83,8 +78,6 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       const response = await authService.checkSession();
       if (response.valid && response.session && response.session.accessToken) {
-
-        console.log('Restoring session for user');
 
         user.value = {
           id: response.session.userId,

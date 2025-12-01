@@ -15,7 +15,7 @@ onMounted(async () => {
   try {
     await authStore.checkSession()
   } catch (error) {
-    console.error('Session check failed:', error)
+    console.error('Error during session check:', error)
   } finally {
     setTimeout(() => {
       isAppLoading.value = false

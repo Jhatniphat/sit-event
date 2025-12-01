@@ -55,7 +55,6 @@ onMounted(async () => {
   isLoading.value = true
   try {
     await eventStore.fetchAllEvents(currentPage.value, 100) // ดึงข้อมูลทั้งหมดมาเลย
-    console.log('isAuthenticated:' ,authStore.isAuthenticated)
     if (authStore.isAuthenticated) {
       await registerStore.fetchMyRegistrations()
       await registerStore.fetchMyStaffStatus()
