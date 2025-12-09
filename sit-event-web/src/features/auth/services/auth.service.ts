@@ -94,7 +94,6 @@ class AuthService {
       }
       
       const loginUrl = response.loginUrl;
-      console.log('✅ Success! Login URL:', loginUrl);
       
       window.location.href = loginUrl;
 
@@ -146,7 +145,6 @@ class AuthService {
       }
       
       const logoutUrl = response.logoutUrl;
-      console.log('✅ Success! logout URL:', logoutUrl);
       
       window.location.href = logoutUrl;
 

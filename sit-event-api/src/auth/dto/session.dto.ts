@@ -11,6 +11,7 @@ export class SessionResponseDto {
   tokenType: string;
   createdAt: Date;
   expiresAt: Date;
+  tokenCreatedAt: Date;
 }
 
 export class LoginCallbackResponseDto {

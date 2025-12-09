@@ -1,9 +1,9 @@
 {
   "openapi": "3.0.0",
   "info": {
-    "title": "Event Management API (Demo)",
-    "description": "API documentation for the event management system, generated for demo purposes.",
-    "version": "1.0"
+    "title": "Event Management API",
+    "description": "Complete API documentation for the event management system with authentication, events, registrations, and staff management.",
+    "version": "1.0.0"
   },
   "servers": [
     {
@@ -13,30 +13,305 @@
   ],
   "tags": [
     {
+      "name": "Authentication",
+      "description": "Authentication endpoints with Keycloak integration and session management."
+    },
+    {
       "name": "Events",
-      "description": "Core endpoints for managing events."
+      "description": "Core endpoints for managing events with file upload support."
     },
     {
       "name": "Event Registrations",
-      "description": "Endpoints for user event registration and check-ins."
+      "description": "Endpoints for user event registration, check-ins, and attendance management."
     },
     {
       "name": "Event Staff",
       "description": "Endpoints for applying and managing event staff."
+    },
+    {
+      "name": "Users",
+      "description": "User management endpoints."
     }
   ],
   "paths": {
+    "/auth/login": {
+      "get": {
+        "tags": ["Authentication"],
+        "summary": "Redirect to Keycloak login page",
+        "description": "Redirects the user to the Keycloak login page for authentication.",
+        "responses": {
+          "302": { "description": "Redirect to Keycloak login" },
+          "500": { "description": "Internal server error" }
+        }
+      }
+    },
+    "/auth/login-url": {
+      "get": {
+        "tags": ["Authentication"],
+        "summary": "Get Keycloak login URL",
+        "description": "Returns the Keycloak login URL without redirecting.",
+        "responses": {
+          "200": {
+            "description": "Login URL generated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "loginUrl": { "type": "string" },
+                    "message": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/callback": {
+      "get": {
+        "tags": ["Authentication"],
+        "summary": "OAuth callback endpoint",
+        "description": "Handles the OAuth callback from Keycloak and creates a session.",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Authorization code from Keycloak"
+          },
+          {
+            "name": "error",
+            "in": "query",
+            "schema": { "type": "string" },
+            "description": "Error from Keycloak if authentication failed"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authentication successful",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/LoginCallbackResponse" }
+              }
+            }
+          },
+          "400": { "description": "Bad request - missing authorization code" },
+          "500": { "description": "Internal server error" }
+        }
+      }
+    },
+    "/auth/session": {
+      "get": {
+        "tags": ["Authentication"],
+        "summary": "Validate current session",
+        "description": "Validates the current session cookie and returns session information.",
+        "responses": {
+          "200": {
+            "description": "Session is valid",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SessionValidationResponse" }
+              }
+            }
+          },
+          "401": { "description": "Invalid or expired session" }
+        }
+      }
+    },
+    "/auth/logout": {
+      "get": {
+        "tags": ["Authentication"],
+        "summary": "Logout and redirect to Keycloak",
+        "description": "Logs out the user, clears the session, and redirects to Keycloak logout.",
+        "responses": {
+          "302": { "description": "Redirect to Keycloak logout" },
+          "500": { "description": "Internal server error" }
+        }
+      }
+    },
+    "/auth/logout-url": {
+      "get": {
+        "tags": ["Authentication"],
+        "summary": "Get Keycloak logout URL",
+        "description": "Returns the Keycloak logout URL without logging out.",
+        "responses": {
+          "200": {
+            "description": "Logout URL generated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "logoutUrl": { "type": "string" },
+                    "message": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/me": {
+      "get": {
+        "tags": ["Authentication"],
+        "summary": "Get current authenticated user",
+        "description": "Returns information about the currently authenticated user.",
+        "security": [{ "JWT-auth": [] }],
+        "responses": {
+          "200": {
+            "description": "Current user information",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "user": { "$ref": "#/components/schemas/CurrentUser" },
+                    "message": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/users": {
+      "post": {
+        "tags": ["Users"],
+        "summary": "Create a new user",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateUserDto" }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "User created successfully" },
+          "400": { "description": "Bad request" }
+        }
+      },
+      "get": {
+        "tags": ["Users"],
+        "summary": "Get all users",
+        "security": [{ "JWT-auth": [] }],
+        "responses": {
+          "200": { "description": "List of all users" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/users/{id}": {
+      "get": {
+        "tags": ["Users"],
+        "summary": "Get user by ID",
+        "security": [{ "JWT-auth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "User details" },
+          "404": { "description": "User not found" }
+        }
+      },
+      "patch": {
+        "tags": ["Users"],
+        "summary": "Update user by ID",
+        "security": [{ "JWT-auth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpdateUserDto" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "User updated" },
+          "404": { "description": "User not found" }
+        }
+      },
+      "delete": {
+        "tags": ["Users"],
+        "summary": "Delete user by ID",
+        "security": [{ "JWT-auth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "User deleted" },
+          "404": { "description": "User not found" }
+        }
+      }
+    },
     "/events": {
       "post": {
         "tags": ["Events"],
         "summary": "Create a new event (Admin/Organizer only)",
+        "description": "Creates a new event with optional file uploads for thumbnail and images.",
         "security": [{ "JWT-auth": [] }],
         "requestBody": {
-          "description": "Data for new event",
           "required": true,
           "content": {
-            "application/json": {
-              "schema": { "$ref": "#/components/schemas/CreateEventDto" }
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "description": { "type": "string" },
+                  "thumbnail": { "type": "string", "format": "binary" },
+                  "images": {
+                    "type": "array",
+                    "items": { "type": "string", "format": "binary" },
+                    "maxItems": 5
+                  },
+                  "registrationOpenDate": { "type": "string", "format": "date-time" },
+                  "registrationEndDate": { "type": "string", "format": "date-time" },
+                  "eventStartDate": { "type": "string", "format": "date-time" },
+                  "eventEndDate": { "type": "string", "format": "date-time" },
+                  "targetAudience": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": ["EXTERNAL_STUDENT", "INTERNAL_STUDENT", "TEACHER", "PUBLIC"]
+                    }
+                  },
+                  "tags": {
+                    "type": "array",
+                    "items": { "type": "string" }
+                  },
+                  "allowOnSiteRegister": { "type": "boolean" },
+                  "activityHours": { "type": "integer" },
+                  "invitation": { "type": "string" },
+                  "website": { "type": "string", "format": "uri" },
+                  "needWifi": { "type": "boolean" },
+                  "certificateCriteria": { "type": "string" }
+                },
+                "required": ["name", "description", "registrationOpenDate", "registrationEndDate", "eventStartDate", "eventEndDate", "targetAudience", "tags"]
+              }
             }
           }
         },
@@ -49,6 +324,7 @@
       "get": {
         "tags": ["Events"],
         "summary": "Get all events (Public)",
+        "description": "Returns a paginated list of all events.",
         "parameters": [
           {
             "name": "page",
@@ -88,6 +364,7 @@
       "patch": {
         "tags": ["Events"],
         "summary": "Update an event (Admin/Organizer only)",
+        "description": "Updates an existing event with optional file uploads.",
         "security": [{ "JWT-auth": [] }],
         "parameters": [
           {
@@ -98,11 +375,43 @@
           }
         ],
         "requestBody": {
-          "description": "Data to update",
           "required": true,
           "content": {
-            "application/json": {
-              "schema": { "$ref": "#/components/schemas/UpdateEventDto" }
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "description": { "type": "string" },
+                  "thumbnail": { "type": "string", "format": "binary" },
+                  "images": {
+                    "type": "array",
+                    "items": { "type": "string", "format": "binary" },
+                    "maxItems": 5
+                  },
+                  "registrationOpenDate": { "type": "string", "format": "date-time" },
+                  "registrationEndDate": { "type": "string", "format": "date-time" },
+                  "eventStartDate": { "type": "string", "format": "date-time" },
+                  "eventEndDate": { "type": "string", "format": "date-time" },
+                  "targetAudience": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": ["EXTERNAL_STUDENT", "INTERNAL_STUDENT", "TEACHER", "PUBLIC"]
+                    }
+                  },
+                  "tags": {
+                    "type": "array",
+                    "items": { "type": "string" }
+                  },
+                  "allowOnSiteRegister": { "type": "boolean" },
+                  "activityHours": { "type": "integer" },
+                  "invitation": { "type": "string" },
+                  "website": { "type": "string", "format": "uri" },
+                  "needWifi": { "type": "boolean" },
+                  "certificateCriteria": { "type": "string" }
+                }
+              }
             }
           }
         },
@@ -143,7 +452,9 @@
           }
         ],
         "responses": {
-          "201": { "description": "Registered successfully" }
+          "201": { "description": "Registered successfully" },
+          "400": { "description": "Bad request" },
+          "401": { "description": "Unauthorized" }
         }
       }
     },
@@ -161,7 +472,21 @@
           }
         ],
         "responses": {
-          "204": { "description": "Unregistered successfully" }
+          "204": { "description": "Unregistered successfully" },
+          "401": { "description": "Unauthorized" },
+          "404": { "description": "Registration not found" }
+        }
+      }
+    },
+    "/events/registrations/me": {
+      "get": {
+        "tags": ["Event Registrations"],
+        "summary": "Get my event registrations",
+        "description": "Returns all event registrations for the current user.",
+        "security": [{ "JWT-auth": [] }],
+        "responses": {
+          "200": { "description": "List of user's registrations" },
+          "401": { "description": "Unauthorized" }
         }
       }
     },
@@ -179,14 +504,17 @@
           }
         ],
         "responses": {
-          "204": { "description": "Registration canceled" }
+          "204": { "description": "Registration canceled" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Registration not found" }
         }
       }
     },
     "/events/{eventId}/registrations/{registrationId}": {
       "patch": {
         "tags": ["Event Registrations"],
-        "summary": "Change attended status (Check-in) by Registration ID",
+        "summary": "Change attended status (Check-in) by Registration ID (Admin only)",
         "security": [{ "JWT-auth": [] }],
         "parameters": [
           {
@@ -203,7 +531,10 @@
           }
         ],
         "responses": {
-          "200": { "description": "Status updated" }
+          "200": { "description": "Status updated" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Registration not found" }
         }
       }
     },
@@ -227,7 +558,36 @@
           }
         ],
         "responses": {
-          "200": { "description": "Status updated" }
+          "200": { "description": "Status updated" },
+          "401": { "description": "Unauthorized" },
+          "404": { "description": "User or registration not found" }
+        }
+      }
+    },
+    "/events/{eventId}/check-in/{userId}": {
+      "patch": {
+        "tags": ["Event Registrations"],
+        "summary": "Check-in user to event",
+        "description": "Marks a user as attended for an event.",
+        "security": [{ "JWT-auth": [] }],
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "User checked in successfully" },
+          "401": { "description": "Unauthorized" },
+          "404": { "description": "User or registration not found" }
         }
       }
     },
@@ -253,28 +613,26 @@
           }
         },
         "responses": {
-          "201": { "description": "Application submitted, status PENDING" }
+          "201": { "description": "Application submitted, status PENDING" },
+          "400": { "description": "Bad request" },
+          "401": { "description": "Unauthorized" }
         }
       }
     },
     "/events/staffs/status/me": {
       "get": {
         "tags": ["Event Staff"],
-        "summary": "Get my staff application status for an event",
+        "summary": "Get my staff application status",
+        "description": "Returns all staff applications for the current user.",
         "security": [{ "JWT-auth": [] }],
-        "parameters": [
-          {
-            "name": "eventId",
-            "in": "path",
-            "required": true,
-            "schema": { "type": "string", "format": "uuid" }
-          }
-        ],
         "responses": {
           "200": { "description": "Your staff application details" },
+          "401": { "description": "Unauthorized" },
           "404": { "description": "You have not applied" }
         }
-      },
+      }
+    },
+    "/events/{eventId}/staffs/me": {
       "delete": {
         "tags": ["Event Staff"],
         "summary": "Withdraw my staff application",
@@ -288,7 +646,9 @@
           }
         ],
         "responses": {
-          "200": { "description": "Application withdrawn" }
+          "200": { "description": "Application withdrawn" },
+          "401": { "description": "Unauthorized" },
+          "404": { "description": "Application not found" }
         }
       }
     },
@@ -306,7 +666,9 @@
           }
         ],
         "responses": {
-          "200": { "description": "List of staff applications" }
+          "200": { "description": "List of staff applications" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
         }
       }
     },
@@ -338,7 +700,10 @@
           }
         },
         "responses": {
-          "201": { "description": "Staff entry created" }
+          "201": { "description": "Staff entry created" },
+          "400": { "description": "Bad request" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" }
         }
       }
     },
@@ -370,7 +735,11 @@
           }
         },
         "responses": {
-          "200": { "description": "Staff status updated" }
+          "200": { "description": "Staff status updated" },
+          "400": { "description": "Bad request" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Staff entry not found" }
         }
       },
       "delete": {
@@ -392,42 +761,156 @@
           }
         ],
         "responses": {
-          "200": { "description": "Staff entry removed" }
+          "200": { "description": "Staff entry removed" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden" },
+          "404": { "description": "Staff entry not found" }
         }
       }
     }
   },
   "components": {
     "schemas": {
+      "LoginCallbackResponse": {
+        "type": "object",
+        "properties": {
+          "message": { "type": "string" },
+          "user": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "email": { "type": "string" },
+              "firstName": { "type": "string" },
+              "lastName": { "type": "string" },
+              "userRole": { "type": "string", "enum": ["ADMIN", "ORGANIZER", "USER"] }
+            }
+          },
+          "sessionCreated": { "type": "boolean" }
+        }
+      },
+      "SessionValidationResponse": {
+        "type": "object",
+        "properties": {
+          "valid": { "type": "boolean" },
+          "session": {
+            "type": "object",
+            "properties": {
+              "sessionId": { "type": "string" },
+              "userId": { "type": "string" },
+              "email": { "type": "string" },
+              "firstName": { "type": "string" },
+              "lastName": { "type": "string" },
+              "userRole": { "type": "string", "enum": ["ADMIN", "ORGANIZER", "USER"] },
+              "accessToken": { "type": "string" },
+              "refreshToken": { "type": "string" },
+              "expiresIn": { "type": "number" },
+              "tokenType": { "type": "string" },
+              "createdAt": { "type": "string", "format": "date-time" },
+              "expiresAt": { "type": "string", "format": "date-time" }
+            }
+          },
+          "message": { "type": "string" }
+        }
+      },
+      "CurrentUser": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "email": { "type": "string" },
+          "username": { "type": "string" },
+          "firstName": { "type": "string" },
+          "lastName": { "type": "string" },
+          "roles": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      },
+      "CreateUserDto": {
+        "type": "object",
+        "properties": {
+          "email": { "type": "string", "format": "email" },
+          "firstName": { "type": "string" },
+          "lastName": { "type": "string" },
+          "password": { "type": "string" },
+          "userRole": { "type": "string", "enum": ["ADMIN", "ORGANIZER", "USER"] }
+        },
+        "required": ["email", "firstName", "lastName", "password"]
+      },
+      "UpdateUserDto": {
+        "type": "object",
+        "properties": {
+          "email": { "type": "string", "format": "email" },
+          "firstName": { "type": "string" },
+          "lastName": { "type": "string" },
+          "userRole": { "type": "string", "enum": ["ADMIN", "ORGANIZER", "USER"] }
+        }
+      },
       "CreateEventDto": {
         "type": "object",
         "properties": {
           "name": { "type": "string" },
           "description": { "type": "string" },
+          "images": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "thumbnail": { "type": "string" },
           "registrationOpenDate": { "type": "string", "format": "date-time" },
           "registrationEndDate": { "type": "string", "format": "date-time" },
           "eventStartDate": { "type": "string", "format": "date-time" },
           "eventEndDate": { "type": "string", "format": "date-time" },
           "targetAudience": {
             "type": "array",
-            "items": { "type": "string", "enum": ["EXTERNAL_STUDENT", "INTERNAL_STUDENT", "TEACHER", "PUBLIC"] }
+            "items": { 
+              "type": "string", 
+              "enum": ["EXTERNAL_STUDENT", "INTERNAL_STUDENT", "TEACHER", "PUBLIC"] 
+            }
           },
           "tags": {
             "type": "array",
             "items": { "type": "string" }
-          }
+          },
+          "allowOnSiteRegister": { "type": "boolean" },
+          "activityHours": { "type": "integer" },
+          "invitation": { "type": "string" },
+          "website": { "type": "string", "format": "uri" },
+          "needWifi": { "type": "boolean" },
+          "certificateCriteria": { "type": "string" }
         },
-        "required": ["name", "description", "registrationOpenDate", "registrationEndDate", "eventStartDate", "eventEndDate"]
+        "required": ["name", "description", "registrationOpenDate", "registrationEndDate", "eventStartDate", "eventEndDate", "targetAudience", "tags"]
       },
       "UpdateEventDto": {
         "type": "object",
         "properties": {
           "name": { "type": "string" },
           "description": { "type": "string" },
+          "images": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "thumbnail": { "type": "string" },
           "registrationOpenDate": { "type": "string", "format": "date-time" },
           "registrationEndDate": { "type": "string", "format": "date-time" },
           "eventStartDate": { "type": "string", "format": "date-time" },
-          "eventEndDate": { "type": "string", "format": "date-time" }
+          "eventEndDate": { "type": "string", "format": "date-time" },
+          "targetAudience": {
+            "type": "array",
+            "items": { 
+              "type": "string", 
+              "enum": ["EXTERNAL_STUDENT", "INTERNAL_STUDENT", "TEACHER", "PUBLIC"] 
+            }
+          },
+          "tags": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "allowOnSiteRegister": { "type": "boolean" },
+          "activityHours": { "type": "integer" },
+          "invitation": { "type": "string" },
+          "website": { "type": "string", "format": "uri" },
+          "needWifi": { "type": "boolean" },
+          "certificateCriteria": { "type": "string" }
         }
       },
       "ApplyToBeStaffDto": {
@@ -441,14 +924,20 @@
         "type": "object",
         "properties": {
           "eventRole": { "type": "string" },
-          "status": { "type": "string", "enum": ["PENDING", "ACCEPTED", "REFUSED"] }
+          "status": { 
+            "type": "string", 
+            "enum": ["PENDING", "ACCEPTED", "REFUSED"] 
+          }
         },
         "required": ["eventRole", "status"]
       },
       "UpdateStaffStatusDto": {
         "type": "object",
         "properties": {
-          "status": { "type": "string", "enum": ["ACCEPTED", "REFUSED"] }
+          "status": { 
+            "type": "string", 
+            "enum": ["ACCEPTED", "REFUSED"] 
+          }
         },
         "required": ["status"]
       }
@@ -457,7 +946,8 @@
       "JWT-auth": {
         "type": "http",
         "scheme": "bearer",
-        "bearerFormat": "JWT"
+        "bearerFormat": "JWT",
+        "description": "Enter your JWT token in the format: Bearer <token>"
       }
     }
   }

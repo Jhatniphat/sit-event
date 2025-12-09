@@ -76,7 +76,8 @@ const formatDate = (dateStr: string | number | Date) => {
 </script>
 
 <template>
-  <div class="container">
+<div></div>
+<!-- <div class="container">
     <div class="font-bold text-4xl">My Events</div>
     <div class="h-8"></div>
     <div class="container rounded-xl border border-slate-200">
@@ -106,7 +107,6 @@ const formatDate = (dateStr: string | number | Date) => {
                 {{ event.status }}
               </div>
             </td>
-            <!-- ChangeEventView('view') -->
             <td class="p-4 py-5 text-center">
               <button @click="console.log(event)" class="text-slate-600 font-semibold">
                 View Detail
@@ -138,7 +138,7 @@ const formatDate = (dateStr: string | number | Date) => {
         />
       </div>
     </div>
-  </div>
+  </div> -->
 </template>
 
 <style scoped>

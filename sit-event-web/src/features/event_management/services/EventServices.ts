@@ -37,7 +37,7 @@ export interface Event {
   id: string // readOnly [cite: 9]
   name: string
   description: string
-  thumbnail: string // uri
+  thumbnail: string
   registrationOpenDate: Date // date-time [cite: 9, 10]
   registrationEndDate: Date // date-time [cite: 10]
   eventStartDate: Date // date-time [cite: 10]
@@ -46,7 +46,7 @@ export interface Event {
   tags: EventTag[]
   creatorId: Date // uuid, readOnly [cite: 11, 12]
   createdAt: Date // date-time, readOnly [cite: 12]
-  images: string[]
+  images: File[]
 }
 
 /**
@@ -56,12 +56,12 @@ export interface Event {
 export interface CreateEventDto {
   name: string // required [cite: 18]
   description: string // required [cite: 18]
-  thumbnail?: string // uri
-  images: string[]
-  registrationOpenDate: Date // date-time, required [cite: 18, 19]
-  registrationEndDate: Date // date-time, required [cite: 18, 19]
-  eventStartDate: Date // date-time, required [cite: 18, 19]
-  eventEndDate: Date // date-time, required [cite: 18, 20]
+  thumbnail?: File // uri
+  images: File[]
+  registrationOpenDate: string // date-time, required [cite: 18, 19]
+  registrationEndDate: string // date-time, required [cite: 18, 19]
+  eventStartDate: string // date-time, required [cite: 18, 19]
+  eventEndDate: string // date-time, required [cite: 18, 20]
   targetAudience?: TargetAudience[]
   tags?: EventTag[]
 }
@@ -107,9 +107,11 @@ export const EventService = {
    * สร้าง Event ใหม่
    * [POST] /events [cite: 34]
    */
-  async createEvent(eventData: CreateEventDto): Promise<Event> {
+  async createEvent(formData: CreateEventDto): Promise<Event> {
     try {
-      const newEvent = await apiClient.post<Event, Event>('/events', eventData)
+      const newEvent = await apiClient.post<Event, Event>('/events', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
       return newEvent
     } catch (error: unknown) {
       if (isApiError(error)) {
@@ -171,9 +173,15 @@ export const EventService = {
    * อัปเดตข้อมูล Event (api spec ใช้ PUT)
    * [PUT] /events/{eventId}
    */
-  async updateEvent(id: string, eventData: UpdateEventDto): Promise<Event> {
+  async updateEvent(id: string, eventData: FormData | UpdateEventDto): Promise<Event> {
     try {
-      const updatedEvent = await apiClient.patch<Event, Event>(`/events/${id}`, eventData)
+      // [!] แก้ไข: ตรวจสอบว่าเป็น FormData หรือไม่ เพื่อกำหนด Header
+      const config = eventData instanceof FormData
+        ? { headers: { 'Content-Type': 'multipart/form-data' } }
+        : undefined;
+
+      // ส่ง config ไปกับ request
+      const updatedEvent = await apiClient.patch<Event, Event>(`/events/${id}`, eventData, config)
       return updatedEvent
     } catch (error: unknown) {
       if (isApiError(error)) {

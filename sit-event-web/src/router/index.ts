@@ -2,6 +2,7 @@ import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import { useAuthStore } from '@/features/auth/stores/auth.store'
 import AuthCallbackLogin from '@/features/auth/views/AuthCallbackLogin.vue'
 import AuthCallbackLogout from '@/features/auth/views/AuthCallbackLogout.vue'
+import NotFoundView from '@/shared/views/NotFoundView.vue'
 
 export enum UserRole {
   ADMIN = 'admin',
@@ -28,8 +29,8 @@ const routes: Array<RouteRecordRaw> = [
     },
   },
   {
-    path: '/event/create',
-    name: 'createEvent',
+    path: '/admin/events/create',
+    name: 'CreateEvent',
     component: () => import('../features/event_management/components/CreateUpdate_Event.vue'),
     meta: {
       requiresAuth: true,
@@ -37,8 +38,8 @@ const routes: Array<RouteRecordRaw> = [
     },
   },
   {
-    path: '/event/edit/:id',
-    name: 'editEvent',
+    path: '/admin/events/edit/:id',
+    name: 'EditEvent',
     component: () => import('../features/event_management/components/CreateUpdate_Event.vue'),
     props: true,
     meta: {
@@ -49,8 +50,8 @@ const routes: Array<RouteRecordRaw> = [
 
   // --- Authenticated User Routes (Requires any login) ---
   {
-    path: '/myregistrations',
-    name: 'MyRegistration',
+    path: '/myactivities',
+    name: 'MyActivities',
     component: () => import('../features/registration/views/MyRegistration.vue'),
     meta: {
       requiresAuth: true,
@@ -58,7 +59,17 @@ const routes: Array<RouteRecordRaw> = [
     },
   },
   {
-    path: '/event/:id/register',
+    path: '/events/:id/register/qrcode',
+    name: 'ShowQRCode',
+    props: true,
+    component: () => import('../features/registration/views/RegistrationQRCode.vue'),
+    meta: {
+      requiresAuth: true,
+      roles: allAuthenticated,
+    },
+  },
+  {
+    path: '/events/:id/register',
     name: 'RegisterDetail',
     props: true,
     component: () => import('../features/registration/views/RegistrationDetail.vue'),
@@ -67,9 +78,9 @@ const routes: Array<RouteRecordRaw> = [
       roles: allAuthenticated,
     },
   },
-  // --- Staff Routes (Requires Staff Role) ---
+  // * --- Staff Routes (Requires Staff Role) ---
   {
-    path: '/event/:id/register/staff',
+    path: '/events/:id/register/staff',
     name: 'StaffEventDetail',
     props: true,
     component: () => import('../features/registration/views/StaffingDetail.vue'),
@@ -78,25 +89,39 @@ const routes: Array<RouteRecordRaw> = [
       roles: allAuthenticated,
     },
   },
+  {
+    path: '/events/:id/register/scan-qrcode',
+    name: 'ScanQRCode',
+    props: true,
+    component: () => import('../features/registration/views/ScanQRCode.vue'),
+    meta: {
+      requiresAuth: true,
+      roles: allAuthenticated,
+    },
+  },
 
-  // --- Public Routes (No Auth Required) ---
+  // * --- Public Routes (No Auth Required) ---
   {
     path: '/',
-    redirect: '/event/listing',
+    redirect: '/events/listing',
+    name: 'Home',
+    meta: { requiresAuth: false },
   },
   {
-    path: '/event/listing',
+    path: '/events/listing',
     name: 'PartiEventView',
     component: () => import('../features/event_management/views/PartiEventView.vue'),
     meta: { requiresAuth: false }, // Public list of events [cite: 49]
   },
   {
-    path: '/event/:id',
+    path: '/events/detail/:id',
     name: 'EventDetail',
     props: true,
     component: () => import('../features/event_management/views/EventDetail.vue'),
     meta: { requiresAuth: false },
   },
+
+  // * --- Auth Callback Routes (No Auth Required) ---
   {
     path: '/auth/callback/login',
     name: 'AuthCallbackLogin',
@@ -108,6 +133,14 @@ const routes: Array<RouteRecordRaw> = [
     name: 'AuthCallbackLogout',
     component: AuthCallbackLogout,
     meta: { requiresAuth: false },
+  },
+
+  // * --- 404 Not Found Route ---
+  {
+    path: '/:pathMatch(.*)*', // Regex นี้จะจับทุก path ที่ไม่ตรงกับข้างบน
+    name: 'NotFound',
+    component: NotFoundView,
+    meta: { requiresAuth: false }, // ไม่ต้อง login ก็เจอหน้านี้ได้
   },
 ]
 
@@ -132,11 +165,9 @@ router.beforeEach((to, from, next) => {
   // 1. Check if route requires authentication
   if (requiresAuth) {
     // 2. If user is not authenticated, redirect to Login
-    if (!isAuthenticated) {
-      return next({
-        name: 'Login',
-        query: { redirect: to.fullPath },
-      })
+    if (!authStore.isAuthenticated) {
+      authStore.loginRedirect()
+      return
     }
 
     // 3. If user is authenticated, check if they have the required role

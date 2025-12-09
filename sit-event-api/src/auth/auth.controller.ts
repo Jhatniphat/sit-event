@@ -141,6 +141,7 @@ export class AuthController {
           tokenType: sessionData.tokenType,
           createdAt: sessionData.createdAt,
           expiresAt: sessionData.expiresAt,
+          tokenCreatedAt: sessionData.tokenCreatedAt,
         },
         message: 'Session is valid',
       };

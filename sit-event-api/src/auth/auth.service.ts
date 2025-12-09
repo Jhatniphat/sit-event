@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { UsersService } from '../users/users.service';
 import { UserRole } from '../common/enums/roles.enum';
+import { KeycloakAdminService } from './keycloak-admin.service';
 import axios from 'axios';
 import * as https from 'https';
 
@@ -26,6 +27,7 @@ export class AuthService {
   constructor(
     private readonly configService: ConfigService,
     private readonly usersService: UsersService,
+    private readonly keycloakAdminService: KeycloakAdminService,
   ) {}
 
   getLoginUrl(): string {
@@ -52,19 +54,35 @@ export class AuthService {
       this.logger.log(`Starting callback process with code: ${code.substring(0, 10)}...`);
       
       // Exchange code for tokens
-      const tokenResponse = await this.exchangeCodeForTokens(code);
+      let tokenResponse = await this.exchangeCodeForTokens(code);
       
       // Get user info from Keycloak
       const userInfo = await this.getUserInfo(tokenResponse.access_token);
       
       
       // Create or update user in our database
-      const user = await this.createOrUpdateUser(userInfo);
+      const result = await this.createOrUpdateUser(userInfo);
+
+      // If user was newly created (role was just assigned), refresh token to get updated roles
+      if (result.isNewUser) {
+        this.logger.log(`New user created, refreshing token to include role: ${result.user.userRole}`);
+        try {
+          // Wait a moment for Keycloak to process the role assignment
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+          // Refresh the token to get the updated roles
+          tokenResponse = await this.refreshAccessToken(tokenResponse.refresh_token);
+          this.logger.log('Token refreshed successfully with new roles');
+        } catch (refreshError) {
+          this.logger.warn(`Failed to refresh token after role assignment: ${refreshError.message}`);
+          // Continue anyway - user can re-login if needed
+        }
+      }
 
       this.logger.log(`Callback completed successfully for user: ${userInfo.email}`);
 
       return {
-        user,
+        user: result.user,
         tokens: tokenResponse,
       };
     } catch (error) {
@@ -154,26 +172,73 @@ export class AuthService {
     const existingUser = await this.usersService.findByEmail(keycloakUser.email);
     
     if (existingUser) {
-      // Update existing user but preserve their current role
-      this.logger.log(`Updating existing user: ${keycloakUser.email}, preserving role: ${existingUser.userRole}`);
-      return this.usersService.updateUser(existingUser.id, {
-        firstName: keycloakUser.given_name,
-        lastName: keycloakUser.family_name,
-        email: keycloakUser.email,
-        // Do not update userRole - preserve existing role
-      });
-    } else {
-      // Determine user role based on email domain only for new users
-      const userRole = this.determineUserRole(keycloakUser.email);
-      this.logger.log(`Creating new user: ${keycloakUser.email} with role: ${userRole}`);
+      // For existing users, get their role from Keycloak
+      this.logger.log(`Updating existing user: ${keycloakUser.email}`);
       
-      // Create new user
-      return this.usersService.createUser({
+      try {
+        // Get role from Keycloak
+        const keycloakRole = await this.keycloakAdminService.getUserRole(keycloakUser.sub);
+        
+        // If user has a role in Keycloak, sync it to database
+        if (keycloakRole) {
+          this.logger.log(`Syncing role ${keycloakRole} from Keycloak to database for user: ${keycloakUser.email}`);
+          
+          const user = await this.usersService.updateUser(existingUser.id, {
+            firstName: keycloakUser.given_name,
+            lastName: keycloakUser.family_name,
+            email: keycloakUser.email,
+            userRole: keycloakRole, // Update role from Keycloak
+          });
+          
+          return { user, isNewUser: false };
+        } else {
+          // No role in Keycloak, preserve existing database role and sync it to Keycloak
+          this.logger.log(`No role found in Keycloak, syncing database role to Keycloak for user: ${keycloakUser.email}`);
+          
+          if (existingUser.userRole) {
+            await this.keycloakAdminService.assignRoleToUser(
+              keycloakUser.sub, 
+              existingUser.userRole
+            );
+          }
+          
+          const user = await this.usersService.updateUser(existingUser.id, {
+            firstName: keycloakUser.given_name,
+            lastName: keycloakUser.family_name,
+            email: keycloakUser.email,
+          });
+          
+          return { user, isNewUser: false };
+        }
+      } catch (error) {
+        this.logger.error(`Failed to sync role for user ${keycloakUser.email}: ${error.message}`);
+        
+        // Fallback: just update basic user info
+        const user = await this.usersService.updateUser(existingUser.id, {
+          firstName: keycloakUser.given_name,
+          lastName: keycloakUser.family_name,
+          email: keycloakUser.email,
+        });
+        
+        return { user, isNewUser: false };
+      }
+    } else {
+      // For new users, determine initial role based on email domain
+      const initialRole = this.determineUserRole(keycloakUser.email);
+      this.logger.log(`Creating new user: ${keycloakUser.email} with initial role: ${initialRole}`);
+      
+      // Assign initial role to Keycloak
+      await this.keycloakAdminService.assignRoleToUser(keycloakUser.sub, initialRole);
+
+      // Create new user with initial role
+      const user = await this.usersService.createUser({
         email: keycloakUser.email,
         firstName: keycloakUser.given_name,
         lastName: keycloakUser.family_name,
-        userRole: userRole,
+        userRole: initialRole,
       });
+      
+      return { user, isNewUser: true };
     }
   }
 
@@ -188,6 +253,44 @@ export class AuthService {
     } else {
       this.logger.log(`Email ${email} does not contain 'kmutt' domain, assigning EXTERNAL_STUDENT role`);
       return UserRole.EXTERNAL_STUDENT;
+    }
+  }
+
+  async refreshAccessToken(refreshToken: string): Promise<any> {
+    const authServerUrl = this.configService.get('KC_AUTH_SERVER_URL');
+    const realm = this.configService.get('KC_REALM');
+    const clientId = this.configService.get('KC_CLIENT_ID');
+    const clientSecret = this.configService.get('KC_CLIENT_SECRET');
+
+    const tokenUrl = `${authServerUrl}/realms/${realm}/protocol/openid-connect/token`;
+    
+    const params = new URLSearchParams({
+      grant_type: 'refresh_token',
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: refreshToken,
+    });
+
+    try {
+      this.logger.log('Refreshing access token');
+      
+      const response = await axios.post(tokenUrl, params.toString(), {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        timeout: 10000,
+        httpsAgent: this.httpsAgent,
+      });
+
+      this.logger.log('Token refresh successful');
+      return response.data;
+    } catch (error) {
+      this.logger.error('Token refresh failed:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
+      throw new Error(`Token refresh failed: ${error.response?.data?.error_description || error.message}`);
     }
   }
 

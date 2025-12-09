@@ -125,4 +125,27 @@ export class EventRegistrationsService {
       include: { user: true },
     });
   }
+
+  async checkInUser(eventId: string, userId: string) {
+    // 1. ค้นหาใบสมัคร (Registration) ของ User นี้ใน Event นี้
+    const registration = await this.prisma.eventRegistration.findFirst({
+      where: {
+        eventId: eventId,
+        userId: userId,
+      },
+    });
+    
+    if (!registration) {
+      throw new NotFoundException('Registration not found for this user and event.');
+    }
+
+    // 2. อัปเดต attended = true และ checkedInAt = เวลาปัจจุบัน
+    return this.prisma.eventRegistration.update({
+      where: { id: registration.id },
+      data: {
+        attended: true,
+        checkedInAt: new Date(),
+      },
+    });
+  }
 }

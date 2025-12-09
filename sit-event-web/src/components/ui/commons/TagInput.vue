@@ -8,6 +8,7 @@ interface Props {
   choices: TagType[]
   label?: string
   placeholder?: string
+  required?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -31,9 +32,6 @@ const internalModel = computed({
   }
 })
 
-/**
- * Computed: กรองตัวเลือก
- */
 const filteredChoices = computed(() => {
   const searchLower = searchText.value.toLowerCase()
   
@@ -59,9 +57,6 @@ function removeTag(tag: TagType) {
   inputRef.value?.focus()
 }
 
-/**
- * จัดการการกดปุ่มบน keyboard
- */
 function handleKeydown(event: KeyboardEvent) {
   if (event.key === 'Backspace' && searchText.value === '') {
     event.preventDefault()
@@ -73,10 +68,12 @@ function handleKeydown(event: KeyboardEvent) {
 
   if (event.key === 'Enter') {
     event.preventDefault()
-    const firstChoice = filteredChoices.value[0]
-    if (firstChoice) {
-      addTag(firstChoice)
-    }
+    if (isDropdownOpen.value && filteredChoices.value.length > 0) {
+        const firstChoice = filteredChoices.value[0]
+        if (firstChoice) {
+            addTag(firstChoice)
+        }
+    } 
   }
 }
 
@@ -84,8 +81,29 @@ function openDropdown() {
   isDropdownOpen.value = true
 }
 
+/**
+ * แก้ไข: เพิ่ม Logic ตรวจสอบเมื่อ Blur (เสีย Focus)
+ */
 function closeDropdown() {
+  // ใช้ setTimeout เพื่อให้ event click (กรณี user คลิกเลือกจาก dropdown) ทำงานเสร็จก่อน
   setTimeout(() => {
+    const text = searchText.value.trim()
+
+    if (text) {
+      // หาตัวเลือกที่ตรงกัน (Case-insensitive) เช่นพิมพ์ "java" แต่ตัวเลือกเป็น "Java" ก็ให้เจอ
+      const matchedChoice = props.choices.find(
+        choice => choice.toLowerCase() === text.toLowerCase()
+      )
+
+      if (matchedChoice) {
+        // ถ้าเจอ Tag ที่ตรงกัน ให้เพิ่ม Tag นั้นเลย
+        addTag(matchedChoice)
+      } else {
+        // ถ้าไม่เจอ ให้เคลียร์ข้อความทิ้ง
+        searchText.value = ''
+      }
+    }
+
     isDropdownOpen.value = false
   }, 200)
 }
@@ -101,12 +119,12 @@ function focusInput() {
       v-if="label" 
       class="block text-sm font-medium text-gray-700 mb-1"
     >
-      {{ label }}
+      {{ label }} <span v-if="required" class="text-red-500">*</span>
     </label>
 
     <div
       @click="focusInput"
-      class="flex flex-wrap items-center gap-2 p-2 min-h-[42px] border border-gray-300 rounded-md shadow-sm bg-white cursor-text"
+      class="flex flex-wrap items-center gap-2 p-2 min-h-[42px] border border-gray-300 rounded-md shadow-sm bg-white cursor-text relative"
     >
       <span
         v-for="tag in internalModel"
@@ -118,6 +136,7 @@ function focusInput() {
           @click.stop="removeTag(tag)"
           class="ml-1.5 -mr-1 text-blue-600 hover:text-blue-800 focus:outline-none"
           aria-label="Remove tag"
+          type="button" 
         >
           &times;
         </button>
@@ -132,6 +151,15 @@ function focusInput() {
         @keydown="handleKeydown"
         :placeholder="internalModel.length === 0 ? placeholder : ''"
         class="flex-1 text-sm outline-none bg-transparent min-w-[120px]"
+      />
+      
+      <input 
+        v-if="required"
+        tabindex="-1"
+        class="absolute opacity-0 pointer-events-none w-full h-full top-0 left-0 -z-10"
+        :value="internalModel.length > 0 ? 'valid' : ''"
+        required
+        @invalid="focusInput"
       />
     </div>
 
@@ -154,5 +182,4 @@ function focusInput() {
 </template>
 
 <style scoped>
-/* เราสามารถเพิ่ม style ที่ซับซ้อนกว่า Tailwind ได้ที่นี่ (ถ้าต้องการ) */
 </style>

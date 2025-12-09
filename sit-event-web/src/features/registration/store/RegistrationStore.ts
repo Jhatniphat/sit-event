@@ -43,7 +43,7 @@ export interface AddStaffRequest {
 export interface RegistrationState {
   myRegistrations: EventRegistration[]
 
-  myStaffStatus: StaffApplication | null
+  myStaffStatus: StaffApplication[] | null
   staffsForEvent: StaffApplication[]
 
   isLoading: boolean
@@ -55,7 +55,7 @@ export const useRegistrationStore = defineStore('registration', {
     myRegistrations: [],
 
     // staff
-    myStaffStatus: null,
+    myStaffStatus: [],
     staffsForEvent: [],
 
     isLoading: false,
@@ -68,17 +68,17 @@ export const useRegistrationStore = defineStore('registration', {
     // เช็คว่า user ลงทะเบียน event นี้หรือยัง
     isRegistered:
       (state) =>
-      (eventId: string): boolean =>
-        state.myRegistrations.some((r) => r.eventId === eventId),
+        (eventId: string): boolean =>
+          state.myRegistrations.some((r) => r.eventId === eventId),
 
     // ดึง registration ของ eventId นั้นๆ
     getRegistrationByEventId:
       (state) =>
-      (eventId: string): EventRegistration | undefined =>
-        state.myRegistrations.find((r) => r.eventId === eventId),
+        (eventId: string): EventRegistration | undefined =>
+          state.myRegistrations.find((r) => r.eventId === eventId),
 
-    isStaffAccepted: (state) => state.myStaffStatus?.status === 'ACCEPTED',
-    isStaffRefused: (state) => state.myStaffStatus?.status === 'REFUSED',
+    // isStaffAccepted: (state) => state.myStaffStatus?.status === 'ACCEPTED',
+    // isStaffRefused: (state) => state.myStaffStatus?.status === 'REFUSED',
   },
 
   actions: {
@@ -104,13 +104,15 @@ export const useRegistrationStore = defineStore('registration', {
     async registerForEvent(
       eventId: string,
       payload?: RegisterForEventDto,
-    ): Promise<EventRegistration> {
+    ): Promise<EventRegistration | void> { // เปลี่ยน Return type นิดหน่อย
       this.isLoading = true
       this.error = null
       try {
-        const registration = await RegistrationService.registerForEvent(eventId, payload)
-        this.myRegistrations.push(registration)
-        return registration
+        // 1. ยิง API ลงทะเบียนตามปกติ
+        await RegistrationService.registerForEvent(eventId, payload)
+        // 2. ดึงข้อมูลการลงทะเบียนของฉันใหม่อีกครั้ง เพื่ออัปเดต state
+        await this.fetchMyRegistrations()
+
       } catch (error) {
         this.error = handleError(error, 'Failed to register for event.')
         throw error
@@ -118,7 +120,6 @@ export const useRegistrationStore = defineStore('registration', {
         this.isLoading = false
       }
     },
-
     /**
      * Unregister
      */
@@ -127,7 +128,13 @@ export const useRegistrationStore = defineStore('registration', {
       this.error = null
       try {
         await RegistrationService.unregisterFromEvent(eventId)
-        this.myRegistrations = this.myRegistrations.filter((r) => r.eventId !== eventId)
+
+        // ✅ FIX: ใช้การตรวจสอบที่ครอบคลุม (Fallback ไปหา r.event.id หาก r.eventId ไม่มีค่า)
+        this.myRegistrations = this.myRegistrations.filter((r) => {
+          const registrationEventId = r.eventId ?? r.event?.id
+          return registrationEventId !== eventId
+        })
+
       } catch (error) {
         this.error = handleError(error, 'Failed to unregister from event.')
         throw error
@@ -215,7 +222,6 @@ export const useRegistrationStore = defineStore('registration', {
       this.error = null
       try {
         const data = await RegistrationService.getMyStaffStatus()
-        console.log('Fetched my staff status:', data)
         this.myStaffStatus = data
       } catch (error) {
         this.error = handleError(error, 'Failed to load staff status.')
@@ -224,19 +230,21 @@ export const useRegistrationStore = defineStore('registration', {
       }
     },
 
-    async applyToBeStaff(eventId: string, body: ApplyToBeStaffDto): Promise<EventStaffApplication> {
+    async applyToBeStaff(
+      eventId: string,
+      body: ApplyToBeStaffDto,
+    ): Promise<StaffApplication | void> {
       this.isLoading = true
       this.error = null
       try {
-        const created = (await RegistrationService.applyToBeStaff(
-          eventId,
-          body,
-        )) as EventStaffApplication
+        await RegistrationService.applyToBeStaff(eventId, body)
 
-        // ตอนนี้ created มี type เป็น StaffApplication แล้ว ✔
-        this.myStaffStatus = created
+        // ลบการ push แบบเดิมออก
+        // if (this.myStaffStatus) { ... }
 
-        return created
+        // สั่งโหลดข้อมูล Staff ใหม่ทั้งหมด
+        await this.fetchMyStaffStatus()
+
       } catch (error) {
         this.error = handleError(error, 'Failed to apply to be staff.')
         throw error
@@ -250,7 +258,13 @@ export const useRegistrationStore = defineStore('registration', {
       this.error = null
       try {
         await RegistrationService.deleteMyStaffStatus(eventId)
-        this.myStaffStatus = null
+        if (this.myStaffStatus) {
+          this.myStaffStatus = this.myStaffStatus.filter((s) => {
+            const appEventId = s.eventId ?? s.event?.id
+            return appEventId !== eventId
+          })
+        }
+
       } catch (error) {
         this.error = handleError(error, 'Failed to delete staff status.')
         throw error
@@ -321,6 +335,25 @@ export const useRegistrationStore = defineStore('registration', {
         this.staffsForEvent = this.staffsForEvent.filter((s) => s.id !== staffId)
       } catch (error) {
         this.error = handleError(error, 'Failed to remove staff.')
+        throw error
+      } finally {
+        this.isLoading = false
+      }
+    },
+
+    /**
+     * Staff Action — Check-in User by QR Code
+     * เรียก API ใหม่: PATCH /events/:eventId/check-in/:userId
+     */
+    async checkInUser(eventId: string, userId: string): Promise<EventRegistration> {
+      this.isLoading = true
+      this.error = null
+      try {
+        const updated = await RegistrationService.checkInUser(eventId, userId)
+        // Return ข้อมูลล่าสุดกลับไปให้ Component (เช่น หน้า Staff Scan) เพื่อแสดงผล Success
+        return updated
+      } catch (error) {
+        this.error = handleError(error, 'Failed to check-in user.')
         throw error
       } finally {
         this.isLoading = false

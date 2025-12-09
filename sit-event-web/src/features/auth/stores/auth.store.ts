@@ -20,9 +20,6 @@ export const useAuthStore = defineStore('auth', () => {
 
   // --- GETTERS ---
   const isAuthenticated = computed(() => {
-    console.log('Checking if user is authenticated...', !!user.value && !!accessToken.value);
-    console.log('User:', user.value);
-    console.log('Access Token:', accessToken.value);
     return !!user.value && !!accessToken.value
   });
   const userFullName = computed(() => {
@@ -37,9 +34,7 @@ export const useAuthStore = defineStore('auth', () => {
    * (A) เริ่มกระบวนการ Login
    */
   async function startLogin() {
-    console.log('Starting login process...');
     if (isAuthenticated.value) {
-      console.log('User is already authenticated, skipping login redirect.');
       return;
     }
     try {
@@ -49,23 +44,30 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  function loginRedirect() {
+    window.location.href = `${import.meta.env.VITE_API_BASE_URL}/auth/login`;
+  }
+  
+  function logoutRedirect() {
+    window.location.href = `${import.meta.env.VITE_API_BASE_URL}/auth/logout`;
+  }
   /**
    * (B) จัดการ Callback (หลังจาก Login ที่ Keycloak)
    */
   async function handleLoginCallback(code: string) {
     try {
       const response = await authService.handleAuthCallback(code);
-      await authService.handleAuthCallback(code);
+      // await authService.handleAuthCallback(code);
       const sessionResponse = await authService.checkSession();
 
       user.value = response.user;
       accessToken.value = sessionResponse.session?.accessToken || null;
       refreshToken.value = sessionResponse.session?.refreshToken || null;
       
-      router.push('/');
+      router.push({ name: 'Home' });
     } catch (error) {
       console.error('Login callback failed:', error);
-      router.push('/');
+      router.push({ name: 'Home' });
     }
   }
 
@@ -76,8 +78,6 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       const response = await authService.checkSession();
       if (response.valid && response.session && response.session.accessToken) {
-
-        console.log('Restoring session for user');
 
         user.value = {
           id: response.session.userId,
@@ -132,15 +132,14 @@ export const useAuthStore = defineStore('auth', () => {
   async function handleLogoutCallback() {
     try {
       // const response = await authService.handleAuthCallback(code);
-      await authService.logout();
       user.value = null;
       accessToken.value = null;
       refreshToken.value = null;
 
-      router.push('/');
+      router.push({ name: 'Home' });
     } catch (error) {
       console.error('Login callback failed:', error);
-      router.push('/');
+      router.push({ name: 'Home' });
     }
   }
 
@@ -154,6 +153,8 @@ export const useAuthStore = defineStore('auth', () => {
     handleLoginCallback,
     checkSession,
     startLogout,
-    handleLogoutCallback
+    handleLogoutCallback,
+    loginRedirect,
+    logoutRedirect,
   };
 });

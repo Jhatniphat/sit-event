@@ -1,0 +1,7 @@
+version: "2"
+authtoken: 35n1ZKyIyI379OWTy8SPRl5g7VT_5dTCBqJZGe1Koor8ZS3SB
+tunnels:
+  sit-api:
+    addr: 3000
+    proto: http
+    domain: raiden-nonfutile-recurrently.ngrok-free.dev

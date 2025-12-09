@@ -65,9 +65,9 @@ export const useEventStore = defineStore('events', {
      * R = Read (All)
      */
     async fetchAllEvents(page: number, limit: number) {
-      // if (this.hasEvents) {
-      //   return
-      // }
+      if (this.hasEvents) {
+        return
+      }
       this.isLoadingList = true
       this.error = null
       try {

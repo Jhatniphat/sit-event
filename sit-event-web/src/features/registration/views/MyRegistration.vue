@@ -10,45 +10,22 @@ const registerStore = useRegistrationStore()
 const myBookRegis = computed(() => registerStore.myRegistrations ?? [])
 const myStaffRegis = computed(() => registerStore.myStaffStatus ?? [])
 const returnToHomePage = () => {
-  router.push('/event/Listing')
+  router.push({ name: 'Home' })
 }
-
-// const mockMyRegis = [
-//   {
-//     Image: '../../../assets/images/mock_sub_session1.png',
-//     name: 'Test Test',
-//     date: '2024-10-26T10:00:00',
-//   },
-//   {
-//     Image: '../../../assets/images/mock_sub_session1.png',
-//     name: 'Test Test',
-//     date: '2025-12-26T10:00:00',
-//   },
-//   {
-//     Image: '../../../assets/images/mock_sub_session1.png',
-//     name: 'Test Test',
-//     date: '2024-10-26T10:00:00',
-//   },
-// ]
-
-onMounted(() => {
-  registerStore.fetchMyRegistrations()
-})
 
 type regisType = 'Book' | 'Staff'
 
 const regisTab = ref<regisType>('Book')
 
 const changeRegisTab = (tab: regisType) => {
-  console.log(`Changing tab to: ${tab}`)
   if (regisTab.value === tab) return
   regisTab.value = tab
-  if (regisTab.value === 'Book') {
-    registerStore.fetchMyRegistrations()
-  } else {
-    registerStore.fetchMyStaffStatus()
-  }
 }
+
+onMounted(() => {
+  registerStore.fetchMyRegistrations()
+  registerStore.fetchMyStaffStatus()
+})
 </script>
 <template>
   <div>
@@ -62,27 +39,30 @@ const changeRegisTab = (tab: regisType) => {
               alt="backToHome"
             />
           </div>
-          <div class="flex flex-row text-lg">
-            <div class="flex flex-col">
-              <div
-                class="mx-3"
-                :class="{ 'font-bold': regisTab === 'Book' }"
-                @click="changeRegisTab('Book')"
-              >
-                My Booking
-              </div>
-              <div :class="{ 'mt-1 h-1 rounded-xl bg-black': regisTab === 'Book' }"></div>
+          <div class="flex flex-row text-lg relative">
+            <div
+              class="mx-3 cursor-pointer"
+              :class="{ 'font-bold': regisTab === 'Book' }"
+              @click="changeRegisTab('Book')"
+            >
+              My Booking
             </div>
-            <div class="flex flex-col">
-              <div
-                class="mx-3"
-                :class="{ 'font-bold': regisTab == 'Staff' }"
-                @click="changeRegisTab('Staff')"
-              >
-                My Staffing
-              </div>
-              <div :class="{ 'mt-1 h-1 rounded-xl bg-black': regisTab === 'Staff' }"></div>
+
+            <div
+              class="mx-3 cursor-pointer"
+              :class="{ 'font-bold': regisTab === 'Staff' }"
+              @click="changeRegisTab('Staff')"
+            >
+              My Staffing
             </div>
+
+            <!-- underline (เส้นเลื่อน) -->
+            <div
+              class="underline-bar"
+              :style="{
+                transform: regisTab === 'Book' ? 'translateX(0)' : 'translateX(120px)',
+              }"
+            ></div>
           </div>
           <div class="w-4"></div>
         </div>
@@ -98,7 +78,16 @@ const changeRegisTab = (tab: regisType) => {
 </template>
 
 <style scoped>
-.container {
-  /* styles */
+.underline-bar {
+  position: absolute;
+  margin-top: 10px;
+  bottom: -4px; /* ระยะห่างลงล่าง */
+  left: 0;
+  width: 125px; /* ความกว้างของเส้น */
+  height: 3px;
+  background-color: black;
+  border-radius: 999px;
+  transition: transform 0.25s ease;
+  transform: translateX(0);
 }
 </style>
