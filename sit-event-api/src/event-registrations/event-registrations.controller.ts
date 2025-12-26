@@ -68,8 +68,17 @@ export class EventRegistrationsController {
     );
   }
 
+  @Get(':eventId/open-qr/:userId')
+  @AllRoleAccess() 
+  async checkUserQrStatus(
+    @Param('eventId') eventId: string,
+    @Param('userId') userId: string,
+  ) {
+    return this.eventRegistrationsService.checkUserQrStatus(eventId, userId);
+  }
+
   @Patch(':eventId/check-in/:userId')
-  @AllRoleAccess() // หรือปรับเป็น Role ที่เหมาะสม เช่น @Roles(UserRole.STAFF)
+  @AllRoleAccess() 
   async checkInUser(
     @Param('eventId') eventId: string,
     @Param('userId') userId: string,
