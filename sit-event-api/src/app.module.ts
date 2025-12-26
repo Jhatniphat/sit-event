@@ -22,6 +22,7 @@ import { RolesGuard } from './common';
 import { EventStaffsModule } from './event-staffs/event-staffs.module';
 import { PrismaService } from './prisma.service';
 import { MinioClientModule } from './minio/minio.module';
+import { EventSessionsModule } from './event-sessions/event-sessions.module';
 
 @Module({
   imports: [
@@ -49,6 +50,7 @@ import { MinioClientModule } from './minio/minio.module';
     EventRegistrationsModule,
     EventStaffsModule,
     MinioClientModule,
+    EventSessionsModule,
   ],
   controllers: [AppController],
   providers: [
