@@ -47,6 +47,15 @@ const routes: Array<RouteRecordRaw> = [
       roles: adminRoles,
     },
   },
+  {
+    path: '/admin/forms/create',
+    name: 'CreateForms',
+    component: () => import('../features/forms/views/CreateFormsView.vue'),
+    meta: {
+      requiresAuth: true,
+      roles: adminRoles,
+    },
+  },
 
   // --- Authenticated User Routes (Requires any login) ---
   {
