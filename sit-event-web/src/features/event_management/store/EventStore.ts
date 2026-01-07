@@ -9,6 +9,9 @@ import {
   type EventRegistration,
   type RegisterForEventDto,
   type PaginationMeta,
+  type EventSession,     
+  type CreateSessionDto, 
+  type UpdateSessionDto  
 } from '@/features/event_management/services/EventServices'
 import { type ParsedApiError } from '@/shared/utils/FetchUtils'
 
@@ -17,6 +20,7 @@ interface IEventState {
   events: Event[]
   pagination: PaginationMeta | null
   currentEvent: Event | null
+  currentEventSessions: EventSession[]
   myRegistrations: EventRegistration[]
   isLoadingList: boolean
   isLoadingDetail: boolean
@@ -59,49 +63,48 @@ export const useEventStore = defineStore('events', {
   },
 
   actions: {
-    // ... (fetchAllEvents, fetchEventById) ...
+    // * ===== Event Actions =====
 
     /**
      * R = Read (All)
      */
     async fetchAllEvents(page: number, limit: number) {
-      if (this.hasEvents) {
-        return
+      if (this.events.length > 0 && this.pagination?.page === page) {
+         // logic cache อย่างง่าย
       }
       this.isLoadingList = true
       this.error = null
       try {
-        const { data, pagination } = await EventService.getAllEvents({ page: page, limit: limit })
+        const { data, pagination } = await EventService.getAllEvents({ page, limit })
         this.events = data
         this.pagination = pagination
       } catch (error) {
         this.error = handleError(error, 'Failed to fetch events.')
-        console.error(this.error)
       } finally {
         this.isLoadingList = false
       }
     },
 
-    /**
-     * R = Read (One)
-     */
     async fetchEventById(id: string) {
-      const existingEvent = this.getEventById(id)
-      if (existingEvent) {
-        this.currentEvent = existingEvent
-        return
+      // Clear previous sessions when switching event detail
+      if (this.currentEvent?.id !== id) {
+        this.currentEventSessions = [] 
       }
+      
       this.isLoadingDetail = true
       this.error = null
       try {
         const data = await EventService.getEventById(id)
         this.currentEvent = data
-        if (!this.events.some((e: Event) => e.id === data.id)) {
-          this.events.push(data)
+        // Update list if exists
+        const index = this.events.findIndex(e => e.id === id)
+        if (index === -1) {
+            this.events.push(data)
+        } else {
+            this.events[index] = data
         }
       } catch (error) {
         this.error = handleError(error, 'Failed to fetch event details.')
-        console.error(this.error)
       } finally {
         this.isLoadingDetail = false
       }
@@ -116,9 +119,9 @@ export const useEventStore = defineStore('events', {
       try {
         const newEvent = await EventService.createEvent(eventData)
         this.events.push(newEvent)
+        return newEvent // Return เพื่อเอา ID ไปใช้สร้าง Session ต่อ
       } catch (error) {
         this.error = handleError(error, 'Failed to create event.')
-        console.error(this.error)
         throw error
       } finally {
         this.isLoadingList = false
@@ -160,10 +163,7 @@ export const useEventStore = defineStore('events', {
       this.error = null
       try {
         await EventService.deleteEvent(id)
-
-        // [!] (FIX) แก้ไขโดยการเพิ่ม (e: Event)
         this.events = this.events.filter((e: Event) => e.id !== id)
-
         if (this.currentEvent?.id === id) {
           this.currentEvent = null
         }
@@ -176,7 +176,52 @@ export const useEventStore = defineStore('events', {
       }
     },
 
-    // ===== Registration Actions =====
+    // * ===== Session Actions =====
+    
+    async fetchEventSessions(eventId: string) {
+      try {
+        const sessions = await EventService.getEventSessions(eventId)
+        this.currentEventSessions = sessions
+      } catch (error) {
+        console.error(handleError(error, 'Failed to fetch sessions'))
+        // ไม่ throw error เพื่อไม่ให้บล็อกการทำงานหลัก แค่ sessions ไม่ขึ้น
+      }
+    },
+
+    async createSession(eventId: string, sessionData: CreateSessionDto) {
+      try {
+        const newSession = await EventService.createSession(eventId, sessionData)
+        console.log('Before Push, Current Sessions:', this.currentEventSessions)
+        console.log('New Session Created:', newSession)
+        this.currentEventSessions.push(newSession)
+      } catch (error) {
+        throw error
+      }
+    },
+
+    async updateSession(eventId: string, sessionId: string, sessionData: UpdateSessionDto) {
+      try {
+        const updatedSession = await EventService.updateSession(eventId, sessionId, sessionData)
+        const index = this.currentEventSessions.findIndex(s => s.id === sessionId)
+        if (index !== -1) {
+          this.currentEventSessions[index] = updatedSession
+        }
+      } catch (error) {
+        throw error
+      }
+    },
+
+    async deleteSession(eventId: string, sessionId: string) {
+      try {
+        await EventService.deleteSession(eventId, sessionId)
+        this.currentEventSessions = this.currentEventSessions.filter(s => s.id !== sessionId)
+      } catch (error) {
+        throw error
+      }
+    },
+
+
+    // * ===== Registration Actions =====
 
     /**
      * ดึงข้อมูลการลงทะเบียนของฉัน (ถ้ายังไม่มี)

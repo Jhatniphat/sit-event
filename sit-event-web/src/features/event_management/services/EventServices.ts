@@ -44,7 +44,7 @@ export interface Event {
   eventEndDate: Date // date-time [cite: 10]
   targetAudience: TargetAudience[]
   tags: EventTag[]
-  creatorId: Date // uuid, readOnly [cite: 11, 12]
+  creatorId: string // uuid, readOnly [cite: 11, 12]
   createdAt: Date // date-time, readOnly [cite: 12]
   images: File[]
 }
@@ -71,6 +71,34 @@ export interface CreateEventDto {
  * [cite: 38, 39]
  */
 export type UpdateEventDto = CreateEventDto
+
+/** 
+ * Interface สำหรับ sub-session ของ Event (components.schemas.EventSession)
+ *
+ */
+export interface EventSession {
+  id: string
+  name: string
+  description: string
+  startTime: string // ISO String from API
+  endTime: string   // ISO String from API
+  location: string
+  maxSeats: number
+  pointsAwarded: number
+  // thumbnail?: string // API Example ไม่ได้ระบุ field นี้ แต่ถ้ามีก็เพิ่มได้
+}
+
+export interface CreateSessionDto {
+  name: string
+  description: string
+  startTime: string // ISO String
+  endTime: string   // ISO String
+  location: string
+  maxSeats: number
+  pointsAwarded: number
+}
+
+export type UpdateSessionDto = CreateSessionDto
 
 /**
  * Interface สำหรับการลงทะเบียน (components.schemas.EventRegistration)
@@ -99,7 +127,7 @@ function isApiError(error: unknown): error is ParsedApiError {
   return typeof error === 'object' && error !== null && 'message' in error && 'status' in error
 }
 
-// ===== 3. Event Service (CRUD Functions based on api spec.txt) =====
+// * ===== Event Service Methods =====
 //
 export const EventService = {
   /**
@@ -211,7 +239,7 @@ export const EventService = {
     }
   },
 
-  // ===== 4. Related Registration Functions (based on api spec.txt) =====
+  // * ===== Registration Service Methods =====
 
   /**
    * ลงทะเบียนเข้าร่วม Event
@@ -255,4 +283,42 @@ export const EventService = {
       throw new Error("An unexpected error occurred while fetching user's registrations.")
     }
   },
+
+  // * ===== Sub-Session Service Methods =====
+
+  async getEventSessions(eventId: string): Promise<EventSession[]> {
+    try {
+      return await apiClient.get<EventSession[], EventSession[]>(`/events/${eventId}/sessions`)
+    } catch (error: unknown) {
+      if (isApiError(error)) throw error
+      throw new Error('Failed to fetch event sessions.')
+    }
+  },
+
+  async createSession(eventId: string, data: CreateSessionDto): Promise<EventSession> {
+    try {
+      return await apiClient.post<EventSession, EventSession>(`/events/${eventId}/sessions`, data)
+    } catch (error: unknown) {
+      if (isApiError(error)) throw error
+      throw new Error('Failed to create session.')
+    }
+  },
+
+  async updateSession(eventId: string, sessionId: string, data: UpdateSessionDto): Promise<EventSession> {
+    try {
+      return await apiClient.patch<EventSession, EventSession>(`/events/${eventId}/sessions/${sessionId}`, data)
+    } catch (error: unknown) {
+      if (isApiError(error)) throw error
+      throw new Error('Failed to update session.')
+    }
+  },
+
+  async deleteSession(eventId: string, sessionId: string): Promise<void> {
+    try {
+      await apiClient.delete<void, void>(`/events/${eventId}/sessions/${sessionId}`)
+    } catch (error: unknown) {
+      if (isApiError(error)) throw error
+      throw new Error('Failed to delete session.')
+    }
+  }
 }

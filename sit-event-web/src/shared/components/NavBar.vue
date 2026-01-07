@@ -53,6 +53,7 @@ const isAuthenticated = computed(() => authStore.isAuthenticated);
         
         <div class="flex items-center gap-6">
           <a 
+            id="sit-event-home"
             href="#" 
             @click.prevent="navigateTo('/')" 
             class="text-xl font-bold text-primary hover:opacity-80 transition-opacity"
@@ -97,8 +98,8 @@ const isAuthenticated = computed(() => authStore.isAuthenticated);
               <DropdownMenuTrigger as-child>
                 <Button variant="ghost" class="flex items-center gap-2 px-2 hover:bg-slate-100 rounded-full h-auto py-1">
                   <div class="text-right hidden sm:block">
-                    <p class="text-sm font-medium leading-none">{{ authStore.user?.firstName }} {{ authStore.user?.lastName }}</p>
-                    <p class="text-xs text-muted-foreground">{{ authStore.user?.userRole }}</p>
+                    <p class="text-sm font-medium leading-none" id="username">{{ authStore.user?.firstName }} {{ authStore.user?.lastName }}</p>
+                    <p class="text-xs text-muted-foreground" id="role">{{ authStore.user?.userRole }}</p>
                   </div>
                   <Avatar class="h-8 w-8 sm:h-9 sm:w-9 border">
                     <AvatarImage src="" alt="User Avatar" />
