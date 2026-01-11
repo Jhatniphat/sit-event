@@ -23,12 +23,16 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import UnregistrationDialog from '@/features/registration/components/UnregistrationDialog.vue'
+import SessionSelectionDialog from '@/features/registration/components/SessionSelectionDialog.vue'
 import { toast } from 'vue-sonner'
 
 const eventStore = useEventStore()
 const events = computed(() => eventStore.events)
 const currentPage = ref(1)
 const currentLimit = ref(5)
+const isSessionDialogOpen = ref(false)
+const sessionLoading = ref(false)
+const selectedEventIdForSession = ref<string | null>(null)
 
 const authStore = useAuthStore()
 const registerStore = useRegistrationStore()
@@ -116,28 +120,96 @@ const handleRegister = (payload: RegisterPayload) => {
 
 const onConfirmRegistration = async (eventId: string, role: RegistrationRole) => {
   if (role === null) return
-  try {
-    if (role === 'STAFF') {
+  
+  // กรณี STAFF ทำงานเหมือนเดิม
+  if (role === 'STAFF') {
+    isRegisDialogOpen.value = false // ปิด Dialog เลือก Role ทันที
+    try {
       await registerStore.applyToBeStaff(eventId, { eventRole: 'STAFF' })
       toast.success('สมัคร Staff สำเร็จ', {
         description: 'คุณได้สมัครเป็น Staff สำหรับกิจกรรมนี้แล้ว',
       })
-    } else if (role === 'PARTICIPANT') {
-      await registerStore.registerForEvent(eventId, { sessionId: '' })
-      toast.success('ลงทะเบียนสำเร็จ', {
-        description: 'คุณได้ลงทะเบียนเข้าร่วมกิจกรรมเรียบร้อยแล้ว',
-      })
+    } catch (err: any) {
+        // Error Handling เดิม
+        const errorMessage = err?.response?.data?.message || err?.message || 'เกิดข้อผิดพลาด'
+        toast.error('การสมัคร Staff ล้มเหลว', { description: errorMessage })
     }
-  } catch (err: unknown) { 
-    console.error(err)
-    const error = err as any
-    const errorMessage =
-      error?.response?.data?.message || error?.message || 'เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ'
-    toast.error('การลงทะเบียนล้มเหลว', {
-      description: errorMessage,
-    })
+    return
+  } 
+  
+  // กรณี PARTICIPANT
+  if (role === 'PARTICIPANT') {
+    // 1. ยังไม่ปิด Dialog เลือก Role หรือแสดง Loading ก่อนก็ได้
+    // แต่เพื่อความ Smooth เราจะเช็ค Session ก่อน
+    try {
+      // 2. Fetch Sessions ของ Event นั้นๆ
+      sessionLoading.value = true
+      await eventStore.fetchEventSessions(eventId)
+      const sessions = eventStore.currentEventSessions
+
+      if (sessions && sessions.length > 0) {
+        // CASE A: มี Sub-sessions -> ไปหน้าเลือก Session
+        selectedEventIdForSession.value = eventId
+        isRegisDialogOpen.value = false // ปิดหน้าเลือก Role
+        isSessionDialogOpen.value = true // เปิดหน้าเลือก Session
+      } else {
+        // CASE B: ไม่มี Sub-sessions -> ลงทะเบียน Event ตามปกติ (Flow เดิม)
+        isRegisDialogOpen.value = false
+        await registerStore.registerForEvent(eventId, { sessionId: '' }) // sessionId ว่าง หรือ undefined ตาม spec เดิม
+        toast.success('ลงทะเบียนสำเร็จ', {
+          description: 'คุณได้ลงทะเบียนเข้าร่วมกิจกรรมเรียบร้อยแล้ว',
+        })
+      }
+    } catch (err: any) {
+       console.error(err)
+       toast.error('เกิดข้อผิดพลาด', { description: 'ไม่สามารถตรวจสอบรอบกิจกรรมได้' })
+       isRegisDialogOpen.value = false
+    } finally {
+       sessionLoading.value = false
+    }
   }
-  isRegisDialogOpen.value = false
+}
+
+const onConfirmSessionSelection = async (sessionIds: string[]) => {
+  if (!selectedEventIdForSession.value) return
+
+  sessionLoading.value = true
+  try {
+    // ขั้นตอนที่ 1: ลงทะเบียนเข้าร่วม Event หลักก่อน
+    // (ส่ง sessionId: '' หรือ body ว่างตามที่เคยทำในกรณีไม่มี session)
+    await registerStore.registerForEvent(selectedEventIdForSession.value, { sessionId: '' })
+
+    // ขั้นตอนที่ 2: วนลูปยิง API ลงทะเบียน Sub-session ที่เลือก
+    // ทำหลังจากขั้นตอนที่ 1 สำเร็จแล้วเท่านั้น
+    const promises = sessionIds.map((sessionId) =>
+      eventStore.registerForSession(selectedEventIdForSession.value!, sessionId)
+    )
+
+    await Promise.all(promises)
+
+    toast.success('ลงทะเบียนสำเร็จ', {
+      description: `คุณได้ลงทะเบียนเข้าร่วมกิจกรรมและจองรอบจำนวน ${sessionIds.length} รอบเรียบร้อยแล้ว`,
+    })
+    
+    isSessionDialogOpen.value = false
+    
+    // อัปเดตข้อมูล local state เพื่อให้หน้าเว็บแสดงสถานะล่าสุด
+    await registerStore.fetchMyRegistrations()
+    
+  } catch (err: any) {
+    console.error(err)
+    // กรณี Error ให้เช็คว่าพังที่ขั้นตอนไหน
+    const errorMessage =
+      err?.response?.data?.message || err?.message || 'เกิดข้อผิดพลาดในการลงทะเบียน'
+    toast.error('การลงทะเบียนล้มเหลว', { description: errorMessage })
+  } finally {
+    sessionLoading.value = false
+  }
+}
+
+const onBackFromSession = () => {
+    isSessionDialogOpen.value = false
+    isRegisDialogOpen.value = true
 }
 
 // --- Unregistration Logic ---
@@ -235,6 +307,14 @@ onUnmounted(() => {
             </DialogFooter>
         </DialogContent>
       </Dialog> -->
+
+      <SessionSelectionDialog
+        v-model:open="isSessionDialogOpen"
+        :sessions="eventStore.currentEventSessions"
+        :isLoading="sessionLoading"
+        @confirm="onConfirmSessionSelection"
+        @back="onBackFromSession"
+      />
 
       <UnregistrationDialog
         v-model:open="isUnregisDialogOpen"

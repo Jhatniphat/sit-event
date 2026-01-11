@@ -320,5 +320,26 @@ export const EventService = {
       if (isApiError(error)) throw error
       throw new Error('Failed to delete session.')
     }
-  }
+  },
+
+  /**
+   * ลงทะเบียนเข้าร่วม Sub-Session
+   * [POST] /events/{eventId}/sessions/{sessionId}/register
+   */
+  async registerForSession(eventId: string, sessionId: string): Promise<EventRegistration> {
+    try {
+      const registration = await apiClient.post<EventRegistration, EventRegistration>(
+        `/events/${eventId}/sessions/${sessionId}/register`,
+        {} // Body ว่างตาม Spec ที่มักจะเป็นสำหรับการ POST action ที่ parameter อยู่ใน URL
+      )
+      return registration
+    } catch (error: unknown) {
+      if (isApiError(error)) {
+        console.error(`[EventService.registerForSession] API Error ${error.status}: ${error.message}`)
+        throw error
+      }
+      console.error('[EventService.registerForSession] Unexpected Error:', error)
+      throw new Error('An unexpected error occurred during session registration.')
+    }
+  },
 }

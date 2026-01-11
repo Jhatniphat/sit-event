@@ -182,6 +182,8 @@ export const useEventStore = defineStore('events', {
       try {
         const sessions = await EventService.getEventSessions(eventId)
         this.currentEventSessions = sessions
+        console.log('Fetched Sessions:', sessions)
+        console.log('Current Store Sessions:', this.currentEventSessions)
       } catch (error) {
         console.error(handleError(error, 'Failed to fetch sessions'))
         // ไม่ throw error เพื่อไม่ให้บล็อกการทำงานหลัก แค่ sessions ไม่ขึ้น
@@ -254,6 +256,21 @@ export const useEventStore = defineStore('events', {
         this.myRegistrations.push(newRegistration)
       } catch (error) {
         this.error = handleError(error, 'Failed to register.')
+        console.error(this.error)
+        throw error
+      } finally {
+        this.isLoadingRegistration = false
+      }
+    },
+
+    async registerForSession(eventId: string, sessionId: string) {
+      this.isLoadingRegistration = true
+      this.error = null
+      try {
+        const newRegistration = await EventService.registerForSession(eventId, sessionId)
+        this.myRegistrations.push(newRegistration)
+      } catch (error) {
+        this.error = handleError(error, 'Failed to register for session.')
         console.error(this.error)
         throw error
       } finally {
