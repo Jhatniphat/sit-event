@@ -10,12 +10,14 @@ import { toast } from 'vue-sonner'
 // UI Components
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Calendar, Clock, MapPin, Tag } from 'lucide-vue-next'
+import { Calendar, Clock, MapPin, Tag, Users } from 'lucide-vue-next'
 import RegistrationDialog, {
   type RegisterPayload,
   type RegistrationRole,
 } from '@/features/registration/components/RegistrationDialog.vue'
 import UnregistrationDialog from '@/features/registration/components/UnregistrationDialog.vue'
+// [1] Import Session Dialog
+import SessionSelectionDialog from '@/features/registration/components/SessionSelectionDialog.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -27,13 +29,20 @@ const registerStore = useRegistrationStore()
 
 const isLoading = ref(true)
 
+// [2] State สำหรับ Session Dialog
+const isSessionDialogOpen = ref(false)
+const sessionLoading = ref(false) // ใช้ตอนกด confirm แล้ว loading (ถ้าต้องการ)
+
 onMounted(async () => {
   isLoading.value = true
   try {
-    // โหลดข้อมูล Event
+    // 1. โหลดข้อมูล Event
     await eventStore.fetchEventById(eventId)
 
-    // โหลดสถานะการลงทะเบียนของผู้ใช้ (ถ้า login)
+    // 2. โหลดข้อมูล Sub-Sessions
+    await eventStore.fetchEventSessions(eventId)
+
+    // 3. โหลดสถานะการลงทะเบียนของผู้ใช้ (ถ้า login)
     if (authStore.isAuthenticated) {
       await registerStore.fetchMyRegistrations()
       await registerStore.fetchMyStaffStatus()
@@ -70,16 +79,24 @@ const formatDate = (dateStr: string | Date) => {
   })
 }
 
+const formatSessionTime = (start: string, end: string) => {
+  const startDate = new Date(start)
+  const endDate = new Date(end)
+  
+  const dateOpt: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short' }
+  const timeOpt: Intl.DateTimeFormatOptions = { hour: '2-digit', minute: '2-digit' }
+
+  return `${startDate.toLocaleDateString('th-TH', dateOpt)} ${startDate.toLocaleTimeString('th-TH', timeOpt)} - ${endDate.toLocaleTimeString('th-TH', timeOpt)}`
+}
+
 // --- Action Button Logic ---
 const isButtonDisabled = computed(() => {
   if (!eventItem.value) return true
-  // ถ้ายกเลิกได้ (ลงทะเบียนแล้ว) ให้ไม่ disable
   if (eventItem.value.hasRegister) return false
 
   const now = new Date().getTime()
   const regEnd = new Date(eventItem.value.registrationEndDate).getTime()
 
-  // ถ้ายังไม่ลงทะเบียน แต่หมดเวลา หรือ ไม่มีสิทธิ์ลง
   return (
     now > regEnd ||
     (!eventItem.value.canRegisterAtStaff && !eventItem.value.canRegisterAtParticipant)
@@ -127,23 +144,89 @@ const handleActionClick = () => {
   }
 }
 
-// Confirm Register
+// [3] ปรับ Logic Confirm Register
 const onConfirmRegister = async (eid: string, role: RegistrationRole) => {
   if (!role) return
-  try {
-    if (role === 'STAFF') {
+
+  // กรณี Staff (เหมือนเดิม)
+  if (role === 'STAFF') {
+    try {
       await registerStore.applyToBeStaff(eid, { eventRole: 'STAFF' })
       toast.success('สมัคร Staff สำเร็จ')
-    } else {
-      await registerStore.registerForEvent(eid, { sessionId: '' })
-      toast.success('ลงทะเบียนสำเร็จ')
+    } catch (err: any) {
+      toast.error('สมัคร Staff ไม่สำเร็จ', {
+        description: err?.response?.data?.message || err.message,
+      })
     }
-  } catch (err: any) {
-    toast.error('ลงทะเบียนไม่สำเร็จ', {
-      description: err?.response?.data?.message || err.message,
-    })
+    isRegisDialogOpen.value = false
+    return
+  } 
+  
+  // กรณี Participant
+  if (role === 'PARTICIPANT') {
+    // เช็คว่ามี Sub-session หรือไม่ (ใช้จาก store ที่ fetch มาตอน onMounted)
+    const sessions = eventStore.currentEventSessions
+    
+    if (sessions && sessions.length > 0) {
+        // CASE A: มี Session -> ปิด Dialog เลือก Role แล้วไปเปิด Dialog เลือก Session
+        isRegisDialogOpen.value = false
+        isSessionDialogOpen.value = true
+    } else {
+        // CASE B: ไม่มี Session -> ลงทะเบียนเลย (เหมือนเดิม)
+        try {
+            await registerStore.registerForEvent(eid, { sessionId: '' })
+            toast.success('ลงทะเบียนสำเร็จ')
+            isRegisDialogOpen.value = false
+        } catch (err: any) {
+            toast.error('ลงทะเบียนไม่สำเร็จ', {
+                description: err?.response?.data?.message || err.message,
+            })
+        }
+    }
   }
-  isRegisDialogOpen.value = false
+}
+
+// [4] เพิ่ม Logic ยืนยันการเลือก Session
+const onConfirmSessionSelection = async (sessionIds: string[]) => {
+  if (!eventItem.value) return
+  
+  sessionLoading.value = true
+  try {
+    // ขั้นตอนที่ 1: ลงทะเบียนเข้าร่วม Event หลัก
+    await registerStore.registerForEvent(eventItem.value.id, { sessionId: '' })
+
+    // ขั้นตอนที่ 2: ลงทะเบียน Sub-session ตามรายการที่เลือก
+    const promises = sessionIds.map((sessionId) =>
+      eventStore.registerForSession(eventItem.value!.id, sessionId)
+    )
+
+    await Promise.all(promises)
+
+    toast.success('ลงทะเบียนสำเร็จ', {
+      description: `คุณได้ลงทะเบียนเข้าร่วมกิจกรรมและจองรอบจำนวน ${sessionIds.length} รอบเรียบร้อยแล้ว`,
+    })
+    
+    isSessionDialogOpen.value = false
+    
+    // อัปเดตข้อมูล
+    await registerStore.fetchMyRegistrations()
+    // อาจจะ reload ข้อมูล event อีกครั้งเพื่อ update จำนวนที่นั่งแบบ realtime (ถ้า API รองรับ)
+    await eventStore.fetchEventSessions(eventItem.value.id)
+
+  } catch (err: any) {
+    console.error(err)
+    const errorMessage =
+      err?.response?.data?.message || err?.message || 'เกิดข้อผิดพลาดในการลงทะเบียน'
+    toast.error('การลงทะเบียนล้มเหลว', { description: errorMessage })
+  } finally {
+    sessionLoading.value = false
+  }
+}
+
+// (Optional) ปุ่มย้อนกลับจากหน้าเลือก Session
+const onBackFromSession = () => {
+    isSessionDialogOpen.value = false
+    isRegisDialogOpen.value = true
 }
 
 // Confirm Unregister
@@ -186,18 +269,71 @@ const onConfirmUnregister = async () => {
       </div>
 
       <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-        <div class="md:col-span-2 space-y-6">
-          <div>
-            <h1 class="text-3xl font-bold text-gray-900 mb-2">{{ eventItem.name }}</h1>
-            <div class="flex flex-wrap gap-2 mb-4">
-              <Badge variant="secondary" class="text-xs">SIT Event</Badge>
+        <div class="md:col-span-2 space-y-8">
+          
+          <div class="space-y-6">
+            <div>
+              <h1 class="text-3xl font-bold text-gray-900 mb-2">{{ eventItem.name }}</h1>
+              <div class="flex flex-wrap gap-2 mb-4">
+                <Badge variant="secondary" class="text-xs">SIT Event</Badge>
+              </div>
+            </div>
+
+            <div class="prose max-w-none text-gray-700">
+              <h3 class="text-xl font-semibold text-gray-900 mb-2">รายละเอียดกิจกรรม</h3>
+              <p class="whitespace-pre-line">{{ eventItem.description }}</p>
             </div>
           </div>
 
-          <div class="prose max-w-none text-gray-700">
-            <h3 class="text-xl font-semibold text-gray-900 mb-2">รายละเอียดกิจกรรม</h3>
-            <p class="whitespace-pre-line">{{ eventItem.description }}</p>
+          <div>
+            <h3 class="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <Calendar class="w-5 h-5" />
+              กำหนดการ / Sub-sessions
+            </h3>
+
+            <div v-if="eventStore.currentEventSessions.length > 0" class="space-y-4">
+              <div 
+                v-for="session in eventStore.currentEventSessions" 
+                :key="session.id"
+                class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200"
+              >
+                <div class="flex flex-col sm:flex-row justify-between gap-4">
+                  <div class="space-y-2 flex-1">
+                    <h4 class="font-bold text-lg text-gray-800">{{ session.name }}</h4>
+                    <p class="text-gray-600 text-sm whitespace-pre-line line-clamp-2">
+                      {{ session.description }}
+                    </p>
+                    
+                    <div class="flex flex-wrap gap-3 mt-3 text-sm text-gray-500">
+                      <div class="flex items-center gap-1.5">
+                        <Clock class="w-4 h-4 text-primary" />
+                        <span>{{ formatSessionTime(session.startTime, session.endTime) }}</span>
+                      </div>
+                      <div class="flex items-center gap-1.5">
+                        <MapPin class="w-4 h-4 text-primary" />
+                        <span>{{ session.location }}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-2 min-w-[100px]">
+                    <Badge variant="outline" class="flex items-center gap-1 px-3 py-1">
+                      <Users class="w-3 h-3" />
+                      {{ session.maxSeats }} ที่นั่ง
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div v-else class="flex flex-col items-center justify-center p-8 bg-gray-50 rounded-xl border border-dashed border-gray-300 text-center">
+              <div class="p-3 bg-gray-100 rounded-full mb-3">
+                <Calendar class="w-6 h-6 text-gray-400" />
+              </div>
+              <p class="text-gray-500 font-medium">ไม่มีรายการ Sub-session สำหรับกิจกรรมนี้</p>
+            </div>
           </div>
+
         </div>
 
         <div class="space-y-6">
@@ -253,6 +389,14 @@ const onConfirmUnregister = async () => {
       v-model:open="isRegisDialogOpen"
       :payload="currentPayload"
       @confirm="onConfirmRegister"
+    />
+
+    <SessionSelectionDialog
+      v-model:open="isSessionDialogOpen"
+      :sessions="eventStore.currentEventSessions"
+      :isLoading="sessionLoading"
+      @confirm="onConfirmSessionSelection"
+      @back="onBackFromSession"
     />
 
     <UnregistrationDialog

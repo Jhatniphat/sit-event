@@ -44,7 +44,7 @@ export interface Event {
   eventEndDate: Date // date-time [cite: 10]
   targetAudience: TargetAudience[]
   tags: EventTag[]
-  creatorId: string // uuid, readOnly [cite: 11, 12]
+  creatorId: Date // uuid, readOnly [cite: 11, 12]
   createdAt: Date // date-time, readOnly [cite: 12]
   images: File[]
 }
@@ -71,34 +71,6 @@ export interface CreateEventDto {
  * [cite: 38, 39]
  */
 export type UpdateEventDto = CreateEventDto
-
-/** 
- * Interface สำหรับ sub-session ของ Event (components.schemas.EventSession)
- *
- */
-export interface EventSession {
-  id: string
-  name: string
-  description: string
-  startTime: string // ISO String from API
-  endTime: string   // ISO String from API
-  location: string
-  maxSeats: number
-  pointsAwarded: number
-  // thumbnail?: string // API Example ไม่ได้ระบุ field นี้ แต่ถ้ามีก็เพิ่มได้
-}
-
-export interface CreateSessionDto {
-  name: string
-  description: string
-  startTime: string // ISO String
-  endTime: string   // ISO String
-  location: string
-  maxSeats: number
-  pointsAwarded: number
-}
-
-export type UpdateSessionDto = CreateSessionDto
 
 /**
  * Interface สำหรับการลงทะเบียน (components.schemas.EventRegistration)
@@ -127,7 +99,7 @@ function isApiError(error: unknown): error is ParsedApiError {
   return typeof error === 'object' && error !== null && 'message' in error && 'status' in error
 }
 
-// * ===== Event Service Methods =====
+// ===== 3. Event Service (CRUD Functions based on api spec.txt) =====
 //
 export const EventService = {
   /**
@@ -239,7 +211,7 @@ export const EventService = {
     }
   },
 
-  // * ===== Registration Service Methods =====
+  // ===== 4. Related Registration Functions (based on api spec.txt) =====
 
   /**
    * ลงทะเบียนเข้าร่วม Event
@@ -281,65 +253,6 @@ export const EventService = {
       }
       console.error('[EventService.getMyRegistrations] Unexpected Error:', error)
       throw new Error("An unexpected error occurred while fetching user's registrations.")
-    }
-  },
-
-  // * ===== Sub-Session Service Methods =====
-
-  async getEventSessions(eventId: string): Promise<EventSession[]> {
-    try {
-      return await apiClient.get<EventSession[], EventSession[]>(`/events/${eventId}/sessions`)
-    } catch (error: unknown) {
-      if (isApiError(error)) throw error
-      throw new Error('Failed to fetch event sessions.')
-    }
-  },
-
-  async createSession(eventId: string, data: CreateSessionDto): Promise<EventSession> {
-    try {
-      return await apiClient.post<EventSession, EventSession>(`/events/${eventId}/sessions`, data)
-    } catch (error: unknown) {
-      if (isApiError(error)) throw error
-      throw new Error('Failed to create session.')
-    }
-  },
-
-  async updateSession(eventId: string, sessionId: string, data: UpdateSessionDto): Promise<EventSession> {
-    try {
-      return await apiClient.patch<EventSession, EventSession>(`/events/${eventId}/sessions/${sessionId}`, data)
-    } catch (error: unknown) {
-      if (isApiError(error)) throw error
-      throw new Error('Failed to update session.')
-    }
-  },
-
-  async deleteSession(eventId: string, sessionId: string): Promise<void> {
-    try {
-      await apiClient.delete<void, void>(`/events/${eventId}/sessions/${sessionId}`)
-    } catch (error: unknown) {
-      if (isApiError(error)) throw error
-      throw new Error('Failed to delete session.')
-    }
-  },
-
-  /**
-   * ลงทะเบียนเข้าร่วม Sub-Session
-   * [POST] /events/{eventId}/sessions/{sessionId}/register
-   */
-  async registerForSession(eventId: string, sessionId: string): Promise<EventRegistration> {
-    try {
-      const registration = await apiClient.post<EventRegistration, EventRegistration>(
-        `/events/${eventId}/sessions/${sessionId}/register`,
-        {} // Body ว่างตาม Spec ที่มักจะเป็นสำหรับการ POST action ที่ parameter อยู่ใน URL
-      )
-      return registration
-    } catch (error: unknown) {
-      if (isApiError(error)) {
-        console.error(`[EventService.registerForSession] API Error ${error.status}: ${error.message}`)
-        throw error
-      }
-      console.error('[EventService.registerForSession] Unexpected Error:', error)
-      throw new Error('An unexpected error occurred during session registration.')
     }
   },
 }
