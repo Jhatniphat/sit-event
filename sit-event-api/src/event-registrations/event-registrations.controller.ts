@@ -77,6 +77,7 @@ export class EventRegistrationsController {
     return this.eventRegistrationsService.checkUserQrStatus(eventId, userId);
   }
 
+  // Check-in Event หลัก (Update)
   @Patch(':eventId/check-in/:userId')
   @AllRoleAccess() 
   async checkInUser(
@@ -84,5 +85,16 @@ export class EventRegistrationsController {
     @Param('userId') userId: string,
   ) {
     return this.eventRegistrationsService.checkInUser(eventId, userId);
+  }
+
+  // [NEW] Check-in Sub-session
+  @Patch(':eventId/check-in/:userId/:sessionId')
+  @AllRoleAccess()
+  async checkInUserSession(
+    @Param('eventId') eventId: string,
+    @Param('userId') userId: string,
+    @Param('sessionId') sessionId: string,
+  ) {
+    return this.eventRegistrationsService.checkInUserSession(eventId, userId, sessionId);
   }
 }

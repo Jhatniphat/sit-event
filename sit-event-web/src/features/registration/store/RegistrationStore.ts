@@ -359,5 +359,19 @@ export const useRegistrationStore = defineStore('registration', {
         this.isLoading = false
       }
     },
+
+    async checkInSession(eventId: string, userId: string, sessionId: string): Promise<EventRegistration> {
+      this.isLoading = true
+      this.error = null
+      try {
+        const updated = await RegistrationService.checkInSession(eventId, userId, sessionId)
+        return updated
+      } catch (error) {
+        this.error = handleError(error, 'Failed to check-in user.')
+        throw error
+      } finally {
+        this.isLoading = false
+      }
+    },
   },
 })

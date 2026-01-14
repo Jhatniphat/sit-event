@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -36,6 +37,7 @@ export class EventRegistrationsService {
       where: {
         eventId: eventId,
         userId: user.id,
+        sessionId: null, // Ensure checking for main event registration
       },
     });
     if (existingRegistration) {
@@ -50,6 +52,7 @@ export class EventRegistrationsService {
         user: {
           connect: { id: user.id },
         },
+        // sessionId defaults to null
       },
     });
   }
@@ -89,7 +92,7 @@ export class EventRegistrationsService {
       where: {
         userId: user.id,
       },
-      include: { event: true },
+      include: { event: true, session: true }, // Include session detail if needed
     });
   }
 
@@ -115,6 +118,9 @@ export class EventRegistrationsService {
     userId: string,
     attended: boolean,
   ) {
+    // Note: This might update both main event and sub-sessions if not careful.
+    // Assuming this is an admin override action, it might be acceptable, 
+    // or you might want to scope it to sessionId: null as well.
     return this.prisma.eventRegistration.updateMany({
       where: { eventId: eventId, userId: userId },
       data: { attended },
@@ -129,17 +135,15 @@ export class EventRegistrationsService {
   }
 
   async checkUserQrStatus(eventId: string, userId: string) {
-    // 1. เช็คว่า User เปิด Socket (หน้า QR) ค้างไว้ไหม
     const isActive = this.eventRegistrationsGateway.isUserActive(userId);
 
-    // Optional: คุณอาจจะเช็คเพิ่มด้วยว่า User นี้ลงทะเบียน Event นี้จริงไหม
     const registration = await this.prisma.eventRegistration.findFirst({
         where: { eventId, userId },
         select: { id: true }
     });
 
     if (!registration) {
-         throw new NotFoundException('User has not registered for this event');
+          throw new NotFoundException('User has not registered for this event');
     }
 
     return {
@@ -149,21 +153,28 @@ export class EventRegistrationsService {
     };
   }
 
-  // --- Check In Logic (Updated) ---
+  // --- Check In Logic (Updated for Main Event Only) ---
   async checkInUser(eventId: string, userId: string) {
-    // 1. ค้นหาใบสมัคร (รวม Event เพื่อเอาชื่อ Event มาแสดงตอนแจ้งเตือน)
+    // 1. ค้นหาใบสมัคร Event หลัก (sessionId ต้องเป็น null)
     const registration = await this.prisma.eventRegistration.findFirst({
       where: {
         eventId: eventId,
         userId: userId,
+        sessionId: null, // สำคัญ: ระบุว่าเป็น Event หลัก
       },
       include: {
-        event: true, // ดึงข้อมูล Event ด้วย
+        event: true,
       }
     });
     
     if (!registration) {
-      throw new NotFoundException('Registration not found for this user and event.');
+      throw new NotFoundException('Main event registration not found for this user.');
+    }
+
+    if (registration.attended) {
+        // อาจจะ throw error หรือ return เดิมก็ได้ตาม Business logic ว่าจะให้แจ้งเตือนซ้ำไหม
+        // ในที่นี้ return ค่าเดิมไปเลย
+        return registration; 
     }
 
     // 2. อัปเดต attended = true
@@ -175,14 +186,73 @@ export class EventRegistrationsService {
       },
     });
 
-    // 3. [NEW] ส่ง Socket Notification กลับไปหา Participant
-    // แจ้งว่า "Check-in สำเร็จแล้วนะ"
+    // 3. ส่ง Socket Notification
     this.eventRegistrationsGateway.notifyCheckInSuccess(
         userId, 
         eventId, 
-        registration.event.name // ส่งชื่อ Event ไปโชว์
+        registration.event.name
     );
 
     return updatedRegistration;
+  }
+
+  // --- Check In Logic (New for Sub-Session) ---
+  async checkInUserSession(eventId: string, userId: string, sessionId: string) {
+    // 1. ตรวจสอบก่อนว่า Check-in Event หลักหรือยัง
+    const mainRegistration = await this.prisma.eventRegistration.findFirst({
+      where: {
+        eventId: eventId,
+        userId: userId,
+        sessionId: null,
+      },
+    });
+
+    if (!mainRegistration) {
+      throw new NotFoundException('User is not registered for the main event.');
+    }
+
+    if (!mainRegistration.attended) {
+      throw new BadRequestException('User must check-in at the main event first.');
+    }
+
+    // 2. ค้นหาใบสมัครของ Session นั้นๆ
+    const sessionRegistration = await this.prisma.eventRegistration.findFirst({
+      where: {
+        eventId: eventId,
+        userId: userId,
+        sessionId: sessionId,
+      },
+      include: {
+        session: true, // เพื่อเอาชื่อ Session ไปแสดง (ถ้ามี)
+        event: true,
+      }
+    });
+
+    if (!sessionRegistration) {
+      throw new NotFoundException('Registration for this session not found.');
+    }
+
+    // 3. อัปเดต attended = true
+    const updatedSessionRegistration = await this.prisma.eventRegistration.update({
+      where: { id: sessionRegistration.id },
+      data: {
+        attended: true,
+        checkedInAt: new Date(),
+      },
+    });
+
+    // 4. ส่ง Socket Notification (ระบุว่าเป็น Session Check-in)
+    // คุณอาจจะปรับ notifyCheckInSuccess ให้รับ parameter เพิ่ม หรือส่งเป็น format ชื่อ "Event - Session Name"
+    const notificationName = sessionRegistration.session 
+      ? `${sessionRegistration.event.name} - ${sessionRegistration.session.name}` 
+      : sessionRegistration.event.name;
+
+    this.eventRegistrationsGateway.notifyCheckInSuccess(
+        userId, 
+        eventId, 
+        notificationName
+    );
+
+    return updatedSessionRegistration;
   }
 }
