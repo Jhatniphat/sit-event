@@ -31,6 +31,10 @@
     {
       "name": "Users",
       "description": "User management endpoints."
+    },
+    {
+      "name": "Event Forms",
+      "description": "Endpoints for managing event feedback forms, form fields, and submissions."
     }
   ],
   "paths": {
@@ -767,6 +771,462 @@
           "404": { "description": "Staff entry not found" }
         }
       }
+    },
+    "/events/{eventId}/forms": {
+      "post": {
+        "tags": ["Event Forms"],
+        "summary": "Create a new form for an event",
+        "description": "Creates a feedback/survey form for an event. Each event can only have one form.",
+        "security": [{ "JWT-auth": [] }],
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" },
+            "description": "Event ID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateEventFormDto" }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Form successfully created" },
+          "404": { "description": "Event not found" },
+          "409": { "description": "Event already has a form" }
+        }
+      },
+      "get": {
+        "tags": ["Event Forms"],
+        "summary": "Get the form for an event",
+        "description": "Returns the form associated with an event, or null if no form exists.",
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" },
+            "description": "Event ID"
+          }
+        ],
+        "responses": {
+          "200": { "description": "Returns the event form or null" },
+          "404": { "description": "Event not found" }
+        }
+      }
+    },
+    "/events/{eventId}/forms/{formId}": {
+      "get": {
+        "tags": ["Event Forms"],
+        "summary": "Get a specific form by ID",
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "formId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Returns the form details" },
+          "404": { "description": "Form not found" }
+        }
+      },
+      "patch": {
+        "tags": ["Event Forms"],
+        "summary": "Update a form",
+        "security": [{ "JWT-auth": [] }],
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "formId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpdateEventFormDto" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Form successfully updated" },
+          "404": { "description": "Form not found" }
+        }
+      },
+      "delete": {
+        "tags": ["Event Forms"],
+        "summary": "Delete a form",
+        "security": [{ "JWT-auth": [] }],
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "formId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "204": { "description": "Form successfully deleted" },
+          "404": { "description": "Form not found" }
+        }
+      }
+    },
+    "/events/{eventId}/forms/{formId}/fields": {
+      "post": {
+        "tags": ["Event Forms"],
+        "summary": "Add fields to a form (supports single or bulk)",
+        "description": "You can send a single field object or an array of field objects to add multiple fields at once.",
+        "security": [{ "JWT-auth": [] }],
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "formId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  { "$ref": "#/components/schemas/CreateFormFieldDto" },
+                  { "type": "array", "items": { "$ref": "#/components/schemas/CreateFormFieldDto" } }
+                ]
+              },
+              "examples": {
+                "singleField": {
+                  "summary": "Single field",
+                  "value": {
+                    "question": "How was the event?",
+                    "fieldType": "RATING_SCALE",
+                    "isRequired": true,
+                    "order": 1
+                  }
+                },
+                "multipleFields": {
+                  "summary": "Multiple fields (bulk)",
+                  "value": [
+                    { "question": "How was the event?", "fieldType": "RATING_SCALE", "isRequired": true, "order": 1 },
+                    { "question": "Which topics interest you?", "fieldType": "CHECKBOX", "options": ["AI", "Web Dev", "Mobile"], "isRequired": false, "order": 2 }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Field(s) successfully added" },
+          "400": { "description": "Invalid field data (e.g., CHECKBOX/RADIO without options)" },
+          "404": { "description": "Form not found" }
+        }
+      },
+      "delete": {
+        "tags": ["Event Forms"],
+        "summary": "Bulk delete multiple fields",
+        "security": [{ "JWT-auth": [] }],
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "formId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/BulkDeleteFieldsDto" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Fields successfully deleted" },
+          "404": { "description": "Form or fields not found" }
+        }
+      }
+    },
+    "/events/{eventId}/forms/{formId}/fields/{fieldId}": {
+      "patch": {
+        "tags": ["Event Forms"],
+        "summary": "Update a specific field",
+        "security": [{ "JWT-auth": [] }],
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "formId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "fieldId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpdateFormFieldDto" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Field successfully updated" },
+          "404": { "description": "Field not found" }
+        }
+      },
+      "delete": {
+        "tags": ["Event Forms"],
+        "summary": "Delete a specific field",
+        "security": [{ "JWT-auth": [] }],
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "formId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "fieldId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "204": { "description": "Field successfully deleted" },
+          "404": { "description": "Field not found" }
+        }
+      }
+    },
+    "/events/{eventId}/forms/{formId}/fields/reorder": {
+      "patch": {
+        "tags": ["Event Forms"],
+        "summary": "Reorder form fields",
+        "security": [{ "JWT-auth": [] }],
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "formId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ReorderFieldsDto" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Fields successfully reordered" },
+          "404": { "description": "Form not found" }
+        }
+      }
+    },
+    "/events/{eventId}/forms/{formId}/submit": {
+      "post": {
+        "tags": ["Event Forms"],
+        "summary": "Submit form answers",
+        "security": [{ "JWT-auth": [] }],
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "formId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SubmitFormDto" }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Form successfully submitted" },
+          "400": { "description": "Form not active or required fields missing" },
+          "409": { "description": "User already submitted this form" }
+        }
+      }
+    },
+    "/events/{eventId}/forms/{formId}/my-submission": {
+      "get": {
+        "tags": ["Event Forms"],
+        "summary": "Get my submission for this form",
+        "security": [{ "JWT-auth": [] }],
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "formId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Returns user submission or null" }
+        }
+      }
+    },
+    "/events/{eventId}/forms/{formId}/submissions": {
+      "get": {
+        "tags": ["Event Forms"],
+        "summary": "Get all submissions for a form (organizers only)",
+        "security": [{ "JWT-auth": [] }],
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "formId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Returns all form submissions" },
+          "403": { "description": "Forbidden - Organizer access required" }
+        }
+      }
+    },
+    "/events/{eventId}/forms/{formId}/submissions/{submissionId}": {
+      "get": {
+        "tags": ["Event Forms"],
+        "summary": "Get a specific submission by ID",
+        "security": [{ "JWT-auth": [] }],
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "formId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "submissionId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Returns the submission details" },
+          "404": { "description": "Submission not found" }
+        }
+      }
+    },
+    "/events/{eventId}/forms/{formId}/summary": {
+      "get": {
+        "tags": ["Event Forms"],
+        "summary": "Get form submission summary/statistics",
+        "description": "Returns statistics including total submissions, answer distributions for each field, and average ratings.",
+        "security": [{ "JWT-auth": [] }],
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "formId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Returns form statistics and summary" },
+          "403": { "description": "Forbidden - Organizer access required" }
+        }
+      }
     }
   },
   "components": {
@@ -940,6 +1400,145 @@
           }
         },
         "required": ["status"]
+      },
+      "CreateEventFormDto": {
+        "type": "object",
+        "properties": {
+          "title": { 
+            "type": "string",
+            "example": "Event Feedback Form"
+          },
+          "description": { 
+            "type": "string",
+            "example": "Please share your feedback about the event"
+          },
+          "isActive": { 
+            "type": "boolean",
+            "default": false,
+            "example": false
+          },
+          "fields": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/CreateFormFieldDto" },
+            "description": "Initial form fields to create with the form"
+          }
+        },
+        "required": ["title"]
+      },
+      "UpdateEventFormDto": {
+        "type": "object",
+        "properties": {
+          "title": { "type": "string" },
+          "description": { "type": "string" },
+          "isActive": { "type": "boolean" }
+        }
+      },
+      "CreateFormFieldDto": {
+        "type": "object",
+        "properties": {
+          "question": { 
+            "type": "string",
+            "example": "How satisfied are you with the event?"
+          },
+          "fieldType": { 
+            "type": "string",
+            "enum": ["TEXT", "RATING_SCALE", "CHECKBOX", "RADIO"],
+            "example": "RATING_SCALE"
+          },
+          "options": { 
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Required for CHECKBOX and RADIO field types",
+            "example": ["Option 1", "Option 2", "Option 3"]
+          },
+          "isRequired": { 
+            "type": "boolean",
+            "default": false,
+            "example": true
+          },
+          "order": { 
+            "type": "integer",
+            "default": 0,
+            "example": 1
+          }
+        },
+        "required": ["question", "fieldType"]
+      },
+      "UpdateFormFieldDto": {
+        "type": "object",
+        "properties": {
+          "question": { "type": "string" },
+          "fieldType": { 
+            "type": "string",
+            "enum": ["TEXT", "RATING_SCALE", "CHECKBOX", "RADIO"]
+          },
+          "options": { 
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "isRequired": { "type": "boolean" },
+          "order": { "type": "integer" }
+        }
+      },
+      "SubmitFormDto": {
+        "type": "object",
+        "properties": {
+          "answers": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/FormAnswerDto" }
+          }
+        },
+        "required": ["answers"]
+      },
+      "FormAnswerDto": {
+        "type": "object",
+        "properties": {
+          "fieldId": { 
+            "type": "string",
+            "format": "uuid",
+            "example": "uuid-field-id"
+          },
+          "answer": { 
+            "type": "string",
+            "example": "5"
+          }
+        },
+        "required": ["fieldId"]
+      },
+      "ReorderFieldsDto": {
+        "type": "object",
+        "properties": {
+          "fields": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/FieldOrderDto" }
+          }
+        },
+        "required": ["fields"]
+      },
+      "FieldOrderDto": {
+        "type": "object",
+        "properties": {
+          "id": { 
+            "type": "string",
+            "format": "uuid"
+          },
+          "order": { 
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": ["id", "order"]
+      },
+      "BulkDeleteFieldsDto": {
+        "type": "object",
+        "properties": {
+          "fieldIds": {
+            "type": "array",
+            "items": { "type": "string", "format": "uuid" },
+            "example": ["uuid-field-1", "uuid-field-2"]
+          }
+        },
+        "required": ["fieldIds"]
       }
     },
     "securitySchemes": {
