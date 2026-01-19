@@ -23,6 +23,7 @@ import { EventStaffsModule } from './event-staffs/event-staffs.module';
 import { PrismaService } from './prisma.service';
 import { MinioClientModule } from './minio/minio.module';
 import { EventSessionsModule } from './event-sessions/event-sessions.module';
+import { EventFormsModule } from './event-forms/event-forms.module';
 
 @Module({
   imports: [
@@ -51,6 +52,7 @@ import { EventSessionsModule } from './event-sessions/event-sessions.module';
     EventStaffsModule,
     MinioClientModule,
     EventSessionsModule,
+    EventFormsModule,
   ],
   controllers: [AppController],
   providers: [

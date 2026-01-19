@@ -48,9 +48,20 @@ const routes: Array<RouteRecordRaw> = [
     },
   },
   {
-    path: '/admin/forms/create',
+    path: '/admin/events/:id/forms',
+    name: 'FormsList',
+    component: () => import('../features/forms/views/FormView.vue'),
+    props: true,
+    meta: {
+      requiresAuth: true,
+      roles: adminRoles,
+    },
+  },
+  {
+    path: '/admin/events/:id/forms/:formId',
     name: 'CreateForms',
     component: () => import('../features/forms/views/CreateFormsView.vue'),
+    props: true,
     meta: {
       requiresAuth: true,
       roles: adminRoles,

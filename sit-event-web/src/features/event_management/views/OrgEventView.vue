@@ -2,6 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useEventStore } from '@/features/event_management/store/EventStore'
+import { FileUser } from 'lucide-vue-next'
 import BaseButton from '@/components/ui/button/BaseButton.vue'
 import { toast } from 'vue-sonner'
 
@@ -25,8 +26,9 @@ onMounted(() => {
 const handleCreate = () => {
   router.push({ name: 'CreateEvent' })
 }
-const handleCreateForms = () => {
-  router.push({ name: 'CreateForms' })
+
+const handleFormsList = (id: string) => {
+  router.push({ name: 'FormsList', params: { id } })
 }
 
 const handleView = (id: string) => {
@@ -118,12 +120,6 @@ const formatEnum = (value: string) => {
             @click="handleCreate"
             label="+ New Event"
             class="bg-black text-white px-4 py-2"
-          />
-          <BaseButton
-            @click="handleCreateForms"
-            label="+ New Forms"
-            class="px-4 py-2"
-            color="grey"
           />
         </div>
       </div>
@@ -251,6 +247,13 @@ const formatEnum = (value: string) => {
                     >
                       <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
                     </svg>
+                  </button>
+                  <button
+                    @click="handleFormsList(event.id)"
+                    class="p-2 text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded-md transition-colors"
+                    title="Form Responses"
+                  >
+                    <FileUser class="h-4 w-4" />
                   </button>
 
                   <button

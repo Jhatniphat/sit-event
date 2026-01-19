@@ -342,4 +342,20 @@ export const RegistrationService = {
       throw new Error('An unexpected error occurred while checking in user.')
     }
   },
+
+  async checkInSession(eventId: string, userId: string, sessionId: string): Promise<EventRegistration> {
+    try {
+      // ไม่ต้องส่ง body {} ไป เพราะ backend ไม่ได้รับ body
+      return await apiClient.patch(`/events/${eventId}/check-in/${userId}/${sessionId}`)
+    } catch (error) {
+      if (isApiError(error)) {
+        console.error(
+          `[RegistrationService.checkInUser] API Error ${error.status}: ${error.message}`,
+        )
+        throw error
+      }
+      console.error('[RegistrationService.checkInSession] Unexpected Error:', error)
+      throw new Error('An unexpected error occurred while checking in session.')
+    }
+  },
 }
