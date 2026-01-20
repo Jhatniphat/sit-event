@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { onMounted, computed } from 'vue'
+import { onMounted, computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Plus, FileUser } from 'lucide-vue-next'
+import { Plus, FileUser, X } from 'lucide-vue-next'
 import { useFormStore } from '../store/FormStore'
+import DeleteFormDialog from '../components/DeleteFormDialog.vue'
+import { toast } from 'vue-sonner'
 
 const route = useRoute()
 const router = useRouter()
@@ -10,17 +12,11 @@ const formStore = useFormStore()
 const eventId = route.params.id as string
 
 const hasForm = computed(() => !!formStore.currentFormId)
+const isDeleteForm = ref(false)
 
 onMounted(async () => {
   try {
     await formStore.fetchForm(eventId)
-
-    if (formStore.currentFormId) {
-      console.log('พบฟอร์มที่มีอยู่ ID:', formStore.currentFormId)
-      console.log('ข้อมูลคำถาม:', formStore.questions)
-    } else {
-      console.log('ยังไม่มีการสร้างฟอร์มสำหรับ Event นี้')
-    }
   } catch (error) {
     console.error('เกิดข้อผิดพลาดในการดึงข้อมูล:', error)
   }
@@ -46,6 +42,37 @@ const handleCreateForm = async () => {
         params: { id: eventId, formId: formStore.currentFormId },
       })
     }
+  }
+}
+
+const handleDeleteForm = () => {
+  isDeleteForm.value = true
+}
+
+const confirmDeleteForm = async () => {
+  if (!formStore.currentFormId) return
+
+  try {
+    const success = await formStore.deleteForm(eventId, String(formStore.currentFormId))
+
+    if (success) {
+      toast.success('ลบฟอร์มสำเร็จ', {
+        description: 'ฟอร์มถูกลบเรียบร้อยแล้ว',
+      })
+    } else {
+      toast.error('ลบฟอร์มล้มเหลว', {
+        description: 'ไม่สามารถลบฟอร์มได้ในขณะนี้ กรุณาลองใหม่ภายหลัง',
+      })
+    }
+  } catch (error: any) {
+    console.error('Error during form deletion:', error)
+    const errorMessage =
+      error.response?.data?.message || 'เกิดข้อผิดพลาดในการเชื่อมต่อกับเซิร์ฟเวอร์'
+    toast.error('ลบฟอร์มล้มเหลว', {
+      description: errorMessage,
+    })
+  } finally {
+    isDeleteForm.value = false
   }
 }
 
@@ -79,15 +106,21 @@ const handleEditForm = (formId: string) => {
           <span class="text-sm font-medium text-gray-700">Create New Form</span>
         </div>
 
-        <div v-if="hasForm">
-          <div class="flex flex-col gap-3">
+        <div v-if="hasForm" class="flex flex-col gap-3 group relative">
+          <div class="relative aspect-[4/3]">
             <button
               @click="handleEditForm(String(formStore.currentFormId))"
-              class="aspect-[4/3] bg-white border border-gray-200 rounded-md flex items-center justify-center transition-all shadow-sm group"
+              class="w-full h-full bg-white border border-gray-200 rounded-md flex items-center justify-center transition-all shadow-sm hover:border-black"
             >
-              <div class="relative w-12 h-12 flex items-center justify-center">
-                <FileUser class="w-10 h-10 text-black group-hover:scale-110 transition-transform" />
-              </div>
+              <FileUser class="w-10 h-10 text-black group-hover:scale-110 transition-transform" />
+            </button>
+
+            <button
+              @click.stop="handleDeleteForm()"
+              class="absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full shadow-md hover:bg-red-600 transition-colors z-10 opacity-0 group-hover:opacity-100"
+              title="Delete Form"
+            >
+              <X class="w-4 h-4" />
             </button>
             <span class="text-sm font-medium text-gray-700 truncate">{{
               formStore.formTitle || 'Untitled Form'
@@ -95,6 +128,7 @@ const handleEditForm = (formId: string) => {
           </div>
         </div>
       </div>
+      <DeleteFormDialog v-model:open="isDeleteForm" @confirm="confirmDeleteForm" />
     </div>
   </div>
 </template>

@@ -15,15 +15,36 @@ import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { useRoute, useRouter } from 'vue-router'
 import { useFormStore } from '../store/FormStore'
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
+import { toast } from 'vue-sonner'
 
 const router = useRouter()
 const route = useRoute()
 const formStore = useFormStore()
 const eventId = route.params.id as string
-const formId = route.params.formId as string
-console.log('Creating/editing form for event ID:', eventId)
-console.log('Editing form with ID:', formId)
+const initialData = ref('')
+
+onMounted(async () => {
+  await formStore.fetchForm(eventId)
+
+  // Snapshot ข้อมูลหลังจากโหลดเสร็จ
+  initialData.value = JSON.stringify({
+    title: formStore.formTitle,
+    description: formStore.formDescription,
+    questions: formStore.questions,
+    deletedIds: formStore.deletedFieldIds,
+  })
+})
+
+const isDirty = computed(() => {
+  const currentData = JSON.stringify({
+    title: formStore.formTitle,
+    description: formStore.formDescription, // ถ้าใน store ชื่อ formDescription
+    questions: formStore.questions,
+    deletedIds: formStore.deletedFieldIds, // เช็คกรณีมีการลบด้วย
+  })
+  return currentData !== initialData.value
+})
 
 const onCancel = () => {
   router.back()
@@ -31,10 +52,24 @@ const onCancel = () => {
 
 const onSubmit = async () => {
   try {
-    await formStore.saveFullForm(eventId)
+    const success = await formStore.saveFullForm(eventId)
     router.back()
-  } catch (error) {
-    console.error('Error submitting form:', error)
+    if (success) {
+      toast.success('บันทึกฟอร์มสำเร็จ', {
+        description: 'คุณได้บันทึกการเปลี่ยนแปลงของฟอร์มเรียบร้อยแล้ว',
+      })
+    } else {
+      toast.error('บันทึกฟอร์มล้มเหลว', {
+        description: 'ไม่สามารถบันทึกฟอร์มได้ในขณะนี้ กรุณาลองใหม่ภายหลัง',
+      })
+    }
+  } catch (error: any) {
+    console.error('Error during form deletion:', error)
+    const errorMessage =
+      error.response?.data?.message || 'เกิดข้อผิดพลาดในการเชื่อมต่อกับเซิร์ฟเวอร์'
+    toast.error('บันทึกฟอร์มล้มเหลว', {
+      description: errorMessage,
+    })
   }
 }
 </script>
@@ -78,7 +113,7 @@ const onSubmit = async () => {
                   <SelectValue placeholder="Question Type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="SHORT_ANSWER">Short Answer</SelectItem>
+                  <SelectItem value="TEXT">Short Answer</SelectItem>
                   <SelectItem value="RADIO">Radio</SelectItem>
                   <SelectItem value="CHECKBOX">Checkboxes</SelectItem>
                   <SelectItem value="RATING_SCALE">Rating Scale</SelectItem>
@@ -88,7 +123,7 @@ const onSubmit = async () => {
 
             <div class="min-h-[60px]">
               <div
-                v-if="q.type === 'SHORT_ANSWER'"
+                v-if="q.type === 'TEXT'"
                 class="w-3/5 border-b border-dashed border-slate-300 py-2 text-slate-400 text-sm"
               >
                 Short Answer
@@ -152,6 +187,7 @@ const onSubmit = async () => {
                 variant="ghost"
                 size="icon"
                 @click="formStore.removeQuestion(index)"
+                :disabled="formStore.questions.length <= 1"
                 class="text-slate-500 hover:text-red-600"
               >
                 <Trash2 class="h-5 w-5" />
@@ -163,7 +199,7 @@ const onSubmit = async () => {
                 <Label :for="'req-' + q.id" class="text-sm font-normal text-slate-600"
                   >Required</Label
                 >
-                <Switch :id="'req-' + q.id" v-model:checked="q.required" />
+                <Switch :id="'req-' + q.id" v-model="q.isRequired" />
               </div>
             </div>
           </CardContent>
@@ -172,7 +208,9 @@ const onSubmit = async () => {
       <div>
         <div class="flex flex-row justify-end gap-3 pt-4 text-gray-800">
           <Button type="button" variant="outline" @click="onCancel">Cancel</Button
-          ><Button type="submit" @click="onSubmit">Save</Button>
+          ><Button type="submit" @click="onSubmit" :disabled="!isDirty || formStore.isLoading"
+            >Save</Button
+          >
         </div>
       </div>
     </div>

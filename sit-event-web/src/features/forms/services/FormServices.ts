@@ -41,6 +41,10 @@ export interface SubmissionSummary {
   statistics: Record<string, unknown>
 }
 
+export interface BulkDeleteFieldsDto {
+  fieldIds: string[]
+}
+
 export class FormService {
   /**
    * ==========================================
@@ -70,6 +74,23 @@ export class FormService {
 
   static async deleteForm(eventId: string, formId: string): Promise<void> {
     return apiClient.delete(`/events/${eventId}/forms/${formId}`)
+  }
+
+  static async deleteFields(
+    eventId: string,
+    formId: string,
+    data: BulkDeleteFieldsDto,
+  ): Promise<void> {
+    return apiClient.delete(`/events/${eventId}/forms/${formId}/fields`, { data })
+  }
+
+  static async updateField(
+    eventId: string,
+    formId: string,
+    fieldId: string,
+    data: Partial<FormFieldPayload>,
+  ): Promise<FormFieldResponse> {
+    return apiClient.patch(`/events/${eventId}/forms/${formId}/fields/${fieldId}`, data)
   }
 
   static async getFormSummary(eventId: string, formId: string): Promise<SubmissionSummary> {

@@ -7,16 +7,16 @@ import type {
   FormFieldResponse,
   EventFormResponse,
 } from '../services/FormServices'
+import { toast } from 'vue-sonner'
 
-// ประเภทคำถามตาม Swagger Enum
-export type QuestionType = 'SHORT_ANSWER' | 'RATING_SCALE' | 'CHECKBOX' | 'RADIO'
+export type QuestionType = 'TEXT' | 'RATING_SCALE' | 'CHECKBOX' | 'RADIO'
 
 interface Question {
   id: number | string
   title: string
   type: QuestionType
   options: string[]
-  required: boolean
+  isRequired: boolean
 }
 
 export const useFormStore = defineStore('form', () => {
@@ -26,14 +26,25 @@ export const useFormStore = defineStore('form', () => {
   const formDescription = ref<string>('')
   const isLoading = ref<boolean>(false)
   const currentFormId = ref<string | null>(null)
+  const deletedFieldIds = ref<string[]>([])
 
   // --- Getters ---
   const questionTypes = computed(() => [
-    { label: 'Short Answer', value: 'SHORT_ANSWER' as QuestionType },
-    { label: 'Radio', value: 'RADIO' as QuestionType },
+    { label: 'Short Answer', value: 'TEXT' as QuestionType },
+    { label: 'Multiple Choice', value: 'RADIO' as QuestionType },
     { label: 'Checkboxes', value: 'CHECKBOX' as QuestionType },
     { label: 'Rating Scale', value: 'RATING_SCALE' as QuestionType },
   ])
+
+  // --- Actions ---
+  const resetForm = () => {
+    questions.value = []
+    formTitle.value = ''
+    deletedFieldIds.value = []
+    formDescription.value = ''
+    currentFormId.value = null
+    isLoading.value = false
+  }
 
   const addQuestion = () => {
     questions.value.push({
@@ -41,12 +52,21 @@ export const useFormStore = defineStore('form', () => {
       title: '',
       type: 'RADIO',
       options: ['Option 1'],
-      required: false,
+      isRequired: false,
     })
   }
 
   const removeQuestion = (index: number) => {
-    if (questions.value.length > 1) questions.value.splice(index, 1)
+    if (questions.value.length > 1) {
+      const questionToDelete = questions.value[index]
+      if (questionToDelete && typeof questionToDelete.id === 'string') {
+        deletedFieldIds.value.push(questionToDelete.id)
+      }
+
+      questions.value.splice(index, 1)
+    } else {
+      toast.error('ต้องมีคำถามอย่างน้อย 1 ข้อในแบบฟอร์ม')
+    }
   }
 
   const addOption = (qIdx: number) => {
@@ -56,14 +76,13 @@ export const useFormStore = defineStore('form', () => {
 
   const removeOption = (qIdx: number, optIdx: number) => {
     const q = questions.value[qIdx]
-    if (q && q.options.length > 1) q.options.splice(optIdx, 1)
+    if (q && q.options.length > 1) {
+      q.options.splice(optIdx, 1)
+    }
   }
 
-  // --- Service Actions ---
+  // --- Service Actions (API) ---
 
-  /**
-   * สำหรับเรียกจาก Dashboard: สร้างฟอร์มเปล่าเพื่อเอา formId
-   */
   const createInitialForm = async (eventId: string): Promise<EventFormResponse> => {
     isLoading.value = true
     try {
@@ -82,11 +101,9 @@ export const useFormStore = defineStore('form', () => {
     }
   }
 
-  /**
-   * ดึงข้อมูลฟอร์ม (GET /events/{eventId}/forms)
-   */
   const fetchForm = async (eventId: string) => {
     isLoading.value = true
+    // ล้างค่าเก่าก่อน fetch ใหม่เสมอเพื่อป้องกันข้อมูล event เดิมค้าง
     currentFormId.value = null
     questions.value = []
     formTitle.value = ''
@@ -94,24 +111,19 @@ export const useFormStore = defineStore('form', () => {
 
     try {
       const res = await FormService.getFormForUser(eventId)
-
-      // --- จุดสำคัญ 2: เช็คว่ามีข้อมูลตอบกลับมาจริงๆ (ไม่ใช่ null หรือ undefined) ---
       if (res && res.id) {
         currentFormId.value = res.id
         formTitle.value = res.title || ''
         formDescription.value = res.description || ''
-
         if (res.fields && Array.isArray(res.fields)) {
           questions.value = res.fields.map((f: FormFieldResponse) => ({
             id: f.id,
             title: f.question,
-            type: (f.fieldType as QuestionType) || 'SHORT_ANSWER',
-            required: f.isRequired ?? false,
+            type: (f.fieldType as QuestionType) || 'TEXT',
+            isRequired: f.isRequired ?? false,
             options: Array.isArray(f.options) ? f.options : [],
           }))
         }
-      } else {
-        console.log('No form found for this event, state has been cleared.')
       }
     } catch (error) {
       console.error('Fetch form failed:', error)
@@ -120,35 +132,78 @@ export const useFormStore = defineStore('form', () => {
     }
   }
 
-  /**
-   * บันทึกข้อมูลที่แก้ไข (PATCH Form + POST Fields)
-   */
   const saveFullForm = async (eventId: string): Promise<boolean> => {
     if (!currentFormId.value) return false
     isLoading.value = true
-    console.log('Saving form with eventID:', eventId)
     try {
-      // 1. Update Title & Description
+      // 1. จัดการลบคำถามที่ถูกเอาออก (Bulk Delete)
+      if (deletedFieldIds.value.length > 0) {
+        await FormService.deleteFields(eventId, currentFormId.value, {
+          fieldIds: deletedFieldIds.value,
+        })
+        deletedFieldIds.value = [] // ล้างคลังเมื่อลบสำเร็จ
+      }
+
+      // 2. อัปเดตข้อมูลหัวฟอร์ม (PATCH Form)
       await FormService.updateForm(eventId, currentFormId.value, {
         title: formTitle.value,
         description: formDescription.value,
       })
 
-      // 2. เตรียม Fields
-      const fieldsPayload: FormFieldPayload[] = questions.value.map((q, index) => ({
-        question: q.title || 'Question Title',
-        fieldType: q.type,
-        isRequired: q.required,
-        order: index + 1,
-        options: ['RADIO', 'CHECKBOX'].includes(q.type) ? q.options : [],
-      }))
+      // 3. จัดการคำถาม (แยก Update และ Create)
+      // แบ่งคำถามออกเป็น 2 กลุ่ม
 
-      // 3. บันทึก Fields แบบ Bulk (ตาม Swagger POST /fields)
-      await FormService.addFields(eventId, currentFormId.value, fieldsPayload)
+      const existingFields = questions.value.filter((q) => typeof q.id === 'string')
+      const newFields = questions.value.filter((q) => typeof q.id !== 'string')
+
+      // 3.1 อัปเดตคำถามที่มีอยู่เดิม (PATCH ทีละฟิลด์)
+      if (existingFields.length > 0) {
+        const updatePromises = existingFields.map((q, index) =>
+          FormService.updateField(eventId, currentFormId.value!, String(q.id), {
+            question: q.title || 'Untitled Question',
+            fieldType: q.type,
+            isRequired: q.isRequired,
+            order: index + 1, // เรียงลำดับใหม่ตาม UI ปัจจุบัน
+            options: ['RADIO', 'CHECKBOX'].includes(q.type) ? q.options : [],
+          }),
+        )
+        console.log('Updating existing fields:', existingFields)
+        await Promise.all(updatePromises)
+      }
+
+      // 3.2 เพิ่มคำถามใหม่ที่เพิ่งสร้างใน UI (POST Bulk)
+      if (newFields.length > 0) {
+        const newFieldsPayload: FormFieldPayload[] = newFields.map((q, index) => ({
+          question: q.title || 'Untitled Question',
+          fieldType: q.type,
+          isRequired: q.isRequired,
+          order: existingFields.length + index + 1, // ต่อท้ายลำดับเดิม
+          options: ['RADIO', 'CHECKBOX'].includes(q.type) ? q.options : [],
+        }))
+        console.log('Adding new fields:', newFieldsPayload)
+        await FormService.addFields(eventId, currentFormId.value, newFieldsPayload)
+      }
+
+      // หลังบันทึกเสร็จ ควร fetch ใหม่เพื่อให้ได้ ID จริงจาก DB มาแทนที่ ID ชั่วคราว (Date.now())
+      await fetchForm(eventId)
 
       return true
     } catch (error) {
       console.error('Save failed:', error)
+      return false
+    } finally {
+      isLoading.value = false
+    }
+  }
+
+  const deleteForm = async (eventId: string, formId: string) => {
+    isLoading.value = true
+    try {
+      await FormService.deleteForm(eventId, formId)
+      resetForm() // ลบสำเร็จแล้วล้าง state ทันทีเพื่อให้ UI สลับไปหน้าสร้างใหม่
+      return true
+    } catch (error) {
+      console.error('Delete form failed:', error)
       return false
     } finally {
       isLoading.value = false
@@ -162,6 +217,8 @@ export const useFormStore = defineStore('form', () => {
     isLoading,
     currentFormId,
     questionTypes,
+    deletedFieldIds,
+    resetForm,
     addQuestion,
     removeQuestion,
     addOption,
@@ -169,5 +226,6 @@ export const useFormStore = defineStore('form', () => {
     createInitialForm,
     fetchForm,
     saveFullForm,
+    deleteForm,
   }
 })
