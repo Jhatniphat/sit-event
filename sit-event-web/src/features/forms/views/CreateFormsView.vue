@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Plus, Trash2, GripVertical, Image as ImageIcon, Type, PlaySquare } from 'lucide-vue-next'
+import { Plus, Trash2, Eye } from 'lucide-vue-next'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import {
@@ -13,6 +13,7 @@ import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { useRoute, useRouter } from 'vue-router'
 import { useFormStore } from '../store/FormStore'
 import { computed, onMounted, ref } from 'vue'
@@ -27,7 +28,6 @@ const initialData = ref('')
 onMounted(async () => {
   await formStore.fetchForm(eventId)
 
-  // Snapshot ข้อมูลหลังจากโหลดเสร็จ
   initialData.value = JSON.stringify({
     title: formStore.formTitle,
     description: formStore.formDescription,
@@ -39,9 +39,9 @@ onMounted(async () => {
 const isDirty = computed(() => {
   const currentData = JSON.stringify({
     title: formStore.formTitle,
-    description: formStore.formDescription, // ถ้าใน store ชื่อ formDescription
+    description: formStore.formDescription,
     questions: formStore.questions,
-    deletedIds: formStore.deletedFieldIds, // เช็คกรณีมีการลบด้วย
+    deletedIds: formStore.deletedFieldIds,
   })
   return currentData !== initialData.value
 })
@@ -71,6 +71,13 @@ const onSubmit = async () => {
       description: errorMessage,
     })
   }
+}
+
+const handleViewForm = () => {
+  router.push({
+    name: 'FormView',
+    params: { id: eventId },
+  })
 }
 </script>
 
@@ -166,17 +173,16 @@ const onSubmit = async () => {
               </div>
 
               <div v-if="q.type === 'RATING_SCALE'" class="flex items-center gap-4 py-4">
-                <span class="text-sm text-slate-500">1</span>
-                <div class="flex gap-2">
-                  <div
-                    v-for="n in 5"
-                    :key="n"
-                    class="w-9 h-9 rounded-full border flex items-center justify-center text-sm text-slate-600"
-                  >
-                    {{ n }}
-                  </div>
+                <div class="flex flex-row w-full justify-between items-center">
+                  <span class="text-sm font-medium text-slate-500">น้อยที่สุด</span>
+                  <RadioGroup class="flex gap-4 md:gap-8" :disabled="true">
+                    <div v-for="n in 5" :key="n" class="flex flex-col items-center gap-2">
+                      <Label class="text-sm text-black">{{ n }}</Label>
+                      <RadioGroupItem :value="String(n)" />
+                    </div>
+                  </RadioGroup>
+                  <span class="text-sm font-medium text-slate-500">มากที่สุด</span>
                 </div>
-                <span class="text-sm text-slate-500">5</span>
               </div>
             </div>
 
@@ -224,6 +230,15 @@ const onSubmit = async () => {
         title="Add Question"
       >
         <Plus class="h-6 w-6 text-slate-600" />
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon"
+        class="rounded-full h-12 w-12"
+        title="Preview"
+        @click="handleViewForm()"
+      >
+        <Eye class="h-6 w-6 text-slate-600" />
       </Button>
     </Card>
   </div>

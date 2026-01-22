@@ -50,7 +50,7 @@ const routes: Array<RouteRecordRaw> = [
   {
     path: '/admin/events/:id/forms',
     name: 'FormsList',
-    component: () => import('../features/forms/views/FormView.vue'),
+    component: () => import('../features/forms/views/FormManagementView.vue'),
     props: true,
     meta: {
       requiresAuth: true,
@@ -138,6 +138,13 @@ const routes: Array<RouteRecordRaw> = [
     name: 'EventDetail',
     props: true,
     component: () => import('../features/event_management/views/EventDetail.vue'),
+    meta: { requiresAuth: false },
+  },
+  {
+    path: '/events/:id/forms',
+    name: 'FormView',
+    component: () => import('../features/forms/views/FormView.vue'),
+    props: true,
     meta: { requiresAuth: false },
   },
 

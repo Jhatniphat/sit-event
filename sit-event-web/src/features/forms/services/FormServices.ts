@@ -45,6 +45,15 @@ export interface BulkDeleteFieldsDto {
   fieldIds: string[]
 }
 
+export interface ReorderFieldItem {
+  id: string
+  order: number
+}
+
+export interface ReorderFieldsDto {
+  fields: ReorderFieldItem[]
+}
+
 export class FormService {
   /**
    * ==========================================
@@ -91,6 +100,14 @@ export class FormService {
     data: Partial<FormFieldPayload>,
   ): Promise<FormFieldResponse> {
     return apiClient.patch(`/events/${eventId}/forms/${formId}/fields/${fieldId}`, data)
+  }
+
+  static async reorderFields(
+    eventId: string,
+    formId: string,
+    data: ReorderFieldsDto,
+  ): Promise<void> {
+    return apiClient.patch(`/events/${eventId}/forms/${formId}/fields/reorder`, data)
   }
 
   static async getFormSummary(eventId: string, formId: string): Promise<SubmissionSummary> {
