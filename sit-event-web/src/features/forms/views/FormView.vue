@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref, computed } from 'vue'
+import { onMounted, ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { FormService, type EventFormResponse } from '../services/FormServices'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -18,10 +18,14 @@ const eventId = route.params.id as string
 const form = ref<EventFormResponse | null>(null)
 const answers = ref<Record<string, string | string[]>>({})
 const isSubmitting = ref(false)
-const isAdminOrOrganizer = computed(() => {
-  const role = authStore.user?.userRole
-  return role === 'Organizer' || role === 'Admin' || role === 'ADMIN' || role === 'ORGANIZER'
-})
+// const isAdminOrOrganizer = computed(() => {
+//   const role = authStore.user?.userRole
+//   return role === 'Organizer' || role === 'Admin' || role === 'ADMIN' || role === 'ORGANIZER'
+// })
+
+//:class="{ 'text-slate-500': isAdminOrOrganizer }"
+// :disabled="isAdminOrOrganizer"
+// :disabled="isSubmitting || isAdminOrOrganizer"
 
 onMounted(async () => {
   try {
@@ -52,11 +56,11 @@ const validateForm = () => {
   for (const field of form.value.fields) {
     if (field.isRequired) {
       const currentAnswer = answers.value[field.id]
-
+      console.log('Validating field:', field.id, 'Answer:', currentAnswer)
       const isEmpty = Array.isArray(currentAnswer)
         ? currentAnswer.length === 0
         : !currentAnswer || currentAnswer.trim() === ''
-
+      console.log('Is empty:', isEmpty)
       if (isEmpty) {
         toast.error(`กรุณากรอกข้อมูลในช่อง: ${field.question}`)
         return false
@@ -73,17 +77,22 @@ const handleSubmit = async () => {
 
   try {
     const payload = {
-      answers: Object.entries(answers.value).map(([fieldId, answer]) => ({
-        fieldId,
-        // สำหรับ SubmitPayload เราส่งเป็น string หรือ string[] ตามประเภท field นั้นๆ
-        answer: Array.isArray(answer) ? answer : String(answer),
-      })),
-    }
+      answers: Object.entries(answers.value).map(([fieldId, answer]) => {
+        // ตรวจสอบว่าเป็น Checkbox (Array) หรือไม่
+        // ถ้าเป็น Array ให้ join ด้วย ", " เพื่อส่งเป็น String ชุดเดียว
+        const formattedAnswer = Array.isArray(answer) ? answer.join(', ') : String(answer)
 
+        return {
+          fieldId,
+          answer: formattedAnswer,
+        }
+      }),
+    }
     await FormService.submitForm(eventId, form.value.id, payload)
     toast.success('ส่งแบบฟอร์มสำเร็จ!')
     router.push({ name: 'EventDetail', params: { id: eventId } })
   } catch (error: unknown) {
+    console.error('Error submitting form:', error)
     const err = error as { response?: { status?: number } }
     if (err.response?.status === 409) {
       toast.error('คุณได้ส่งแบบฟอร์มนี้ไปแล้ว')
@@ -94,6 +103,18 @@ const handleSubmit = async () => {
     isSubmitting.value = false
   }
 }
+
+// ฟังก์ชันสำหรับสร้าง Writable Computed เพื่อจัดการ string โดยเฉพาะ
+const getTextValue = (fieldId: string) => {
+  return computed({
+    get: () => (answers.value[fieldId] as string) || '',
+    set: (val: string) => {
+      answers.value[fieldId] = val
+    },
+  })
+}
+
+watch(answers, (v) => console.log('ANSWERS:', JSON.stringify(v, null, 2)), { deep: true })
 </script>
 
 <template>
@@ -117,11 +138,9 @@ const handleSubmit = async () => {
 
           <div v-if="field.fieldType === 'TEXT'">
             <Input
-              :disabled="isAdminOrOrganizer"
-              :value="answers[field.id] as string"
-              @input="(e: Event) => (answers[field.id] = (e.target as HTMLInputElement).value)"
+              v-model="getTextValue(field.id).value"
               placeholder="คำตอบของคุณ"
-              class="border-0 border-b-2 rounded-none focus-visible:ring-0 focus-visible:border-black px-0 bg-transparent text-base"
+              class="border-0 border-b-2 rounded-none focus-visible:ring-0 focus-visible:border-black px-0 bg-transparent text-base shadow-none"
             />
           </div>
 
@@ -135,18 +154,10 @@ const handleSubmit = async () => {
               :key="opt"
               class="flex items-center space-x-3 p-2 rounded-lg hover:bg-slate-50"
             >
-              <RadioGroupItem
-                :value="opt"
-                :id="field.id + opt"
-                class="w-5 h-5"
-                :disabled="isAdminOrOrganizer"
-              />
-              <Label
-                :for="field.id + opt"
-                class="text-sm font-normal cursor-pointer flex-1"
-                :class="{ 'text-slate-400': isAdminOrOrganizer }"
-                >{{ opt }}</Label
-              >
+              <RadioGroupItem :value="opt" :id="field.id + opt" class="w-5 h-5" />
+              <Label :for="field.id + opt" class="text-sm font-normal cursor-pointer flex-1">{{
+                opt
+              }}</Label>
             </div>
           </RadioGroup>
 
@@ -156,45 +167,32 @@ const handleSubmit = async () => {
               :key="opt"
               class="flex items-center space-x-3 p-2 rounded-lg hover:bg-slate-50"
             >
-              <Checkbox
-                :disabled="isAdminOrOrganizer"
+              <input
                 :id="field.id + opt"
+                type="checkbox"
                 :checked="(answers[field.id] as string[]).includes(opt)"
-                @update:checked="
-                  (checked: boolean) => {
-                    const currentAnswers = answers[field.id] as string[]
-                    if (checked) {
-                      answers[field.id] = [...currentAnswers, opt]
-                    } else {
-                      answers[field.id] = currentAnswers.filter((i: string) => i !== opt)
-                    }
+                @change="
+                  (e) => {
+                    const checked = (e.target as HTMLInputElement).checked
+                    const current = answers[field.id] as string[]
+                    answers[field.id] = checked
+                      ? [...current, opt]
+                      : current.filter((i) => i !== opt)
                   }
                 "
               />
-              <Label
-                :for="field.id + opt"
-                class="text-sm font-normal cursor-pointer flex-1"
-                :class="{ 'text-slate-500': isAdminOrOrganizer }"
-                >{{ opt }}</Label
-              >
+              <Label :for="field.id + opt" class="text-sm font-normal cursor-pointer flex-1">{{
+                opt
+              }}</Label>
             </div>
           </div>
 
           <div v-if="field.fieldType === 'RATING_SCALE'" class="flex flex-col gap-4">
             <div class="flex justify-between items-center px-2">
               <span class="text-sm font-medium text-slate-500">น้อยที่สุด</span>
-              <RadioGroup
-                v-model="answers[field.id]"
-                :disabled="isAdminOrOrganizer"
-                class="flex gap-4 md:gap-8"
-              >
+              <RadioGroup v-model="answers[field.id]" class="flex gap-4 md:gap-8">
                 <div v-for="n in 5" :key="n" class="flex flex-col items-center gap-2">
-                  <Label
-                    :for="field.id + n"
-                    class="text-sm"
-                    :class="{ 'text-slate-500': isAdminOrOrganizer }"
-                    >{{ n }}</Label
-                  >
+                  <Label :for="field.id + n" class="text-sm">{{ n }}</Label>
                   <RadioGroupItem :value="String(n)" :id="field.id + n" />
                 </div>
               </RadioGroup>
@@ -209,7 +207,7 @@ const handleSubmit = async () => {
       <Button variant="ghost" class="text-black" @click="router.back()">ยกเลิก</Button>
       <Button
         @click="handleSubmit"
-        :disabled="isSubmitting || isAdminOrOrganizer"
+        :disabled="isSubmitting"
         class="bg-black hover:bg-gray-800 px-7 py-5 text-md rounded-lg shadow-lg transition-all active:scale-95"
       >
         <span v-if="isSubmitting">กำลังส่ง...</span>

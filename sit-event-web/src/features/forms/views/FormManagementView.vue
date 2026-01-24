@@ -98,8 +98,8 @@ const handleEditForm = (formId: string) => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-50/50 p-8">
-    <div class="max-w-6xl mx-auto px-6">
+  <div class="min-h-screen bg-gray-50/50 px-8 py-3">
+    <div class="max-w-7xl mx-auto py-6">
       <div class="flex items-center justify-between mb-6">
         <h1 class="text-3xl font-bold tracking-tight text-gray-900">Forms List</h1>
       </div>
