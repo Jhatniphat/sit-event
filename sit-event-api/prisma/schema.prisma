@@ -267,31 +267,44 @@ model EventBadge {
   @@map("event_badges")
 }
 
+enum FieldType {
+  StudentName
+  EventName
+  EventStartDate
+  EventEndDate
+  Date
+  SerialNumber
+  Text
+  Image       
+}
+
 model CertificateTemplate {
-  id                String  @id @default(uuid())
-  eventId           String
-  templateFilepath  String
-  signatureFilepath String?
-  signatureX        Int?
-  signatureY        Int?
+  id               String   @id @default(uuid())
+  eventId          String
+  templateFilepath String   // รูป Background ของ Certificate
 
   event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
-  element CertificateElement[]
+  elements CertificateElement[] // เชื่อมกับ Element ย่อยๆ
 }
 
 model CertificateElement {
-  id                   String    @id @default(uuid())
-  templateId           String
-  CertificateFieldName FieldName
-  placeHolder          String
-  x                    Int
-  y                    Int
-  fontSize             Int
-  fontFamily           String
-  color                String
-  fontWeight           String
-  textAlign            String
+  id             String        @id @default(uuid())
+  templateId     String
+  fieldName      String        
+  fieldType      FieldType     
+  placeHolder    String?       // ข้อความ Placeholder เวลาแสดงตัวอย่าง หรือข้อความคงที่กรณีเป็น FieldType.Text
+  x              Int
+  y              Int
+  width          Int?          // เพื่อคุมขนาดรูปภาพ/ลายเซ็น
+  height         Int?          // เพื่อคุมขนาดรูปภาพ/ลายเซ็น
+  fontSize       Int?
+  fontFamily     String?
+  color          String?
+  fontWeight     String?       // เช่น 'bold', 'normal'
+  textAlign      String?       // เช่น 'left', 'center', 'right'
+  sourceFilepath String?       // สำหรับ FieldType.Image: ที่เก็บไฟล์ลายเซ็นหรือโลโก้
+  dateFormat     String?       // เช่น "DD MMMM YYYY" หรือ "DD/MM/YYYY" สำหรับ FieldType.Date
 
   certificateTemplate CertificateTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
 }

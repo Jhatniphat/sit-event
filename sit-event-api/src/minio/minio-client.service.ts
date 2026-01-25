@@ -118,4 +118,25 @@ export class MinioClientService {
       // Don't throw error, just log it (ถ้าไฟล์ไม่มีอยู่แล้ว ก็ไม่ต้อง error)
     }
   }
+
+  // ... (existing code)
+
+  public async getFile(fileNameOrUrl: string): Promise<Buffer> {
+    const fileName = this.getFileNameFromUrl(fileNameOrUrl);
+    try {
+      // ดึง stream จาก MinIO
+      const stream = await this.minio.client.getObject(this.bucketName, fileName);
+      
+      // แปลง Stream เป็น Buffer
+      return new Promise((resolve, reject) => {
+        const chunks: Buffer[] = [];
+        stream.on('data', (chunk) => chunks.push(chunk));
+        stream.on('end', () => resolve(Buffer.concat(chunks)));
+        stream.on('error', (err) => reject(err));
+      });
+    } catch (err) {
+      this.logger.error(`Could not get file: ${fileName}`, err);
+      throw new HttpException('Could not retrieve file for preview', HttpStatus.NOT_FOUND);
+    }
+  }
 }

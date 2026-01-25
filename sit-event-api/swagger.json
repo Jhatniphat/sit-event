@@ -35,6 +35,10 @@
     {
       "name": "Event Forms",
       "description": "Endpoints for managing event feedback forms, form fields, and submissions."
+    },
+    {
+      "name": "Certificates",
+      "description": "Endpoints for managing certificate templates and elements."
     }
   ],
   "paths": {
@@ -1227,6 +1231,233 @@
           "403": { "description": "Forbidden - Organizer access required" }
         }
       }
+    },
+    "/certificates/templates": {
+      "post": {
+        "tags": ["Certificates"],
+        "summary": "Create a new certificate template",
+        "description": "Upload a background image and create a template linked to an event.",
+        "security": [{ "JWT-auth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": { "$ref": "#/components/schemas/CreateCertificateTemplateDto" }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Template created successfully" },
+          "400": { "description": "Bad request" },
+          "401": { "description": "Unauthorized" }
+        }
+      },
+      "get": {
+        "tags": ["Certificates"],
+        "summary": "Get all certificate templates",
+        "description": "Returns all templates, optionally filtered by eventId.",
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "query",
+            "schema": { "type": "string", "format": "uuid" },
+            "required": false,
+            "description": "Filter by Event ID"
+          }
+        ],
+        "responses": {
+          "200": { "description": "List of templates" }
+        }
+      }
+    },
+    "/certificates/templates/{id}": {
+      "get": {
+        "tags": ["Certificates"],
+        "summary": "Get a template by ID",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Template details" },
+          "404": { "description": "Template not found" }
+        }
+      },
+      "patch": {
+        "tags": ["Certificates"],
+        "summary": "Update a template",
+        "description": "Update template details or replace the background file.",
+        "security": [{ "JWT-auth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": { "$ref": "#/components/schemas/UpdateCertificateTemplateDto" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Template updated" },
+          "404": { "description": "Template not found" }
+        }
+      },
+      "delete": {
+        "tags": ["Certificates"],
+        "summary": "Delete a template",
+        "security": [{ "JWT-auth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Template deleted" },
+          "404": { "description": "Template not found" }
+        }
+      }
+    },
+    "/certificates/elements": {
+      "post": {
+        "tags": ["Certificates"],
+        "summary": "Create a new certificate element",
+        "description": "Add an element (text, image, date, etc.) to a certificate template.",
+        "security": [{ "JWT-auth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": { "$ref": "#/components/schemas/CreateCertificateElementDto" }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Element created successfully" },
+          "400": { "description": "Bad request" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/certificates/templates/{templateId}/elements": {
+      "get": {
+        "tags": ["Certificates"],
+        "summary": "Get all elements for a template",
+        "parameters": [
+          {
+            "name": "templateId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "List of elements" }
+        }
+      }
+    },
+    "/certificates/elements/{id}": {
+      "get": {
+        "tags": ["Certificates"],
+        "summary": "Get an element by ID",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Element details" },
+          "404": { "description": "Element not found" }
+        }
+      },
+      "patch": {
+        "tags": ["Certificates"],
+        "summary": "Update an element",
+        "security": [{ "JWT-auth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": { "$ref": "#/components/schemas/UpdateCertificateElementDto" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Element updated" },
+          "404": { "description": "Element not found" }
+        }
+      },
+      "delete": {
+        "tags": ["Certificates"],
+        "summary": "Delete an element",
+        "security": [{ "JWT-auth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Element deleted" },
+          "404": { "description": "Element not found" }
+        }
+      }
+    },
+    "/certificates/preview": {
+      "post": {
+        "tags": ["Certificates"],
+        "summary": "Generate a preview certificate image",
+        "description": "Returns a PNG image with mock data based on the provided elements configuration. Useful for real-time editing.",
+        "security": [{ "JWT-auth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/PreviewCertificateDto" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Preview image generated successfully",
+            "content": {
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "404": { "description": "Template not found" }
+        }
+      }
     }
   },
   "components": {
@@ -1539,6 +1770,77 @@
           }
         },
         "required": ["fieldIds"]
+      },
+      "FieldType": {
+        "type": "string",
+        "enum": ["StudentName", "EventName", "EventStartDate", "EventEndDate", "Date", "SerialNumber", "Text", "Image"]
+      },
+      "CreateCertificateTemplateDto": {
+        "type": "object",
+        "properties": {
+          "eventId": { "type": "string", "format": "uuid" },
+          "file": { "type": "string", "format": "binary" }
+        },
+        "required": ["eventId", "file"]
+      },
+      "UpdateCertificateTemplateDto": {
+        "type": "object",
+        "properties": {
+          "eventId": { "type": "string", "format": "uuid" },
+          "file": { "type": "string", "format": "binary" }
+        }
+      },
+      "CreateCertificateElementDto": {
+        "type": "object",
+        "properties": {
+          "templateId": { "type": "string", "format": "uuid" },
+          "fieldName": { "type": "string" },
+          "fieldType": { "$ref": "#/components/schemas/FieldType" },
+          "x": { "type": "integer" },
+          "y": { "type": "integer" },
+          "width": { "type": "integer" },
+          "height": { "type": "integer" },
+          "placeHolder": { "type": "string" },
+          "fontSize": { "type": "integer" },
+          "fontFamily": { "type": "string" },
+          "color": { "type": "string" },
+          "fontWeight": { "type": "string" },
+          "textAlign": { "type": "string" },
+          "dateFormat": { "type": "string" },
+          "file": { "type": "string", "format": "binary" }
+        },
+        "required": ["templateId", "fieldName", "fieldType", "x", "y"]
+      },
+      "UpdateCertificateElementDto": {
+        "type": "object",
+        "properties": {
+          "templateId": { "type": "string", "format": "uuid" },
+          "fieldName": { "type": "string" },
+          "fieldType": { "$ref": "#/components/schemas/FieldType" },
+          "x": { "type": "integer" },
+          "y": { "type": "integer" },
+          "width": { "type": "integer" },
+          "height": { "type": "integer" },
+          "placeHolder": { "type": "string" },
+          "fontSize": { "type": "integer" },
+          "fontFamily": { "type": "string" },
+          "color": { "type": "string" },
+          "fontWeight": { "type": "string" },
+          "textAlign": { "type": "string" },
+          "dateFormat": { "type": "string" },
+          "file": { "type": "string", "format": "binary" }
+        }
+      },
+      "PreviewCertificateDto": {
+        "type": "object",
+        "properties": {
+          "templateId": { "type": "string", "format": "uuid" },
+          "elements": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/CreateCertificateElementDto" }
+          }
+        },
+        "required": ["templateId", "elements"]
       }
     },
     "securitySchemes": {
