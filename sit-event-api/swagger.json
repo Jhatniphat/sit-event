@@ -519,6 +519,150 @@
         }
       }
     },
+    "/events/{eventId}/registrations": {
+      "get": {
+        "tags": ["Event Registrations"],
+        "summary": "Get registrations by status (Admin only)",
+        "description": "Returns all registrations for an event, optionally filtered by status.",
+        "security": [{ "JWT-auth": [] }],
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["PENDING", "APPROVED", "REJECTED"]
+            },
+            "description": "Filter registrations by status"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of registrations",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/EventRegistration" }
+                }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden - Admin only" }
+        }
+      }
+    },
+    "/events/{eventId}/registrations/pending": {
+      "get": {
+        "tags": ["Event Registrations"],
+        "summary": "Get pending registrations (Admin only)",
+        "description": "Returns all pending registrations for an event waiting for approval.",
+        "security": [{ "JWT-auth": [] }],
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of pending registrations",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/EventRegistration" }
+                }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden - Admin only" }
+        }
+      }
+    },
+    "/events/{eventId}/registrations/{registrationId}/approve": {
+      "patch": {
+        "tags": ["Event Registrations"],
+        "summary": "Approve a registration (Admin only)",
+        "description": "Approves a pending registration, allowing the user to attend the event.",
+        "security": [{ "JWT-auth": [] }],
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "registrationId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Registration approved successfully",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/EventRegistration" }
+              }
+            }
+          },
+          "400": { "description": "Registration is already approved" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden - Admin only" },
+          "404": { "description": "Registration not found" }
+        }
+      }
+    },
+    "/events/{eventId}/registrations/{registrationId}/reject": {
+      "patch": {
+        "tags": ["Event Registrations"],
+        "summary": "Reject a registration (Admin only)",
+        "description": "Rejects a registration, preventing the user from attending the event.",
+        "security": [{ "JWT-auth": [] }],
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "registrationId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Registration rejected successfully",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/EventRegistration" }
+              }
+            }
+          },
+          "400": { "description": "Registration is already rejected" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden - Admin only" },
+          "404": { "description": "Registration not found" }
+        }
+      }
+    },
     "/events/{eventId}/registrations/{registrationId}": {
       "patch": {
         "tags": ["Event Registrations"],
@@ -1631,6 +1775,38 @@
           }
         },
         "required": ["status"]
+      },
+      "EventRegistration": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "userId": { "type": "string", "format": "uuid" },
+          "eventId": { "type": "string", "format": "uuid" },
+          "sessionId": { "type": "string", "format": "uuid", "nullable": true },
+          "status": { 
+            "type": "string", 
+            "enum": ["PENDING", "APPROVED", "REJECTED"],
+            "description": "Registration approval status"
+          },
+          "registeredAt": { "type": "string", "format": "date-time" },
+          "approvedAt": { "type": "string", "format": "date-time", "nullable": true },
+          "attended": { "type": "boolean" },
+          "checkedInAt": { "type": "string", "format": "date-time", "nullable": true },
+          "certificateIssued": { "type": "boolean" },
+          "pointsEarned": { "type": "integer", "nullable": true },
+          "notes": { "type": "string", "nullable": true },
+          "user": { "$ref": "#/components/schemas/CurrentUser" },
+          "event": { "$ref": "#/components/schemas/EventSummary" }
+        }
+      },
+      "EventSummary": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "name": { "type": "string" },
+          "eventStartDate": { "type": "string", "format": "date-time" },
+          "eventEndDate": { "type": "string", "format": "date-time" }
+        }
       },
       "CreateEventFormDto": {
         "type": "object",

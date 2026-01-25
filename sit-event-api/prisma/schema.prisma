@@ -57,6 +57,12 @@ enum StaffStatus {
   REFUSED
 }
 
+enum RegistrationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 model User {
   id                      String    @id @default(uuid())
   email                   String    @unique
@@ -143,7 +149,9 @@ model EventRegistration {
   userId            String
   eventId           String
   sessionId         String?
+  status            RegistrationStatus @default(PENDING)
   registeredAt      DateTime  @default(now()) @db.Timestamptz
+  approvedAt        DateTime?          @db.Timestamptz
   attended          Boolean   @default(false)
   checkedInAt       DateTime? @db.Timestamptz
   certificateIssued Boolean   @default(false)
