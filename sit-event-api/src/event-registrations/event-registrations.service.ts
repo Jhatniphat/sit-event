@@ -8,6 +8,7 @@ import { PrismaService } from 'src/prisma.service';
 import { UsersService } from '../users/users.service';
 import { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { EventRegistrationsGateway } from './event-registrations.gateway';
+import { RegistrationStatus } from '../../generated/prisma';
 
 @Injectable()
 export class EventRegistrationsService {
@@ -134,6 +135,85 @@ export class EventRegistrationsService {
     });
   }
 
+  // =============================================
+  // Approve Registration (Admin Only)
+  // =============================================
+  async approveRegistration(eventId: string, registrationId: string) {
+    const registration = await this.prisma.eventRegistration.findFirst({
+      where: { id: registrationId, eventId: eventId },
+    });
+
+    if (!registration) {
+      throw new NotFoundException('Registration not found.');
+    }
+
+    if (registration.status === RegistrationStatus.APPROVED) {
+      throw new BadRequestException('Registration is already approved.');
+    }
+
+    return this.prisma.eventRegistration.update({
+      where: { id: registrationId },
+      data: {
+        status: RegistrationStatus.APPROVED,
+        approvedAt: new Date(),
+      },
+      include: { user: true, event: true },
+    });
+  }
+
+  // =============================================
+  // Reject Registration (Admin Only)
+  // =============================================
+  async rejectRegistration(eventId: string, registrationId: string) {
+    const registration = await this.prisma.eventRegistration.findFirst({
+      where: { id: registrationId, eventId: eventId },
+    });
+
+    if (!registration) {
+      throw new NotFoundException('Registration not found.');
+    }
+
+    if (registration.status === RegistrationStatus.REJECTED) {
+      throw new BadRequestException('Registration is already rejected.');
+    }
+
+    return this.prisma.eventRegistration.update({
+      where: { id: registrationId },
+      data: {
+        status: RegistrationStatus.REJECTED,
+      },
+      include: { user: true, event: true },
+    });
+  }
+
+  // =============================================
+  // Get Pending Registrations for Admin
+  // =============================================
+  async getPendingRegistrations(eventId: string) {
+    return this.prisma.eventRegistration.findMany({
+      where: {
+        eventId: eventId,
+        status: RegistrationStatus.PENDING,
+      },
+      include: { user: true, session: true },
+      orderBy: { registeredAt: 'asc' },
+    });
+  }
+
+  // =============================================
+  // Get Registrations by Status
+  // =============================================
+  async getRegistrationsByStatus(eventId: string, status?: RegistrationStatus) {
+    return this.prisma.eventRegistration.findMany({
+      where: {
+        eventId: eventId,
+        ...(status && { status }),
+      },
+      include: { user: true, session: true },
+      orderBy: { registeredAt: 'desc' },
+    });
+  }
+
   async checkUserQrStatus(eventId: string, userId: string) {
     const isActive = this.eventRegistrationsGateway.isUserActive(userId);
 
@@ -169,6 +249,11 @@ export class EventRegistrationsService {
     
     if (!registration) {
       throw new NotFoundException('Main event registration not found for this user.');
+    }
+
+    // ตรวจสอบว่า registration ถูก approve แล้วหรือยัง
+    if (registration.status !== RegistrationStatus.APPROVED) {
+      throw new BadRequestException('Registration has not been approved yet.');
     }
 
     if (registration.attended) {
