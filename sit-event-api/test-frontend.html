@@ -297,7 +297,71 @@
                 return;
             }
 
+            // Calculate token expiration times
+            const now = new Date();
+            const tokenCreatedAt = userData.tokenCreatedAt ? new Date(userData.tokenCreatedAt) : null;
+            const sessionExpiresAt = new Date(userData.expiresAt);
+            
+            // Calculate remaining time
+            let accessTokenExpiresAt = null;
+            let accessTokenRemainingMs = 0;
+            
+            if (tokenCreatedAt && !isNaN(tokenCreatedAt.getTime()) && userData.expiresIn) {
+                accessTokenExpiresAt = new Date(tokenCreatedAt.getTime() + (userData.expiresIn * 1000));
+                accessTokenRemainingMs = accessTokenExpiresAt - now;
+            }
+            
+            const sessionRemainingMs = sessionExpiresAt - now;
+            
+            // Format remaining time
+            function formatRemainingTime(ms) {
+                if (ms < 0) return '⚠️ หมดอายุแล้ว';
+                
+                const seconds = Math.floor(ms / 1000);
+                const minutes = Math.floor(seconds / 60);
+                const hours = Math.floor(minutes / 60);
+                const days = Math.floor(hours / 24);
+                
+                if (days > 0) return `${days} วัน ${hours % 24} ชม.`;
+                if (hours > 0) return `${hours} ชม. ${minutes % 60} นาที`;
+                if (minutes > 0) return `${minutes} นาที ${seconds % 60} วินาที`;
+                return `${seconds} วินาที`;
+            }
+            
+            // Add warning style for expiring tokens
+            const accessTokenClass = accessTokenRemainingMs > 0 && accessTokenRemainingMs < 5 * 60 * 1000 ? 'style="color: #e53e3e; font-weight: bold;"' : '';
+            const sessionClass = sessionRemainingMs < 30 * 60 * 1000 ? 'style="color: #dd6b20; font-weight: bold;"' : '';
+
             userSection.classList.remove('hidden');
+            
+            // Store session data for timer updates
+            userInfo.dataset.sessionData = JSON.stringify(userData);
+            
+            let tokenInfoHtml = '';
+            if (accessTokenExpiresAt) {
+                tokenInfoHtml = `
+                    <div class="info-item">
+                        <span class="label">Access Token เหลืออายุ:</span> 
+                        <span class="value" ${accessTokenClass}>${formatRemainingTime(accessTokenRemainingMs)}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">Access Token หมดอายุ:</span> 
+                        <span class="value">${accessTokenExpiresAt.toLocaleString('th-TH')}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">Token Lifespan (จาก Keycloak):</span> 
+                        <span class="value">${userData.expiresIn} วินาที (${Math.floor(userData.expiresIn / 60)} นาที)</span>
+                    </div>
+                `;
+            } else {
+                tokenInfoHtml = `
+                    <div class="info-item">
+                        <span class="label">Access Token:</span> 
+                        <span class="value">มีอายุ ${userData.expiresIn} วินาที (${Math.floor(userData.expiresIn / 60)} นาที)</span>
+                    </div>
+                `;
+            }
+            
             userInfo.innerHTML = `
                 <div class="info-item">
                     <span class="label">ชื่อ:</span> 
@@ -314,6 +378,19 @@
                 <div class="info-item">
                     <span class="label">User ID:</span> 
                     <span class="value">${userData.userId}</span>
+                </div>
+                ${tokenInfoHtml}
+                <div class="info-item">
+                    <span class="label">Refresh Token:</span> 
+                    <span class="value">${userData.refreshToken ? '✅ มี (ใช้สำหรับต่ออายุ Access Token)' : '❌ ไม่มี'}</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">Session เหลืออายุ:</span> 
+                    <span class="value" ${sessionClass}>${formatRemainingTime(sessionRemainingMs)}</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">Session หมดอายุ:</span> 
+                    <span class="value">${sessionExpiresAt.toLocaleString('th-TH')}</span>
                 </div>
             `;
         }
@@ -508,11 +585,25 @@
         // Check for callback parameters (if redirected back from Keycloak)
         // This is now handled in the load event listener above
         
-        // Periodic session check (every 5 minutes)
+        // Periodic session check and token timer update (every 10 seconds)
+        setInterval(() => {
+            // Get current session data and update timers
+            const sessionData = document.getElementById('userInfo').dataset.sessionData;
+            if (sessionData) {
+                try {
+                    const userData = JSON.parse(sessionData);
+                    updateUserInfo(userData);
+                } catch (e) {
+                    // Ignore parse errors
+                }
+            }
+        }, 10 * 1000);
+        
+        // Full session check every 5 minutes
         setInterval(() => {
             logAPI('ตรวจสอบ session แบบอัตโนมัติ...');
             checkSession();
-        }, 30 * 60 * 1000);
+        }, 5 * 60 * 1000);
 
         // Initial log
         logAPI('🌟 Test Frontend เริ่มทำงานแล้ว');
