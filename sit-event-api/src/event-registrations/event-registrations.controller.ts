@@ -1,5 +1,6 @@
-import { Controller, Post, Param, Delete, HttpCode, Patch, Get } from '@nestjs/common';
+import { Controller, Post, Param, Delete, HttpCode, Patch, Get, Query } from '@nestjs/common';
 import { EventRegistrationsService } from './event-registrations.service';
+import { RegistrationStatus } from '../../generated/prisma';
 import { 
   Roles, 
   AdminOnly, 
@@ -75,6 +76,51 @@ export class EventRegistrationsController {
     @Param('userId') userId: string,
   ) {
     return this.eventRegistrationsService.checkUserQrStatus(eventId, userId);
+  }
+
+  // =============================================
+  // Get Pending Registrations (Admin)
+  // =============================================
+  @Get(':eventId/registrations/pending')
+  @AdminOnly()
+  async getPendingRegistrations(@Param('eventId') eventId: string) {
+    return this.eventRegistrationsService.getPendingRegistrations(eventId);
+  }
+
+  // =============================================
+  // Get Registrations by Status (Admin)
+  // =============================================
+  @Get(':eventId/registrations')
+  @AdminOnly()
+  async getRegistrationsByStatus(
+    @Param('eventId') eventId: string,
+    @Query('status') status?: RegistrationStatus,
+  ) {
+    return this.eventRegistrationsService.getRegistrationsByStatus(eventId, status);
+  }
+
+  // =============================================
+  // Approve Registration (Admin)
+  // =============================================
+  @Patch(':eventId/registrations/:registrationId/approve')
+  @AdminOnly()
+  async approveRegistration(
+    @Param('eventId') eventId: string,
+    @Param('registrationId') registrationId: string,
+  ) {
+    return this.eventRegistrationsService.approveRegistration(eventId, registrationId);
+  }
+
+  // =============================================
+  // Reject Registration (Admin)
+  // =============================================
+  @Patch(':eventId/registrations/:registrationId/reject')
+  @AdminOnly()
+  async rejectRegistration(
+    @Param('eventId') eventId: string,
+    @Param('registrationId') registrationId: string,
+  ) {
+    return this.eventRegistrationsService.rejectRegistration(eventId, registrationId);
   }
 
   // Check-in Event หลัก (Update)
