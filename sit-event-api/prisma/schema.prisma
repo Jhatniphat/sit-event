@@ -276,7 +276,7 @@ model EventBadge {
 }
 
 enum FieldType {
-  StudentName
+  ParticipantName
   EventName
   EventStartDate
   EventEndDate

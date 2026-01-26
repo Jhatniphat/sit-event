@@ -1949,7 +1949,7 @@
       },
       "FieldType": {
         "type": "string",
-        "enum": ["StudentName", "EventName", "EventStartDate", "EventEndDate", "Date", "SerialNumber", "Text", "Image"]
+        "enum": ["ParticipantName", "EventName", "EventStartDate", "EventEndDate", "Date", "SerialNumber", "Text", "Image"]
       },
       "CreateCertificateTemplateDto": {
         "type": "object",

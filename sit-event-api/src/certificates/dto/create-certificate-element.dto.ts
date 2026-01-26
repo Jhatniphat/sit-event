@@ -1,4 +1,4 @@
-import { FieldType } from '@prisma/client';
+import { FieldType } from 'generated/prisma';
 import { Transform, Type } from 'class-transformer';
 import { IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, IsUUID } from 'class-validator';
 

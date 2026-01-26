@@ -17,7 +17,7 @@ import { UpdateCertificateTemplateDto } from './dto/update-certificate-template.
 import { CreateCertificateElementDto } from './dto/create-certificate-element.dto';
 import { UpdateCertificateElementDto } from './dto/update-certificate-element.dto';
 import { Res, Header } from '@nestjs/common';
-import { Response } from 'express';
+import type { Response } from 'express';
 import { PreviewCertificateDto } from './dto/preview-certificate.dto';
 
 @Controller('certificates')

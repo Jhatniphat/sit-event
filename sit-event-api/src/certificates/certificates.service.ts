@@ -5,7 +5,7 @@ import { CreateCertificateTemplateDto } from './dto/create-certificate-template.
 import { UpdateCertificateTemplateDto } from './dto/update-certificate-template.dto';
 import { CreateCertificateElementDto } from './dto/create-certificate-element.dto';
 import { UpdateCertificateElementDto } from './dto/update-certificate-element.dto';
-import { FieldType } from '@prisma/client';
+import { FieldType } from 'generated/prisma';
 import { createCanvas, loadImage } from 'canvas';
 import { PreviewCertificateDto } from './dto/preview-certificate.dto';
 @Injectable()
@@ -239,7 +239,7 @@ export class CertificatesService {
       const isImage = el.fieldType === FieldType.Image;
 
       switch (el.fieldType) {
-        case FieldType.StudentName:
+        case FieldType.ParticipantName:
           text = 'นายสมชาย รักเรียน'; // Mock ชื่อไทย
           break;
         case FieldType.EventName:
