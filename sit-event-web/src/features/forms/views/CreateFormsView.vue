@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { Plus, Trash2, Eye } from 'lucide-vue-next'
+import { Plus, Trash2, Eye, GripVertical } from 'lucide-vue-next'
 import { Card, CardContent } from '@/components/ui/card'
+import draggable from 'vuedraggable'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -31,6 +32,7 @@ onMounted(async () => {
   initialData.value = JSON.stringify({
     title: formStore.formTitle,
     description: formStore.formDescription,
+    isActive: formStore.formIsActive,
     questions: formStore.questions,
     deletedIds: formStore.deletedFieldIds,
   })
@@ -40,6 +42,7 @@ const isDirty = computed(() => {
   const currentData = JSON.stringify({
     title: formStore.formTitle,
     description: formStore.formDescription,
+    isActive: formStore.formIsActive,
     questions: formStore.questions,
     deletedIds: formStore.deletedFieldIds,
   })
@@ -85,7 +88,7 @@ const handleViewForm = () => {
   <div class="min-h-screen bg-slate-50/50 p-6 flex justify-center items-start gap-4">
     <div class="w-full max-w-3xl flex flex-col gap-4">
       <Card class="shadow-sm overflow-hidden">
-        <CardContent class="p-6">
+        <CardContent class="p-6 pb-1">
           <Input
             v-model="formStore.formTitle"
             variant="ghost"
@@ -98,119 +101,167 @@ const handleViewForm = () => {
             placeholder="Description (Not required)"
             class="text-sm border-none border-b focus-visible:ring-0 focus-visible:border-b-2 focus-visible:border-gray-300 rounded-none px-0 h-auto shadow-none"
           />
+          <Separator class="mt-6" />
+          <div class="flex justify-between items-start mt-6">
+            <div class="flex flex-col gap-1">
+              <div class="flex items-center gap-2">
+                <div
+                  :class="formStore.formIsActive ? 'bg-green-500' : 'bg-slate-400'"
+                  class="w-2 h-2 rounded-full"
+                ></div>
+                <span
+                  class="text-xs font-bold uppercase tracking-wider"
+                  :class="formStore.formIsActive ? 'text-green-600' : 'text-slate-500'"
+                >
+                  {{ formStore.formIsActive ? 'Form Active' : 'Form Inactive' }}
+                </span>
+              </div>
+              <p class="text-[11px] text-slate-400">Control participant access to the form.</p>
+            </div>
+
+            <div
+              class="flex items-center gap-3 bg-slate-100 p-1.5 px-3 rounded-full border border-slate-200"
+            >
+              <Label :for="'form-status'" class="text-xs font-medium cursor-pointer">
+                {{ formStore.formIsActive ? 'Accepting Responses' : 'Closed' }}
+              </Label>
+              <Switch id="form-status" v-model="formStore.formIsActive" />
+            </div>
+          </div>
         </CardContent>
       </Card>
 
-      <div v-for="(q, index) in formStore.questions" :key="q.id" class="group relative">
-        <Card
-          class="shadow-sm border-l-4 border-l-transparent focus-within:border-l-black transition-all"
-        >
-          <CardContent class="p-6">
-            <div class="flex flex-col md:flex-row gap-4 mb-6">
-              <div class="flex-1">
-                <Input
-                  v-model="q.title"
-                  placeholder="Question Title"
-                  class="bg-slate-50 border-none border-b-2 rounded-none focus-visible:ring-0 focus-visible:bg-slate-100 transition-all h-12"
-                />
-              </div>
-
-              <Select v-model="q.type">
-                <SelectTrigger class="w-full md:w-[200px] h-12">
-                  <SelectValue placeholder="Question Type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="TEXT">Short Answer</SelectItem>
-                  <SelectItem value="RADIO">Radio</SelectItem>
-                  <SelectItem value="CHECKBOX">Checkboxes</SelectItem>
-                  <SelectItem value="RATING_SCALE">Rating Scale</SelectItem>
-                </SelectContent>
-              </Select>
+      <draggable
+        v-model="formStore.questions"
+        item-key="id"
+        handle=".drag-handle"
+        :animation="200"
+        ghost-class="opacity-50"
+        class="flex flex-col gap-4"
+      >
+        <template #item="{ element: q, index }">
+          <div class="group relative">
+            <div
+              class="drag-handle absolute -top-3 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 cursor-grab active:cursor-grabbing bg-white border border-slate-200 rounded-md p-1 px-2 z-10 shadow-sm transition-all hover:bg-slate-50"
+            >
+              <GripVertical class="w-4 h-4 text-slate-400" />
             </div>
 
-            <div class="min-h-[60px]">
-              <div
-                v-if="q.type === 'TEXT'"
-                class="w-3/5 border-b border-dashed border-slate-300 py-2 text-slate-400 text-sm"
-              >
-                Short Answer
-              </div>
+            <Card
+              class="shadow-sm border-l-4 border-l-transparent focus-within:border-l-black transition-all"
+            >
+              <CardContent class="p-6">
+                <div class="flex flex-col md:flex-row gap-4 mb-6">
+                  <div class="flex-1">
+                    <Input
+                      v-model="q.title"
+                      placeholder="Question Title"
+                      class="bg-slate-50 border-none border-b-2 rounded-none focus-visible:ring-0 focus-visible:bg-slate-100 transition-all h-12"
+                    />
+                  </div>
 
-              <div v-if="q.type === 'RADIO' || q.type === 'CHECKBOX'" class="flex flex-col gap-3">
-                <div
-                  v-for="(opt, optIdx) in q.options"
-                  :key="optIdx"
-                  class="flex items-center gap-3 group/option"
-                >
+                  <Select v-model="q.type">
+                    <SelectTrigger class="w-full md:w-[200px] h-12">
+                      <SelectValue placeholder="Question Type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="TEXT">Short Answer</SelectItem>
+                      <SelectItem value="RADIO">Radio</SelectItem>
+                      <SelectItem value="CHECKBOX">Checkboxes</SelectItem>
+                      <SelectItem value="RATING_SCALE">Rating Scale</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div class="min-h-[60px]">
                   <div
-                    v-if="q.type === 'RADIO'"
-                    class="w-5 h-5 border-2 border-slate-300 rounded-full"
-                  />
-                  <div v-else class="w-5 h-5 border-2 border-slate-300 rounded" />
-                  <Input
-                    v-model="q.options[optIdx]"
-                    class="border-none focus-visible:ring-0 focus-visible:border-b rounded-none h-8 px-0"
-                  />
-                  <div v-if="q.options.length > 1">
+                    v-if="q.type === 'TEXT'"
+                    class="w-3/5 border-b border-dashed border-slate-300 py-2 text-slate-400 text-sm"
+                  >
+                    Short Answer
+                  </div>
+
+                  <div
+                    v-if="q.type === 'RADIO' || q.type === 'CHECKBOX'"
+                    class="flex flex-col gap-3"
+                  >
+                    <div
+                      v-for="(opt, optIdx) in q.options"
+                      :key="optIdx"
+                      class="flex items-center gap-3 group/option"
+                    >
+                      <div
+                        v-if="q.type === 'RADIO'"
+                        class="w-5 h-5 border-2 border-slate-300 rounded-full"
+                      />
+                      <div v-else class="w-5 h-5 border-2 border-slate-300 rounded" />
+                      <Input
+                        v-model="q.options[optIdx]"
+                        class="border-none focus-visible:ring-0 focus-visible:border-b rounded-none h-8 px-0"
+                      />
+                      <div v-if="q.options.length > 1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          @click="formStore.removeOption(index, Number(optIdx))"
+                          class="text-slate-500 hover:text-red-600"
+                        >
+                          <Trash2 class="h-5 w-5" />
+                        </Button>
+                      </div>
+                    </div>
                     <Button
                       variant="ghost"
-                      size="icon"
-                      @click="formStore.removeOption(index, optIdx)"
-                      class="text-slate-500 hover:text-red-600"
+                      size="sm"
+                      class="w-fit text-slate-500 font-normal"
+                      @click="formStore.addOption(index)"
                     >
-                      <Trash2 class="h-5 w-5" />
+                      Add Option
                     </Button>
                   </div>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  class="w-fit text-slate-500 font-normal"
-                  @click="formStore.addOption(index)"
-                >
-                  Add Option
-                </Button>
-              </div>
 
-              <div v-if="q.type === 'RATING_SCALE'" class="flex items-center gap-4 py-4">
-                <div class="flex flex-row w-full justify-between items-center">
-                  <span class="text-sm font-medium text-slate-500">น้อยที่สุด</span>
-                  <RadioGroup class="flex gap-4 md:gap-8" :disabled="true">
-                    <div v-for="n in 5" :key="n" class="flex flex-col items-center gap-2">
-                      <Label class="text-sm text-black">{{ n }}</Label>
-                      <RadioGroupItem :value="String(n)" />
+                  <div v-if="q.type === 'RATING_SCALE'" class="flex items-center gap-4 py-4">
+                    <div class="flex flex-row w-full justify-between items-center">
+                      <span class="text-sm font-medium text-slate-500">น้อยที่สุด</span>
+                      <RadioGroup class="flex gap-4 md:gap-8" :disabled="true">
+                        <div v-for="n in 5" :key="n" class="flex flex-col items-center gap-2">
+                          <Label class="text-sm text-black">{{ n }}</Label>
+                          <RadioGroupItem :value="String(n)" />
+                        </div>
+                      </RadioGroup>
+                      <span class="text-sm font-medium text-slate-500">มากที่สุด</span>
                     </div>
-                  </RadioGroup>
-                  <span class="text-sm font-medium text-slate-500">มากที่สุด</span>
+                  </div>
                 </div>
-              </div>
-            </div>
 
-            <Separator class="my-6" />
+                <Separator class="my-6" />
 
-            <div class="flex items-center justify-end gap-2">
-              <Button
-                variant="ghost"
-                size="icon"
-                @click="formStore.removeQuestion(index)"
-                :disabled="formStore.questions.length <= 1"
-                class="text-slate-500 hover:text-red-600"
-              >
-                <Trash2 class="h-5 w-5" />
-              </Button>
+                <div class="flex items-center justify-end gap-2">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    @click="formStore.removeQuestion(index)"
+                    :disabled="formStore.questions.length <= 1"
+                    class="text-slate-500 hover:text-red-600"
+                  >
+                    <Trash2 class="h-5 w-5" />
+                  </Button>
 
-              <div class="h-6 w-px bg-slate-200 mx-2" />
+                  <div class="h-6 w-px bg-slate-200 mx-2" />
 
-              <div class="flex items-center space-x-2">
-                <Label :for="'req-' + q.id" class="text-sm font-normal text-slate-600"
-                  >Required</Label
-                >
-                <Switch :id="'req-' + q.id" v-model="q.isRequired" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+                  <div class="flex items-center space-x-2">
+                    <Label :for="'req-' + q.id" class="text-sm font-normal text-slate-600"
+                      >Required</Label
+                    >
+                    <Switch :id="'req-' + q.id" v-model="q.isRequired" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </template>
+      </draggable>
+
       <div>
         <div class="flex flex-row justify-end gap-3 pt-4 text-gray-800">
           <Button type="button" variant="outline" @click="onCancel">Cancel</Button

@@ -24,6 +24,7 @@ export const useFormStore = defineStore('form', () => {
   const questions = ref<Question[]>([])
   const formTitle = ref<string>('')
   const formDescription = ref<string>('')
+  const formIsActive = ref<boolean>(false)
   const isLoading = ref<boolean>(false)
   const currentFormId = ref<string | null>(null)
   const deletedFieldIds = ref<string[]>([])
@@ -89,6 +90,7 @@ export const useFormStore = defineStore('form', () => {
       const createDto: CreateEventFormDto = {
         title: 'Form Title',
         description: '',
+        isActive: false,
       }
       const formRes = await FormService.createForm(eventId, createDto)
       currentFormId.value = formRes.id
@@ -103,7 +105,6 @@ export const useFormStore = defineStore('form', () => {
 
   const fetchForm = async (eventId: string) => {
     isLoading.value = true
-    // ล้างค่าเก่าก่อน fetch ใหม่เสมอเพื่อป้องกันข้อมูล event เดิมค้าง
     currentFormId.value = null
     questions.value = []
     formTitle.value = ''
@@ -136,50 +137,54 @@ export const useFormStore = defineStore('form', () => {
     if (!currentFormId.value) return false
     isLoading.value = true
     try {
-      // 1. จัดการลบคำถามที่ถูกเอาออก (Bulk Delete)
       if (deletedFieldIds.value.length > 0) {
         await FormService.deleteFields(eventId, currentFormId.value, {
           fieldIds: deletedFieldIds.value,
         })
-        deletedFieldIds.value = [] // ล้างคลังเมื่อลบสำเร็จ
+        deletedFieldIds.value = []
       }
-
-      // 2. อัปเดตข้อมูลหัวฟอร์ม (PATCH Form)
       await FormService.updateForm(eventId, currentFormId.value, {
         title: formTitle.value,
         description: formDescription.value,
+        isActive: formIsActive.value,
       })
 
-      // 3. จัดการคำถาม (แยก Update และ Create)
-      // แบ่งคำถามออกเป็น 2 กลุ่ม
+      // เตรียมคำถามโดยการ "คำนวณ Order ใหม่" จากลำดับใน Array
+      // เราจะใช้ index + 1 เพื่อให้ลำดับรันต่อเนื่อง 1, 2, 3...
 
       const existingFields = questions.value.filter((q) => typeof q.id === 'string')
       const newFields = questions.value.filter((q) => typeof q.id !== 'string')
 
-      // 3.1 อัปเดตคำถามที่มีอยู่เดิม (PATCH ทีละฟิลด์)
+      // อัปเดตคำถามที่มีอยู่เดิม (PATCH ทีละฟิลด์)
       if (existingFields.length > 0) {
-        const updatePromises = existingFields.map((q, index) =>
-          FormService.updateField(eventId, currentFormId.value!, String(q.id), {
+        const updatePromises = existingFields.map((q) => {
+          const currentOrder = questions.value.findIndex((item) => item.id === q.id) + 1
+
+          return FormService.updateField(eventId, currentFormId.value!, String(q.id), {
             question: q.title || 'Untitled Question',
             fieldType: q.type,
             isRequired: q.isRequired,
-            order: index + 1, // เรียงลำดับใหม่ตาม UI ปัจจุบัน
+            order: currentOrder,
             options: ['RADIO', 'CHECKBOX'].includes(q.type) ? q.options : [],
-          }),
-        )
+          })
+        })
         console.log('Updating existing fields:', existingFields)
         await Promise.all(updatePromises)
       }
 
-      // 3.2 เพิ่มคำถามใหม่ที่เพิ่งสร้างใน UI (POST Bulk)
+      // เพิ่มคำถามใหม่ที่เพิ่งสร้างใน UI (POST Bulk)
       if (newFields.length > 0) {
-        const newFieldsPayload: FormFieldPayload[] = newFields.map((q, index) => ({
-          question: q.title || 'Untitled Question',
-          fieldType: q.type,
-          isRequired: q.isRequired,
-          order: existingFields.length + index + 1, // ต่อท้ายลำดับเดิม
-          options: ['RADIO', 'CHECKBOX'].includes(q.type) ? q.options : [],
-        }))
+        const newFieldsPayload: FormFieldPayload[] = newFields.map((q) => {
+          const currentOrder = questions.value.findIndex((item) => item.id === q.id) + 1
+
+          return {
+            question: q.title || 'Untitled Question',
+            fieldType: q.type,
+            isRequired: q.isRequired,
+            order: currentOrder,
+            options: ['RADIO', 'CHECKBOX'].includes(q.type) ? q.options : [],
+          }
+        })
         console.log('Adding new fields:', newFieldsPayload)
         await FormService.addFields(eventId, currentFormId.value, newFieldsPayload)
       }
@@ -200,7 +205,7 @@ export const useFormStore = defineStore('form', () => {
     isLoading.value = true
     try {
       await FormService.deleteForm(eventId, formId)
-      resetForm() // ลบสำเร็จแล้วล้าง state ทันทีเพื่อให้ UI สลับไปหน้าสร้างใหม่
+      resetForm()
       return true
     } catch (error) {
       console.error('Delete form failed:', error)
@@ -214,6 +219,7 @@ export const useFormStore = defineStore('form', () => {
     questions,
     formTitle,
     formDescription,
+    formIsActive,
     isLoading,
     currentFormId,
     questionTypes,

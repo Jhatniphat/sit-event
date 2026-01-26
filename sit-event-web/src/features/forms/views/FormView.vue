@@ -18,14 +18,11 @@ const eventId = route.params.id as string
 const form = ref<EventFormResponse | null>(null)
 const answers = ref<Record<string, string | string[]>>({})
 const isSubmitting = ref(false)
-// const isAdminOrOrganizer = computed(() => {
-//   const role = authStore.user?.userRole
-//   return role === 'Organizer' || role === 'Admin' || role === 'ADMIN' || role === 'ORGANIZER'
-// })
+const isPreviewMode = ref(false)
 
-//:class="{ 'text-slate-500': isAdminOrOrganizer }"
-// :disabled="isAdminOrOrganizer"
-// :disabled="isSubmitting || isAdminOrOrganizer"
+//:class="{ 'text-slate-500': isPreviewMode }"
+// :disabled="isPreviewMode"
+// :disabled="isSubmitting || isPreviewMode"
 
 onMounted(async () => {
   try {
@@ -90,7 +87,7 @@ const handleSubmit = async () => {
     }
     await FormService.submitForm(eventId, form.value.id, payload)
     toast.success('ส่งแบบฟอร์มสำเร็จ!')
-    router.push({ name: 'EventDetail', params: { id: eventId } })
+    router.push({ name: 'Home' })
   } catch (error: unknown) {
     console.error('Error submitting form:', error)
     const err = error as { response?: { status?: number } }
