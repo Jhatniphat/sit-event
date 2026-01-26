@@ -67,6 +67,15 @@ const routes: Array<RouteRecordRaw> = [
       roles: adminRoles,
     },
   },
+  {
+    path: '/event/:id/participants/approval', 
+    name: 'ParticipantApproval',
+    component: () => import('../features/registration/views/ParticipantApproval.vue'),
+    meta: {
+      requiresAuth: true,
+      roles: adminRoles, // จำกัดสิทธิ์ให้เฉพาะ Admin/Organizer
+    },
+  },
 
   // --- Authenticated User Routes (Requires any login) ---
   {
@@ -169,6 +178,7 @@ const routes: Array<RouteRecordRaw> = [
     component: NotFoundView,
     meta: { requiresAuth: false }, // ไม่ต้อง login ก็เจอหน้านี้ได้
   },
+
 ]
 
 const router = createRouter({
