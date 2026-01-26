@@ -12,6 +12,7 @@ export interface FormFieldPayload {
 export interface CreateEventFormDto {
   title: string
   description?: string
+  isActive: boolean
 }
 
 export interface SubmitAnswerPayload {
