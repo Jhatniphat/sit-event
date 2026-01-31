@@ -37,6 +37,10 @@
       "description": "Endpoints for managing event feedback forms, form fields, and submissions."
     },
     {
+      "name": "Forms",
+      "description": "Endpoints for user-specific form operations."
+    },
+    {
       "name": "Certificates",
       "description": "Endpoints for managing certificate templates and elements."
     }
@@ -917,6 +921,28 @@
           "401": { "description": "Unauthorized" },
           "403": { "description": "Forbidden" },
           "404": { "description": "Staff entry not found" }
+        }
+      }
+    },
+    "/forms/me": {
+      "get": {
+        "tags": ["Forms"],
+        "summary": "Get all forms for the current user",
+        "description": "Returns all forms from events that the user has attended, along with submission status.",
+        "security": [{ "JWT-auth": [] }],
+        "responses": {
+          "200": {
+            "description": "Returns the list of forms with submission status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyFormsResponseDto"
+                }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" },
+          "404": { "description": "User not found" }
         }
       }
     },
@@ -2017,6 +2043,45 @@
           }
         },
         "required": ["templateId", "elements"]
+      },
+      "MyFormsResponseDto": {
+        "type": "object",
+        "properties": {
+          "forms": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UserFormItemDto"
+            }
+          }
+        }
+      },
+      "UserFormItemDto": {
+        "type": "object",
+        "properties": {
+          "formId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "123e4567-e89b-12d3-a456-426614174000"
+          },
+          "eventName": {
+            "type": "string",
+            "example": "Tech Conference 2026"
+          },
+          "title": {
+            "type": "string",
+            "example": "Feedback Form"
+          },
+          "isSubmitted": {
+            "type": "boolean",
+            "example": true
+          },
+          "submittedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "example": "2026-01-30T10:00:00.000Z"
+          }
+        }
       }
     },
     "securitySchemes": {

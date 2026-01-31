@@ -187,6 +187,39 @@
             margin: 10px 0;
             border: 1px solid #9ae6b4;
         }
+
+        .btn-copy {
+            background: #4a5568;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.85em;
+            margin-left: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .btn-copy:hover {
+            background: #2d3748;
+        }
+
+        .btn-copy.copied {
+            background: #38a169;
+        }
+
+        .token-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .token-actions {
+            display: flex;
+            gap: 5px;
+        }
     </style>
 </head>
 <body>
@@ -362,6 +395,9 @@
                 `;
             }
             
+            // Store access token for copy functionality
+            window.currentAccessToken = userData.accessToken || null;
+            
             userInfo.innerHTML = `
                 <div class="info-item">
                     <span class="label">ชื่อ:</span> 
@@ -380,6 +416,18 @@
                     <span class="value">${userData.userId}</span>
                 </div>
                 ${tokenInfoHtml}
+                <div class="info-item token-row">
+                    <div>
+                        <span class="label">Access Token:</span> 
+                        <span class="value">${userData.accessToken ? '✅ มี' : '❌ ไม่มี'}</span>
+                    </div>
+                    ${userData.accessToken ? `
+                    <div class="token-actions">
+                        <button class="btn-copy" onclick="copyAccessToken(this)">📋 Copy Token</button>
+                        <button class="btn-copy" onclick="copyBearerToken(this)">🔐 Copy Bearer</button>
+                    </div>
+                    ` : ''}
+                </div>
                 <div class="info-item">
                     <span class="label">Refresh Token:</span> 
                     <span class="value">${userData.refreshToken ? '✅ มี (ใช้สำหรับต่ออายุ Access Token)' : '❌ ไม่มี'}</span>
@@ -511,6 +559,51 @@
         function logout() {
             logAPI('🚪 กำลังออกจากระบบ...');
             window.location.href = `${API_BASE}/auth/logout`;
+        }
+
+        // Copy Token Functions
+        async function copyAccessToken(btn) {
+            if (!window.currentAccessToken) {
+                showError('ไม่พบ Access Token');
+                return;
+            }
+            
+            try {
+                await navigator.clipboard.writeText(window.currentAccessToken);
+                btn.textContent = '✅ Copied!';
+                btn.classList.add('copied');
+                logAPI('📋 Access Token copied to clipboard');
+                showSuccess('คัดลอก Access Token แล้ว!');
+                
+                setTimeout(() => {
+                    btn.textContent = '📋 Copy Token';
+                    btn.classList.remove('copied');
+                }, 2000);
+            } catch (err) {
+                showError('ไม่สามารถคัดลอกได้: ' + err.message);
+            }
+        }
+
+        async function copyBearerToken(btn) {
+            if (!window.currentAccessToken) {
+                showError('ไม่พบ Access Token');
+                return;
+            }
+            
+            try {
+                await navigator.clipboard.writeText('Bearer ' + window.currentAccessToken);
+                btn.textContent = '✅ Copied!';
+                btn.classList.add('copied');
+                logAPI('📋 Bearer Token copied to clipboard');
+                showSuccess('คัดลอก Bearer Token แล้ว!');
+                
+                setTimeout(() => {
+                    btn.textContent = '🔐 Copy Bearer';
+                    btn.classList.remove('copied');
+                }, 2000);
+            } catch (err) {
+                showError('ไม่สามารถคัดลอกได้: ' + err.message);
+            }
         }
 
         // Event Listeners

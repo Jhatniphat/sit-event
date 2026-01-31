@@ -791,4 +791,71 @@ export class EventFormsService {
   private isAdminOrOrganizer(userRoles: string[]): boolean {
     return userRoles.includes('ADMIN') || userRoles.includes('ORGANIZER');
   }
+
+  /**
+   * Get all forms for the current user with submission status
+   * Returns forms from events that the user has attended
+   */
+  async getMyForms(userId: string): Promise<{
+    forms: {
+      formId: string;
+      eventName: string;
+      title: string;
+      isSubmitted: boolean;
+      submittedAt: Date | null;
+    }[];
+  }> {
+    // Get all events the user has attended (checked-in)
+    const attendedRegistrations = await this.prisma.eventRegistration.findMany({
+      where: {
+        userId,
+        attended: true,
+      },
+      select: {
+        eventId: true,
+      },
+    });
+
+    const attendedEventIds = attendedRegistrations.map((r) => r.eventId);
+
+    if (attendedEventIds.length === 0) {
+      return { forms: [] };
+    }
+
+    // Get all active forms from attended events
+    const forms = await this.prisma.eventForm.findMany({
+      where: {
+        eventId: { in: attendedEventIds }
+      },
+      include: {
+        event: {
+          select: {
+            name: true,
+          },
+        },
+        submissions: {
+          where: {
+            userId,
+          },
+          select: {
+            submittedAt: true,
+          },
+        },
+      },
+    });
+
+    // Map to response format
+    const result = forms.map((form) => {
+      const submission = form.submissions[0]; // User can only have 1 submission per form
+      return {
+        formId: form.id,
+        eventName: form.event.name,
+        title: form.title,
+        isSubmitted: !!submission,
+        submittedAt: submission?.submittedAt || null,
+      };
+    });
+
+    return { forms: result };
+  }
 }
