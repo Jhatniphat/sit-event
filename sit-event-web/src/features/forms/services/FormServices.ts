@@ -34,6 +34,7 @@ export interface EventFormResponse {
   eventId: string
   title: string
   description?: string
+  isActive: boolean
   fields: FormFieldResponse[]
 }
 

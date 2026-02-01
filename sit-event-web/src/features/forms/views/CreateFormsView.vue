@@ -54,6 +54,9 @@ const onCancel = () => {
 }
 
 const onSubmit = async () => {
+  if (!validateForm()) {
+    return
+  }
   try {
     const success = await formStore.saveFullForm(eventId)
     router.back()
@@ -82,24 +85,70 @@ const handleViewForm = () => {
     params: { id: eventId },
   })
 }
+
+const formErrors = ref<{
+  title?: string
+  questions: Record<number, string>
+}>({ questions: {} })
+
+const validateForm = () => {
+  let isValid = true
+  formErrors.value = { questions: {} }
+  const errorMessages: string[] = []
+
+  if (!formStore.formTitle.trim()) {
+    const msg = 'กรุณากรอกหัวข้อฟอร์ม'
+    formErrors.value.title = msg
+    errorMessages.push(msg)
+    isValid = false
+  }
+
+  formStore.questions.forEach((q, index) => {
+    if (!q.title.trim()) {
+      const msg = `กรุณากรอกหัวข้อคำถามที่ ${index + 1}`
+      formErrors.value.questions[index] = 'กรุณากรอกคำถาม'
+      errorMessages.push(msg)
+      isValid = false
+    }
+
+    if ((q.type === 'RADIO' || q.type === 'CHECKBOX') && q.options.length === 0) {
+      const msg = `คำถามที่ ${index + 1} ต้องมีอย่างน้อย 1 ตัวเลือก`
+      errorMessages.push(msg)
+      isValid = false
+    }
+  })
+
+  if (errorMessages.length > 0) {
+    toast.error('ข้อมูลไม่ครบถ้วน', {
+      description: errorMessages[0],
+    })
+  }
+  console.log('Form validation result:', isValid, formErrors.value)
+
+  return isValid
+}
 </script>
 
 <template>
   <div class="min-h-screen bg-slate-50/50 p-6 flex justify-center items-start gap-4">
     <div class="w-full max-w-3xl flex flex-col gap-4">
       <Card class="shadow-sm overflow-hidden">
-        <CardContent class="p-6 pb-1">
+        <CardContent class="px-8 pt-4 pb-1">
           <Input
             v-model="formStore.formTitle"
             variant="ghost"
             placeholder="Form Title"
-            class="!text-3xl font-normal py-4 border-none border-b-2 border-transparent focus-visible:border-purple-700 focus-visible:ring-0 rounded-none px-0 mb-4 shadow-none"
+            class="!text-3xl font-normal py-4 border-0 border-b-2 focus-visible:border-black focus-visible:border-b-2 focus-visible:ring-0 rounded-none px-0 mb-1 shadow-none"
+            :class="{ 'border-b-red-500': formErrors.title }"
           />
+          <p v-if="formErrors.title" class="text-xs text-red-500">
+            {{ formErrors.title }}
+          </p>
           <Input
             v-model="formStore.formDescription"
             variant="ghost"
             placeholder="Description (Not required)"
-            class="text-sm border-none border-b focus-visible:ring-0 focus-visible:border-b-2 focus-visible:border-gray-300 rounded-none px-0 h-auto shadow-none"
+            class="text-sm border-0 border-b mt-4 focus-visible:ring-0 focus-visible:border-b-2 focus-visible:border-black rounded-none px-0 h-auto shadow-none"
           />
           <Separator class="mt-6" />
           <div class="flex justify-between items-start mt-6">
@@ -149,14 +198,16 @@ const handleViewForm = () => {
 
             <Card
               class="shadow-sm border-l-4 border-l-transparent focus-within:border-l-black transition-all"
+              :class="formErrors.questions[index] ? 'border-l-red-500' : 'border-l-transparent'"
             >
               <CardContent class="p-6">
-                <div class="flex flex-col md:flex-row gap-4 mb-6">
+                <div class="flex flex-col md:flex-row gap-4">
                   <div class="flex-1">
                     <Input
                       v-model="q.title"
                       placeholder="Question Title"
-                      class="bg-slate-50 border-none border-b-2 rounded-none focus-visible:ring-0 focus-visible:bg-slate-100 transition-all h-12"
+                      class="bg-slate-50 border-0 border-b-2 rounded-none focus-visible:ring-0 focus-visible:bg-slate-100 transition-all h-12"
+                      :class="{ 'border-b-red-500': formErrors.questions[index] }"
                     />
                   </div>
 
@@ -172,8 +223,10 @@ const handleViewForm = () => {
                     </SelectContent>
                   </Select>
                 </div>
-
-                <div class="min-h-[60px]">
+                <p v-if="formErrors.questions[index]" class="text-xs text-red-500 mt-1">
+                  {{ formErrors.questions[index] }}
+                </p>
+                <div class="min-h-[60px] mt-6">
                   <div
                     v-if="q.type === 'TEXT'"
                     class="w-3/5 border-b border-dashed border-slate-300 py-2 text-slate-400 text-sm"
@@ -197,7 +250,7 @@ const handleViewForm = () => {
                       <div v-else class="w-5 h-5 border-2 border-slate-300 rounded" />
                       <Input
                         v-model="q.options[optIdx]"
-                        class="border-none focus-visible:ring-0 focus-visible:border-b rounded-none h-8 px-0"
+                        class="border-0 focus-visible:ring-0 focus-visible:border-b rounded-none h-8 px-0"
                       />
                       <div v-if="q.options.length > 1">
                         <Button
@@ -297,7 +350,7 @@ const handleViewForm = () => {
 
 <style scoped>
 /* ลบเส้นโฟกัสพื้นฐานของ Input ในบางกรณี */
-:deep(.border-none:focus-visible) {
+:deep(.border-0:focus-visible) {
   outline: none;
   box-shadow: none;
 }

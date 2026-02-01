@@ -68,7 +68,7 @@ const routes: Array<RouteRecordRaw> = [
     },
   },
   {
-    path: '/event/:id/participants/approval', 
+    path: '/event/:id/participants/approval',
     name: 'ParticipantApproval',
     component: () => import('../features/registration/views/ParticipantApproval.vue'),
     meta: {
@@ -156,6 +156,13 @@ const routes: Array<RouteRecordRaw> = [
     props: true,
     meta: { requiresAuth: false },
   },
+  {
+    path: '/events/:id/forms',
+    name: 'FormClosed',
+    component: () => import('../features/forms/components/FormClosed.vue'),
+    props: true,
+    meta: { requiresAuth: false },
+  },
 
   // * --- Auth Callback Routes (No Auth Required) ---
   {
@@ -178,7 +185,6 @@ const routes: Array<RouteRecordRaw> = [
     component: NotFoundView,
     meta: { requiresAuth: false }, // ไม่ต้อง login ก็เจอหน้านี้ได้
   },
-
 ]
 
 const router = createRouter({

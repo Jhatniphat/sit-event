@@ -9,15 +9,14 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import { toast } from 'vue-sonner'
-import { useAuthStore } from '@/features/auth/stores/auth.store'
 
 const route = useRoute()
 const router = useRouter()
-const authStore = useAuthStore()
 const eventId = route.params.id as string
 const form = ref<EventFormResponse | null>(null)
 const answers = ref<Record<string, string | string[]>>({})
 const isSubmitting = ref(false)
+const errors = ref<string[]>([])
 const isPreviewMode = ref(false)
 
 //:class="{ 'text-slate-500': isPreviewMode }"
@@ -28,8 +27,6 @@ onMounted(async () => {
   try {
     const res = await FormService.getFormForUser(eventId)
     form.value = res
-
-    // ตั้งค่าเริ่มต้นตามประเภทคำถาม
     res.fields.forEach((field) => {
       if (field.fieldType === 'CHECKBOX') {
         answers.value[field.id] = []
@@ -38,7 +35,7 @@ onMounted(async () => {
       }
     })
   } catch (error: unknown) {
-    // จัดการ error แบบระบุประเภท
+    //ทำ 409
     const err = error as { response?: { status?: number } }
     if (err.response?.status === 404) {
       toast.error('ไม่พบแบบฟอร์มสำหรับอีเวนต์นี้')
@@ -46,28 +43,48 @@ onMounted(async () => {
   }
 })
 
-// ฟังก์ชันเช็คว่ากรอกครบตามเงื่อนไข isRequired หรือยัง
 const validateForm = () => {
   if (!form.value) return false
+
+  const newErrors: string[] = []
+  let isValid = true
 
   for (const field of form.value.fields) {
     if (field.isRequired) {
       const currentAnswer = answers.value[field.id]
-      console.log('Validating field:', field.id, 'Answer:', currentAnswer)
       const isEmpty = Array.isArray(currentAnswer)
         ? currentAnswer.length === 0
-        : !currentAnswer || currentAnswer.trim() === ''
-      console.log('Is empty:', isEmpty)
+        : !currentAnswer || String(currentAnswer).trim() === ''
+
       if (isEmpty) {
+        newErrors.push(field.id)
         toast.error(`กรุณากรอกข้อมูลในช่อง: ${field.question}`)
-        return false
+        isValid = false
       }
     }
   }
-  return true
+
+  errors.value = newErrors
+  return isValid
 }
 
+watch(
+  answers,
+  () => {
+    if (errors.value.length > 0) {
+      errors.value = errors.value.filter((fieldId) => {
+        const currentAnswer = answers.value[fieldId]
+        return Array.isArray(currentAnswer)
+          ? currentAnswer.length === 0
+          : !currentAnswer || String(currentAnswer).trim() === ''
+      })
+    }
+  },
+  { deep: true },
+)
+
 const handleSubmit = async () => {
+  //ทำ 403
   if (!validateForm() || !form.value) return
 
   isSubmitting.value = true
@@ -126,9 +143,15 @@ watch(answers, (v) => console.log('ANSWERS:', JSON.stringify(v, null, 2)), { dee
     </Card>
 
     <div v-for="field in form.fields" :key="field.id">
-      <Card class="shadow-sm transition-all hover:shadow-md border-slate-200">
+      <Card
+        class="shadow-sm transition-all hover:shadow-md border-2"
+        :class="errors.includes(field.id) ? 'border-red-500 bg-red-50/10' : 'border-slate-200'"
+      >
         <CardContent class="p-8 py-5 space-y-5">
-          <Label class="text-md font-medium leading-relaxed block">
+          <Label
+            class="text-md font-medium leading-relaxed block"
+            :class="{ 'text-red-600': errors.includes(field.id) }"
+          >
             {{ field.question }}
             <span v-if="field.isRequired" class="text-red-500 ml-1 text-xl">*</span>
           </Label>
@@ -137,7 +160,8 @@ watch(answers, (v) => console.log('ANSWERS:', JSON.stringify(v, null, 2)), { dee
             <Input
               v-model="getTextValue(field.id).value"
               placeholder="คำตอบของคุณ"
-              class="border-0 border-b-2 rounded-none focus-visible:ring-0 focus-visible:border-black px-0 bg-transparent text-base shadow-none"
+              class="border-0 border-b-2 rounded-none focus-visible:ring-0 focus-visible:border-black px-0 bg-transparent text-base shadow-none transition-colors"
+              :class="errors.includes(field.id) ? 'border-red-400' : 'border-slate-200'"
             />
           </div>
 
