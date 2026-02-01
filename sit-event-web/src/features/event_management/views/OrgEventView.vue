@@ -110,7 +110,7 @@ const formatEnum = (value: string) => {
     <div class="max-w-7xl mx-auto space-y-6">
       <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 class="text-3xl font-bold tracking-tight text-gray-900">Event Management</h1>
+          <h1 class="text-3xl font-bold tracking-tight text-gray-900" id="heading-event-management">Event Management</h1>
           <p class="text-muted-foreground text-gray-500 mt-1">
             Manage your events, track status, and organize schedules.
           </p>
@@ -144,7 +144,7 @@ const formatEnum = (value: string) => {
               </tr>
 
               <tr v-for="event in events" :key="event.id" class="hover:bg-gray-50/80 transition-colors">
-                <td class="px-6 py-4 font-medium text-gray-900">
+                <td class="px-6 py-4 font-medium text-gray-900" :id="`event-name-${event.id}`">
                   <div class="truncate max-w-[200px]" :title="event.name">
                     {{ event.name }}
                   </div>

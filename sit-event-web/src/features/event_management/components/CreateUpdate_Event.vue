@@ -643,7 +643,7 @@ const toDateTimeLocal = (date?: Date) => {
             <FormItem>
               <FormLabel>Event Name <span class="text-destructive">*</span></FormLabel>
               <FormControl>
-                <Input type="text" placeholder="Enter event name" v-bind="componentField" />
+                <Input type="text" placeholder="Enter event name" v-bind="componentField" id="input-event-name"/>
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -657,6 +657,7 @@ const toDateTimeLocal = (date?: Date) => {
                   placeholder="Describe your event..." 
                   class="min-h-[120px]" 
                   v-bind="componentField" 
+                  id="input-event-description"
                 />
               </FormControl>
               <FormMessage />
@@ -677,6 +678,7 @@ const toDateTimeLocal = (date?: Date) => {
                         class="block w-full"
                         :value="toDateTimeLocal(field.value)"
                         @change="(e:any) => handleChange(new Date((e.target as HTMLInputElement).value))"
+                        id="input-event-start-date"
                     />
                 </FormControl>
                 <FormMessage />
@@ -692,6 +694,7 @@ const toDateTimeLocal = (date?: Date) => {
                         class="block w-full"
                         :value="toDateTimeLocal(field.value)"
                         @change="(e:any) => handleChange(new Date((e.target as HTMLInputElement).value))"
+                        id="input-event-end-date"
                     />
                 </FormControl>
                 <FormMessage />
@@ -707,6 +710,7 @@ const toDateTimeLocal = (date?: Date) => {
                         class="block w-full"
                         :value="toDateTimeLocal(field.value)"
                         @change="(e:any) => handleChange(new Date((e.target as HTMLInputElement).value))"
+                        id="input-registration-open-date"
                     />
                 </FormControl>
                 <FormMessage />
@@ -722,6 +726,7 @@ const toDateTimeLocal = (date?: Date) => {
                         class="block w-full"
                         :value="toDateTimeLocal(field.value)"
                         @change="(e:any) => handleChange(new Date((e.target as HTMLInputElement).value))"
+                        id="input-registration-end-date"
                     />
                 </FormControl>
                 <FormMessage />
@@ -870,6 +875,7 @@ const toDateTimeLocal = (date?: Date) => {
                   :model-value="value" 
                   @update:model-value="handleChange"
                   :required="true"
+                  id="input-target-audience"
                 />
                 <FormMessage />
               </FormItem>
@@ -884,6 +890,7 @@ const toDateTimeLocal = (date?: Date) => {
                   :model-value="value"
                   @update:model-value="handleChange"
                   :required="true"
+                  id="input-event-tags"
                 />
                 <FormMessage />
               </FormItem>
@@ -969,10 +976,10 @@ const toDateTimeLocal = (date?: Date) => {
         </div>
 
         <div class="flex justify-end gap-4 pt-4 border-t border-gray-100 text-gray-800">
-          <Button type="button" variant="outline" @click="onCancel">
+          <Button type="button" variant="outline" @click="onCancel" id="btn-cancel-event">
             Cancel
           </Button>
-          <Button type="submit">
+          <Button type="submit" id="btn-submit-event">
             {{ isEditMode ? 'Update Event' : 'Create Event' }}
           </Button>
         </div>
