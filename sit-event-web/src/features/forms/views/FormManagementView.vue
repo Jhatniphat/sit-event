@@ -55,6 +55,7 @@ const handleViewForm = () => {
   router.push({
     name: 'FormView',
     params: { id: eventId },
+    query: { preview: 'true' },
   })
 }
 

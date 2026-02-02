@@ -17,11 +17,12 @@ const form = ref<EventFormResponse | null>(null)
 const answers = ref<Record<string, string | string[]>>({})
 const isSubmitting = ref(false)
 const errors = ref<string[]>([])
-const isPreviewMode = ref(false)
-
-//:class="{ 'text-slate-500': isPreviewMode }"
-// :disabled="isPreviewMode"
-// :disabled="isSubmitting || isPreviewMode"
+const props = defineProps({
+  isPreviewMode: {
+    type: Boolean,
+    default: false,
+  },
+})
 
 onMounted(async () => {
   try {
@@ -90,6 +91,7 @@ watch(
 
 const handleSubmit = async () => {
   //ทำ 403
+  if (props.isPreviewMode) return
   if (!validateForm() || !form.value) return
 
   isSubmitting.value = true

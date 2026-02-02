@@ -153,7 +153,10 @@ const routes: Array<RouteRecordRaw> = [
     path: '/events/:id/forms',
     name: 'FormView',
     component: () => import('../features/forms/views/FormView.vue'),
-    props: true,
+    props: (route) => ({
+      id: route.params.id,
+      isPreviewMode: route.query.preview === 'true',
+    }),
     meta: { requiresAuth: false },
   },
   {
