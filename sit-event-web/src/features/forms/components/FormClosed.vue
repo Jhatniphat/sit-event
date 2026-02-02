@@ -14,7 +14,7 @@ const goHome = () => {
     <div class="border-t-5 rounded-lg border-t-black shadow-sm">
       <div class="p-10">
         <div class="text-black text-3xl font-bold">ตอนนี้แบบฟอร์มปิดรับคำตอบแล้ว</div>
-        <p class="text-black mt-2 text-md">ขอบคุณที่ให้ความสนใจในการเข้าร่วมกิจกรรมของเรา</p>
+        <p class="text-black mt-2 text-md">ขอบคุณที่ให้ความสนใจในกิจกรรมของเรา</p>
       </div>
     </div>
     <div class="flex justify-between items-center pt-2">

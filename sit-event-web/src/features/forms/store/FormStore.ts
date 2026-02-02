@@ -109,6 +109,7 @@ export const useFormStore = defineStore('form', () => {
     questions.value = []
     formTitle.value = ''
     formDescription.value = ''
+    formIsActive.value = false
 
     try {
       const res = await FormService.getFormForUser(eventId)
@@ -116,6 +117,7 @@ export const useFormStore = defineStore('form', () => {
         currentFormId.value = res.id
         formTitle.value = res.title || ''
         formDescription.value = res.description || ''
+        formIsActive.value = res.isActive || false
         if (res.fields && Array.isArray(res.fields)) {
           questions.value = res.fields.map((f: FormFieldResponse) => ({
             id: f.id,

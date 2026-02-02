@@ -26,6 +26,11 @@ const isPreviewMode = ref(false)
 onMounted(async () => {
   try {
     const res = await FormService.getFormForUser(eventId)
+    console.log('Fetched form:', res)
+    if (res.isActive === false) {
+      router.push({ name: 'FormClosed' })
+      return
+    }
     form.value = res
     res.fields.forEach((field) => {
       if (field.fieldType === 'CHECKBOX') {
@@ -105,11 +110,13 @@ const handleSubmit = async () => {
     await FormService.submitForm(eventId, form.value.id, payload)
     toast.success('ส่งแบบฟอร์มสำเร็จ!')
     router.push({ name: 'Home' })
-  } catch (error: unknown) {
-    console.error('Error submitting form:', error)
-    const err = error as { response?: { status?: number } }
-    if (err.response?.status === 409) {
+  } catch (error: any) {
+    const status = error.response?.status || error.status
+
+    if (status === 409) {
       toast.error('คุณได้ส่งแบบฟอร์มนี้ไปแล้ว')
+    } else if (status === 403) {
+      toast.error('คุณไม่ได้เข้าร่วมอีเวนต์นี้ จึงไม่สามารถส่งแบบฟอร์มได้')
     } else {
       toast.error('เกิดข้อผิดพลาดในการส่งฟอร์ม')
     }
@@ -127,8 +134,6 @@ const getTextValue = (fieldId: string) => {
     },
   })
 }
-
-watch(answers, (v) => console.log('ANSWERS:', JSON.stringify(v, null, 2)), { deep: true })
 </script>
 
 <template>
