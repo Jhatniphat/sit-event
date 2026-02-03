@@ -13,7 +13,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 // เพิ่ม import icons สำหรับ Mobile Menu (Menu, X)
-import { ChevronDown, LayoutDashboard, Calendar, User, LogOut, Globe, Menu, X } from 'lucide-vue-next';
+import { ChevronDown, LayoutDashboard, Calendar, User, LogOut, Globe, Menu, X, MessageSquareWarning } from 'lucide-vue-next';
 
 const authStore = useAuthStore();
 const router = useRouter();
@@ -123,6 +123,13 @@ const isAuthenticated = computed(() => authStore.isAuthenticated);
                   <span>English</span>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem as-child>
+                  <a href="mailto:jhatniphat.sara+sitems@gmail.com?subject=Report%20Probleam%20and%20Feedback%20-%20SIT%20Event" class="w-full cursor-pointer">
+                    <MessageSquareWarning class="mr-2 h-4 w-4" />
+                    <span>Report & Feedback</span>
+                  </a>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem @click="handleLogout" class="text-red-600 focus:text-red-600">
                   <LogOut class="mr-2 h-4 w-4" />
                   <span>Logout</span>
@@ -131,7 +138,13 @@ const isAuthenticated = computed(() => authStore.isAuthenticated);
             </DropdownMenu>
           </div>
 
-          <div v-else class="hidden md:block">
+          <div v-else class="hidden md:flex items-center gap-2">
+            <Button variant="ghost" class="text-muted-foreground" as-child>
+               <a href="mailto:jhatniphat.sara+sitems@gmail.com?subject=Report%20Probleam%20and%20Feedback%20-%20SIT%20Event">
+                <!-- <MessageSquareWarning class="mr-2 h-4 w-4" /> -->
+                Report & Feedback
+               </a>
+            </Button>
             <Button @click="handleLogin">Login</Button>
           </div>
 
@@ -148,8 +161,14 @@ const isAuthenticated = computed(() => authStore.isAuthenticated);
       </div>
 
       <div v-if="isMobileMenuOpen" class="md:hidden mt-3 border-t pt-4 space-y-3 pb-2 animate-in slide-in-from-top-2 duration-200">
-        <div v-if="!authStore.isAuthenticated" class="px-2">
+        <div v-if="!authStore.isAuthenticated" class="px-2 space-y-2">
            <Button class="w-full" @click="handleLogin">Login</Button>
+           <Button variant="outline" class="w-full justify-start" as-child>
+             <a href="mailto:jhatniphat.sara+sitems@gmail.com?subject=Report%20Probleam%20and%20Feedback%20-%20SIT%20Event">
+                <MessageSquareWarning class="mr-2 h-4 w-4" />
+                Report & Feedback
+             </a>
+           </Button>
         </div>
 
         <Button v-if="isAuthenticated && !isAdminOrOrganizer"

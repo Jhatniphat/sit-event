@@ -14,6 +14,7 @@ export interface HeroSlide {
   title: string
   description: string
   buttonText?: string
+  buttonLink?: string
   logos?: string[]
   bgImage?: string // เพิ่มฟิลด์สำหรับรูปพื้นหลัง (URL)
   eventStartDate: string
@@ -113,6 +114,8 @@ function getSlideStyle(slide: HeroSlide) {
                 variant="secondary" 
                 size="lg" 
                 class="mt-4 bg-white text-[#005AA7] hover:bg-gray-100 font-bold px-8 py-6 text-lg shadow-xl border-none"
+                :as="slide.buttonLink ? 'a' : 'button'"
+                :href="slide.buttonLink || null"
               >
                 {{ slide.buttonText }}
               </Button>

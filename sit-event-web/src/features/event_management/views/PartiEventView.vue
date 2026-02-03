@@ -78,26 +78,12 @@ onMounted(async () => {
 const heroSlides = ref<HeroSlide[]>([
     {
     id: 1,
-    title: 'SIT Hackathon 2025',
-    description: 'Join us for 48 hours of innovation and coding.',
-    buttonText: 'Register Now',
-    eventStartDate: '2025-03-20T18:00:00Z',
-    bgImage: 'https://www.sit.kmutt.ac.th/wp-content/uploads/2023/06/ZBT_2239-scaled.jpg',
-  },
-  {
-    id: 2,
-    title: 'Empowering Students',
-    description: "Enhance students' potential in the digital era.",
-    buttonText: 'Learn More',
-    eventStartDate: '2025-01-15T09:00:00Z',
-    logos: ['https://www.sit.kmutt.ac.th/wp-content/uploads/2024/11/1-1024x238.png'],
-  },
-  {
-    id: 3,
-    title: 'Senior Project Showcase',
-    description: 'Witness the incredible projects from our seniors.',
-    buttonText: 'View Projects',
-    eventStartDate: '2025-05-10T10:00:00Z',
+    title: 'แจ้งปิดปรับปรุงอุปกรณ์ Firewall',
+    description: 'อาจส่งผลกระทบต่อการเข้าถึงระบบบางส่วนในช่วงเวลาที่กำหนด',
+    buttonText: 'ดูรายละเอียด',
+    buttonLink: 'https://www.facebook.com/share/p/186e1sQipm/',
+    eventStartDate: '2026-02-07T19:00:00Z',
+    bgImage: '../src/assets/images/gradient_img.png',
   },
 ])
 

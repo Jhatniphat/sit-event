@@ -15,6 +15,16 @@ export class MinioClientService {
     this.bucketName = this.configService.get('MINIO_BUCKET_NAME')!;
   }
 
+  public async checkStatus(): Promise<{ status: string; message: string }> {
+    try {
+      await this.minio.client.listBuckets();
+      return { status: 'ok', message: 'MinIO connection is healthy' };
+    } catch (error) {
+      this.logger.error('MinIO connection failed', error);
+      return { status: 'error', message: 'MinIO connection failed: ' + error.message };
+    }
+  }
+
   private getFileNameFromUrl(urlOrName: string): string {
     if (!urlOrName) return '';
     // ถ้ามี http หรือ / แสดงว่าเป็น URL ให้ตัดเอาตัวสุดท้าย
