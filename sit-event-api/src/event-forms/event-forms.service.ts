@@ -11,6 +11,7 @@ import {
   EventFormField,
   EventFormSubmission,
   FormFieldType,
+  FormType,
 } from 'generated/prisma';
 import {
   CreateEventFormDto,
@@ -41,14 +42,16 @@ export class EventFormsService {
       throw new NotFoundException(`Event with ID '${eventId}' not found`);
     }
 
-    // Check if event already has a form (1 Event = 1 Form)
-    const existingForm = await this.prisma.eventForm.findUnique({
-      where: { eventId },
+    const type = dto.type || FormType.POST_EVENT;
+
+    // Check if event already has a form of this type
+    const existingForm = await this.prisma.eventForm.findFirst({
+      where: { eventId, type },
     });
 
     if (existingForm) {
       throw new ConflictException(
-        `Event with ID '${eventId}' already has a form. Please update or delete the existing form.`,
+        `Event with ID '${eventId}' already has a ${type} form.`,
       );
     }
 
@@ -61,6 +64,7 @@ export class EventFormsService {
     return this.prisma.eventForm.create({
       data: {
         eventId,
+        type,
         title: dto.title,
         description: dto.description,
         isActive: dto.isActive ?? false,
@@ -98,7 +102,8 @@ export class EventFormsService {
     includeSubmissions = false,
     userId?: string,
     userRoles: string[] = [],
-  ): Promise<EventForm | null> {
+    type?: FormType,
+  ): Promise<EventForm | EventForm[] | null> {
     // Check if event exists
     const event = await this.prisma.event.findUnique({
       where: { id: eventId },
@@ -109,46 +114,86 @@ export class EventFormsService {
     }
 
     // If userId provided and not ADMIN/ORGANIZER, validate user has attended
+    // Note: For PRE_EVENT forms, user might not have attended yet (registration phase)
     if (userId && !this.isAdminOrOrganizer(userRoles)) {
-      await this.verifyUserAttended(eventId, userId);
+      if (type !== FormType.PRE_EVENT) {
+         await this.verifyUserAttended(eventId, userId);
+      }
     }
 
-    const form = await this.prisma.eventForm.findUnique({
-      where: { eventId },
-      include: {
-        fields: {
-          orderBy: { order: 'asc' },
-        },
-        event: {
-          select: {
-            id: true,
-            name: true,
+    if (type) {
+      const form = await this.prisma.eventForm.findFirst({
+        where: { eventId, type },
+        include: {
+          fields: {
+            orderBy: { order: 'asc' },
           },
-        },
-        submissions: includeSubmissions
-          ? {
-              include: {
-                user: {
-                  select: {
-                    id: true,
-                    email: true,
-                    firstName: true,
-                    lastName: true,
+          event: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          submissions: includeSubmissions
+            ? {
+                include: {
+                  user: {
+                    select: {
+                      id: true,
+                      email: true,
+                      firstName: true,
+                      lastName: true,
+                    },
                   },
+                  answers: true,
                 },
-                answers: true,
-              },
-            }
-          : false,
-        _count: {
-          select: {
-            submissions: true,
+              }
+            : false,
+          _count: {
+            select: {
+              submissions: true,
+            },
           },
         },
-      },
-    });
-
-    return form;
+      });
+      return form;
+    } else {
+      const forms = await this.prisma.eventForm.findMany({
+        where: { eventId },
+        include: {
+          fields: {
+            orderBy: { order: 'asc' },
+          },
+          event: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          submissions: includeSubmissions
+            ? {
+                include: {
+                  user: {
+                    select: {
+                      id: true,
+                      email: true,
+                      firstName: true,
+                      lastName: true,
+                    },
+                  },
+                  answers: true,
+                },
+              }
+            : false,
+          _count: {
+            select: {
+              submissions: true,
+            },
+          },
+        },
+      });
+      return forms;
+    }
   }
 
   /**
@@ -429,7 +474,10 @@ export class EventFormsService {
       );
     }
 
-    if (!registration.attended) {
+    // Only require attendance for non-PRE_EVENT forms (e.g. POST_EVENT)
+    console.log('Form Type:', form.type);
+    console.log('User Registration:', registration);
+    if (form.type !== FormType.PRE_EVENT && !registration.attended) {
       throw new ForbiddenException(
         'You must attend (check-in) this event before submitting the feedback form.',
       );
@@ -790,5 +838,72 @@ export class EventFormsService {
    */
   private isAdminOrOrganizer(userRoles: string[]): boolean {
     return userRoles.includes('ADMIN') || userRoles.includes('ORGANIZER');
+  }
+
+  /**
+   * Get all forms for the current user with submission status
+   * Returns forms from events that the user has attended
+   */
+  async getMyForms(userId: string): Promise<{
+    forms: {
+      formId: string;
+      eventName: string;
+      title: string;
+      isSubmitted: boolean;
+      submittedAt: Date | null;
+    }[];
+  }> {
+    // Get all events the user has attended (checked-in)
+    const attendedRegistrations = await this.prisma.eventRegistration.findMany({
+      where: {
+        userId,
+        attended: true,
+      },
+      select: {
+        eventId: true,
+      },
+    });
+
+    const attendedEventIds = attendedRegistrations.map((r) => r.eventId);
+
+    if (attendedEventIds.length === 0) {
+      return { forms: [] };
+    }
+
+    // Get all active forms from attended events
+    const forms = await this.prisma.eventForm.findMany({
+      where: {
+        eventId: { in: attendedEventIds }
+      },
+      include: {
+        event: {
+          select: {
+            name: true,
+          },
+        },
+        submissions: {
+          where: {
+            userId,
+          },
+          select: {
+            submittedAt: true,
+          },
+        },
+      },
+    });
+
+    // Map to response format
+    const result = forms.map((form) => {
+      const submission = form.submissions[0]; // User can only have 1 submission per form
+      return {
+        formId: form.id,
+        eventName: form.event.name,
+        title: form.title,
+        isSubmitted: !!submission,
+        submittedAt: submission?.submittedAt || null,
+      };
+    });
+
+    return { forms: result };
   }
 }

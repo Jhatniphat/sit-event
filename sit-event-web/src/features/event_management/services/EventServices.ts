@@ -1,5 +1,6 @@
 import apiClient from '@/shared/utils/FetchUtils'
 import { type ParsedApiError } from '@/shared/utils/FetchUtils'
+import { FormType } from '@/features/forms/services/FormServices'
 
 // ===== 1. Enums and Types (Based on api spec.txt) =====
 
@@ -47,6 +48,7 @@ export interface Event {
   creatorId: string // uuid, readOnly [cite: 11, 12]
   createdAt: Date // date-time, readOnly [cite: 12]
   images: File[]
+  forms?: { id: string; type: FormType; isActive: boolean; title: string }[]
 }
 
 /**
@@ -85,6 +87,7 @@ export interface EventSession {
   location: string
   maxSeats: number
   pointsAwarded: number
+  autoRegister: boolean
   // thumbnail?: string // API Example ไม่ได้ระบุ field นี้ แต่ถ้ามีก็เพิ่มได้
 }
 
@@ -96,6 +99,7 @@ export interface CreateSessionDto {
   location: string
   maxSeats: number
   pointsAwarded: number
+  autoRegister?: boolean
 }
 
 export type UpdateSessionDto = CreateSessionDto

@@ -15,6 +15,16 @@ export class MinioClientService {
     this.bucketName = this.configService.get('MINIO_BUCKET_NAME')!;
   }
 
+  public async checkStatus(): Promise<{ status: string; message: string }> {
+    try {
+      await this.minio.client.listBuckets();
+      return { status: 'ok', message: 'MinIO connection is healthy' };
+    } catch (error) {
+      this.logger.error('MinIO connection failed', error);
+      return { status: 'error', message: 'MinIO connection failed: ' + error.message };
+    }
+  }
+
   private getFileNameFromUrl(urlOrName: string): string {
     if (!urlOrName) return '';
     // ถ้ามี http หรือ / แสดงว่าเป็น URL ให้ตัดเอาตัวสุดท้าย
@@ -116,6 +126,27 @@ export class MinioClientService {
     } catch (err) {
       this.logger.error(`Could not delete file: ${fileName} - ${err.message}`, err.stack);
       // Don't throw error, just log it (ถ้าไฟล์ไม่มีอยู่แล้ว ก็ไม่ต้อง error)
+    }
+  }
+
+  // ... (existing code)
+
+  public async getFile(fileNameOrUrl: string): Promise<Buffer> {
+    const fileName = this.getFileNameFromUrl(fileNameOrUrl);
+    try {
+      // ดึง stream จาก MinIO
+      const stream = await this.minio.client.getObject(this.bucketName, fileName);
+      
+      // แปลง Stream เป็น Buffer
+      return new Promise((resolve, reject) => {
+        const chunks: Buffer[] = [];
+        stream.on('data', (chunk) => chunks.push(chunk));
+        stream.on('end', () => resolve(Buffer.concat(chunks)));
+        stream.on('error', (err) => reject(err));
+      });
+    } catch (err) {
+      this.logger.error(`Could not get file: ${fileName}`, err);
+      throw new HttpException('Could not retrieve file for preview', HttpStatus.NOT_FOUND);
     }
   }
 }

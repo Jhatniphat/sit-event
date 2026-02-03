@@ -9,6 +9,7 @@ import {
   HttpCode,
   HttpStatus,
   NotFoundException,
+  Query,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -16,6 +17,7 @@ import {
   ApiResponse,
   ApiParam,
   ApiBody,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { Public } from 'nest-keycloak-connect';
 import { EventFormsService } from './event-forms.service';
@@ -35,6 +37,7 @@ import {
   type AuthenticatedUser,
 } from '../common';
 import { UsersService } from '../users/users.service';
+import { FormType } from 'generated/prisma';
 
 @ApiTags('Event Forms')
 @Controller('events/:eventId/forms')
@@ -72,15 +75,16 @@ export class EventFormsController {
 
   @Get()
   @AllRoleAccess()
-  @ApiOperation({ summary: 'Get the form for an event (users must have attended, admin/organizer can access anytime)' })
+  @ApiOperation({ summary: 'Get the form for an event (users must have attended for POST_EVENT, admin/organizer can access anytime)' })
   @ApiParam({ name: 'eventId', description: 'Event ID' })
+  @ApiQuery({ name: 'type', enum: FormType, required: false, description: 'Filter by form type (PRE_EVENT or POST_EVENT)' })
   @ApiResponse({
     status: 200,
-    description: 'Returns the event form or null if not found.',
+    description: 'Returns the event form(s) or null if not found.',
   })
   @ApiResponse({
     status: 403,
-    description: 'User has not attended this event.',
+    description: 'User has not attended this event (for POST_EVENT form).',
   })
   @ApiResponse({
     status: 404,
@@ -88,6 +92,7 @@ export class EventFormsController {
   })
   async getFormByEvent(
     @Param('eventId') eventId: string,
+    @Query('type') type: FormType,
     @CurrentUser() user: AuthenticatedUser,
   ) {
     const dbUser = await this.usersService.findByEmail(user.email);
@@ -97,7 +102,7 @@ export class EventFormsController {
       );
     }
     const userRoles = user.realm_access?.roles || [];
-    return this.eventFormsService.getFormByEvent(eventId, false, dbUser.id, userRoles);
+    return this.eventFormsService.getFormByEvent(eventId, false, dbUser.id, userRoles, type);
   }
 
   @Get(':formId')

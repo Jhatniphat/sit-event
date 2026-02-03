@@ -2,6 +2,7 @@ import { Module, Global } from '@nestjs/common';
 import { MinioModule } from 'nestjs-minio-client';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MinioClientService } from './minio-client.service';
+import { MinioController } from './minio.controller';
 
 @Global()
 @Module({
@@ -18,6 +19,7 @@ import { MinioClientService } from './minio-client.service';
       inject: [ConfigService],
     }),
   ],
+  controllers: [MinioController],
   providers: [MinioClientService],
   exports: [MinioClientService],
 })

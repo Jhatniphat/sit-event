@@ -1,7 +1,7 @@
 import { IsString, IsNotEmpty, IsOptional, IsBoolean, IsArray, ValidateNested, IsEnum, IsInt, Min } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { FormFieldType } from 'generated/prisma';
+import { FormFieldType, FormType } from 'generated/prisma';
 
 export class CreateFormFieldDto {
   @ApiProperty({
@@ -67,6 +67,16 @@ export class CreateEventFormDto {
   @IsString()
   @IsOptional()
   description?: string;
+
+  @ApiProperty({
+    description: 'Type of the form (PRE_EVENT or POST_EVENT)',
+    enum: FormType,
+    example: FormType.POST_EVENT,
+    default: FormType.POST_EVENT
+  })
+  @IsEnum(FormType)
+  @IsOptional()
+  type?: FormType;
 
   @ApiPropertyOptional({
     description: 'Whether the form is active and accepting submissions',

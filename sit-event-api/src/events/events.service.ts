@@ -1,6 +1,6 @@
 import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma.service';
-import { Event, Prisma, UserRole } from 'generated/prisma';
+import { Event, Prisma, UserRole, FormType } from 'generated/prisma';
 import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
 import { UsersService } from '../users/users.service';
@@ -40,14 +40,46 @@ export class EventsService {
       throw new NotFoundException(`User with email '${authenticatedUser.email}' not found in database.`);
     }
 
+    const { sessions, forms, ...eventData } = createEventDto;
+
     return this.prisma.event.create({
       data: {
-        ...createEventDto,
+        ...eventData,
         creator: {
           connect: {
             id: user.id,
           },
         },
+        sessions: sessions && sessions.length > 0 ? {
+          create: sessions.map((s: any) => ({
+            name: s.name,
+            description: s.description,
+            startTime: s.startTime,
+            endTime: s.endTime,
+            location: s.location,
+            maxSeats: Number(s.maxSeats),
+            availableSeats: Number(s.maxSeats),
+            autoRegister: s.autoRegister || false,
+            pointsAwarded: s.pointsAwarded ? Number(s.pointsAwarded) : 0,
+          }))
+        } : undefined,
+        forms: forms && forms.length > 0 ? {
+          create: forms.map((f: any) => ({
+             title: f.title,
+             description: f.description,
+             isActive: f.isActive,
+             type: f.type,
+             fields: f.fields && f.fields.length > 0 ? {
+               create: f.fields.map((field: any, index: number) => ({
+                 question: field.question,
+                 fieldType: field.fieldType,
+                 isRequired: field.isRequired,
+                 order: index,
+                 options: field.options || [],
+               }))
+             } : undefined
+          }))
+        } : undefined,
       },
     });
   }
@@ -67,9 +99,38 @@ export class EventsService {
       orderBy: {
         createdAt: 'desc',
       },
+      include: {
+        forms: {
+          select: {
+            type: true,
+            isActive: true,
+          }
+        }
+      }
     });
 
-    const eventWithUrls = await Promise.all(events.map((event) => this.transformEventWithUrls(event)));
+    const eventWithUrls = await Promise.all(events.map(async (event) => {
+      const transformed = await this.transformEventWithUrls(event);
+      
+      const now = new Date();
+      const regOpen = new Date(event.registrationOpenDate);
+      const diffTime = regOpen.getTime() - now.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      let formStatus: string | null = null;
+      // Alert if registration opens in <= 3 days (or already opened) and PRE_EVENT form is missing/inactive
+      if (diffDays <= 3) {
+         // Check if registration is not yet closed (optional, but logical)
+         if (new Date(event.registrationEndDate) > now) {
+             const preForm = event['forms']?.find((f: any) => f.type === FormType.PRE_EVENT);
+             if (!preForm || !preForm.isActive) {
+                 formStatus = 'Form Not Active';
+             }
+         }
+      }
+      
+      return { ...transformed, formStatus };
+    }));
 
     const totalPages = Math.ceil(total / limit);
 
@@ -89,11 +150,22 @@ export class EventsService {
   async findOne(id: string) {
     const event = await this.prisma.event.findUnique({
       where: { id },
+      include: {
+        forms: {
+          select: {
+            id: true,
+            type: true,
+            isActive: true,
+            title: true
+          }
+        }
+      }
     });
     if (!event) {
       throw new NotFoundException(`Event with ID '${id}' not found.`);
     }
-    return this.transformEventWithUrls(event);
+    const transformed = await this.transformEventWithUrls(event);
+    return { ...transformed, forms: event.forms };
   }
 
   async update(

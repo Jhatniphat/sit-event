@@ -95,4 +95,34 @@ export class CreateEventDto {
   @IsString()
   @IsOptional()
   certificateCriteria?: string;
+
+  @IsOptional()
+  @IsArray()
+  @Transform(({ value }) => {
+    if (!value) return [];
+    if (typeof value === 'string') {
+      try {
+        return JSON.parse(value);
+      } catch (e) {
+        return [];
+      }
+    }
+    return value;
+  })
+  sessions?: any[];
+
+  @IsOptional()
+  @IsArray()
+  @Transform(({ value }) => {
+    if (!value) return [];
+    if (typeof value === 'string') {
+      try {
+        return JSON.parse(value);
+      } catch (e) {
+        return [];
+      }
+    }
+    return value;
+  })
+  forms?: any[];
 }

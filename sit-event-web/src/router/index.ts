@@ -50,7 +50,7 @@ const routes: Array<RouteRecordRaw> = [
   {
     path: '/admin/events/:id/forms',
     name: 'FormsList',
-    component: () => import('../features/forms/views/FormView.vue'),
+    component: () => import('../features/forms/views/FormManagementView.vue'),
     props: true,
     meta: {
       requiresAuth: true,
@@ -65,6 +65,15 @@ const routes: Array<RouteRecordRaw> = [
     meta: {
       requiresAuth: true,
       roles: adminRoles,
+    },
+  },
+  {
+    path: '/event/:id/participants/approval',
+    name: 'ParticipantApproval',
+    component: () => import('../features/registration/views/ParticipantApproval.vue'),
+    meta: {
+      requiresAuth: true,
+      roles: adminRoles, // จำกัดสิทธิ์ให้เฉพาะ Admin/Organizer
     },
   },
 
@@ -138,6 +147,23 @@ const routes: Array<RouteRecordRaw> = [
     name: 'EventDetail',
     props: true,
     component: () => import('../features/event_management/views/EventDetail.vue'),
+    meta: { requiresAuth: false },
+  },
+  {
+    path: '/events/:id/forms',
+    name: 'FormView',
+    component: () => import('../features/forms/views/FormView.vue'),
+    props: (route) => ({
+      id: route.params.id,
+      isPreviewMode: route.query.preview === 'true',
+    }),
+    meta: { requiresAuth: false },
+  },
+  {
+    path: '/events/:id/forms',
+    name: 'FormClosed',
+    component: () => import('../features/forms/components/FormClosed.vue'),
+    props: true,
     meta: { requiresAuth: false },
   },
 

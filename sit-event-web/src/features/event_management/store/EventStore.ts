@@ -1,5 +1,3 @@
-// src/stores/eventStore.ts
-
 import { defineStore } from 'pinia'
 import {
   EventService,

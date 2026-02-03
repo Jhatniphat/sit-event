@@ -125,7 +125,8 @@ function focusInput() {
     <div
       @click="focusInput"
       class="flex flex-wrap items-center gap-2 p-2 min-h-[42px] border border-gray-300 rounded-md shadow-sm bg-white cursor-text relative"
-    >
+      :id="`input-${label}`"
+      >
       <span
         v-for="tag in internalModel"
         :key="tag"
@@ -173,6 +174,7 @@ function focusInput() {
           :key="choice"
           @click="addTag(choice)"
           class="px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer"
+          :id="`input-${label}-${choice}`"
         >
           {{ choice }}
         </li>

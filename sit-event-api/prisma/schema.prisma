@@ -57,6 +57,11 @@ enum StaffStatus {
   REFUSED
 }
 
+enum FormType {
+  PRE_EVENT
+  POST_EVENT
+}
+
 enum RegistrationStatus {
   PENDING
   APPROVED
@@ -115,7 +120,7 @@ model Event {
   staff         EventStaff[]
   faqs          EventFAQ[]
   badges        EventBadge[]
-  form          EventForm?
+  forms         EventForm[]
   creator       User?                 @relation("EventCreator", fields: [creatorId], references: [id])
   creatorId     String?
   certificated  CertificateTemplate[]
@@ -134,6 +139,7 @@ model EventSession {
   maxSeats       Int
   availableSeats Int
   pointsAwarded  Int?
+  autoRegister   Boolean  @default(false)
   createdAt      DateTime @default(now()) @db.Timestamptz
   updatedAt      DateTime @updatedAt @db.Timestamptz
 
@@ -200,7 +206,8 @@ model EventFAQ {
 
 model EventForm {
   id          String   @id @default(uuid())
-  eventId     String   @unique // 1 Event มีได้ 1 Form
+  eventId     String
+  type        FormType @default(POST_EVENT)
   title       String
   description String?  @db.Text
   isActive    Boolean  @default(false)
@@ -212,6 +219,7 @@ model EventForm {
   fields      EventFormField[]
   submissions EventFormSubmission[]
 
+  @@unique([eventId, type]) // 1 Event มีได้ 1 Form type
   @@map("event_forms")
 }
 
@@ -275,31 +283,44 @@ model EventBadge {
   @@map("event_badges")
 }
 
+enum FieldType {
+  ParticipantName
+  EventName
+  EventStartDate
+  EventEndDate
+  Date
+  SerialNumber
+  Text
+  Image       
+}
+
 model CertificateTemplate {
-  id                String  @id @default(uuid())
-  eventId           String
-  templateFilepath  String
-  signatureFilepath String?
-  signatureX        Int?
-  signatureY        Int?
+  id               String   @id @default(uuid())
+  eventId          String
+  templateFilepath String   // รูป Background ของ Certificate
 
   event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
-  element CertificateElement[]
+  elements CertificateElement[] // เชื่อมกับ Element ย่อยๆ
 }
 
 model CertificateElement {
-  id                   String    @id @default(uuid())
-  templateId           String
-  CertificateFieldName FieldName
-  placeHolder          String
-  x                    Int
-  y                    Int
-  fontSize             Int
-  fontFamily           String
-  color                String
-  fontWeight           String
-  textAlign            String
+  id             String        @id @default(uuid())
+  templateId     String
+  fieldName      String        
+  fieldType      FieldType     
+  placeHolder    String?       // ข้อความ Placeholder เวลาแสดงตัวอย่าง หรือข้อความคงที่กรณีเป็น FieldType.Text
+  x              Int
+  y              Int
+  width          Int?          // เพื่อคุมขนาดรูปภาพ/ลายเซ็น
+  height         Int?          // เพื่อคุมขนาดรูปภาพ/ลายเซ็น
+  fontSize       Int?
+  fontFamily     String?
+  color          String?
+  fontWeight     String?       // เช่น 'bold', 'normal'
+  textAlign      String?       // เช่น 'left', 'center', 'right'
+  sourceFilepath String?       // สำหรับ FieldType.Image: ที่เก็บไฟล์ลายเซ็นหรือโลโก้
+  dateFormat     String?       // เช่น "DD MMMM YYYY" หรือ "DD/MM/YYYY" สำหรับ FieldType.Date
 
   certificateTemplate CertificateTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
 }

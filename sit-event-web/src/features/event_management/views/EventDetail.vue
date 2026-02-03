@@ -6,6 +6,7 @@ import { useRegistrationStore } from '@/features/registration/store/Registration
 import { useAuthStore } from '@/features/auth/stores/auth.store'
 import { mapEventToEventItem } from '../mappers/eventMapper'
 import { toast } from 'vue-sonner'
+import { FormType } from '@/features/forms/services/FormServices'
 
 // UI Components
 import { Button } from '@/components/ui/button'
@@ -98,8 +99,7 @@ const isButtonDisabled = computed(() => {
   const regEnd = new Date(eventItem.value.registrationEndDate).getTime()
 
   return (
-    now > regEnd ||
-    (!eventItem.value.canRegisterAtStaff && !eventItem.value.canRegisterAtParticipant)
+    now > regEnd 
   )
 })
 
@@ -124,7 +124,9 @@ const handleActionClick = () => {
   if (!eventItem.value) return
 
   if (!authStore.isAuthenticated) {
-    router.push('/login')
+     if (confirm('กรุณาเข้าสู่ระบบก่อนลงทะเบียน ต้องการไปที่หน้าเข้าสู่ระบบหรือไม่?')) {
+        authStore.loginRedirect()
+     }
     return
   }
 
@@ -164,6 +166,20 @@ const onConfirmRegister = async (eid: string, role: RegistrationRole) => {
   
   // กรณี Participant
   if (role === 'PARTICIPANT') {
+    // Check for Pre-Event Form
+    const forms = eventStore.currentEvent?.forms || []
+    const preForm = forms.find(f => f.type === FormType.PRE_EVENT && f.isActive)
+
+    if (preForm) {
+      router.push({
+        name: 'FormView',
+        params: { id: eid },
+        query: { type: FormType.PRE_EVENT }
+      })
+      isRegisDialogOpen.value = false
+      return
+    }
+
     // เช็คว่ามี Sub-session หรือไม่ (ใช้จาก store ที่ fetch มาตอน onMounted)
     const sessions = eventStore.currentEventSessions
     

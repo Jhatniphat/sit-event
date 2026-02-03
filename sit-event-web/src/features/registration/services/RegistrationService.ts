@@ -80,6 +80,10 @@ function isApiError(error: unknown): error is ParsedApiError {
   return typeof error === 'object' && error !== null && 'message' in error && 'status' in error
 }
 
+export interface PendingRegistration extends EventRegistration {
+  // อาจจะมีการขยายในอนาคต
+}
+
 /* ========= SERVICE ========= */
 
 export const RegistrationService = {
@@ -356,6 +360,103 @@ export const RegistrationService = {
       }
       console.error('[RegistrationService.checkInSession] Unexpected Error:', error)
       throw new Error('An unexpected error occurred while checking in session.')
+    }
+  },
+
+  // ... (Methods เดิม: registerForEvent, unregisterFromEvent, etc.)
+
+  /* --------------------------------------------------
+   * ADMIN / ORGANIZER APPROVAL SECTION
+   * -------------------------------------------------- */
+
+  async getRegistrationColumns(eventId: string) {
+    try {
+      return await apiClient.get<
+        void,
+        { id: string; label: string; type: string; isSystem: boolean }[]
+      >(`/events/${eventId}/registrations/columns`)
+    } catch (error) {
+       if (isApiError(error)) {
+        console.error(`[RegistrationService.getRegistrationColumns] API Error ${error.status}: ${error.message}`)
+        throw error
+       }
+      throw new Error('Failed to fetch registration columns')
+    }
+  },
+
+  async getPendingRegistrations(
+    eventId: string,
+    fields?: string[],
+    questionIds?: string[],
+  ): Promise<any[]> {
+    try {
+      // Build query string
+      const params = new URLSearchParams()
+      if (fields && fields.length > 0) {
+        params.append('fields', fields.join(','))
+      }
+      if (questionIds && questionIds.length > 0) {
+        params.append('questionIds', questionIds.join(','))
+      }
+
+      const queryString = params.toString()
+      const url = `/events/${eventId}/registrations/pending${queryString ? `?${queryString}` : ''}`
+
+      return await apiClient.get<void, any[]>(url)
+    } catch (error) {
+      if (isApiError(error)) {
+        console.error(`[RegistrationService.getPendingRegistrations] API Error ${error.status}: ${error.message}`)
+        throw error
+      }
+      throw new Error('An unexpected error occurred while fetching pending registrations.')
+    }
+  },
+
+  async approveRegistration(eventId: string, registrationId: string): Promise<void> {
+    try {
+      await apiClient.patch<void, void>(
+        `/events/${eventId}/registrations/${registrationId}/approve`,
+        {}
+      )
+    } catch (error) {
+      if (isApiError(error)) {
+        console.error(`[RegistrationService.approveRegistration] API Error ${error.status}: ${error.message}`)
+        throw error
+      }
+      throw new Error('Failed to approve registration.')
+    }
+  },
+
+  async rejectRegistration(eventId: string, registrationId: string): Promise<void> {
+    try {
+      await apiClient.patch<void, void>(
+        `/events/${eventId}/registrations/${registrationId}/reject`,
+        {}
+      )
+    } catch (error) {
+      if (isApiError(error)) {
+        console.error(`[RegistrationService.rejectRegistration] API Error ${error.status}: ${error.message}`)
+        throw error
+      }
+      throw new Error('Failed to reject registration.')
+    }
+  },
+
+  async exportRegistrations(eventId: string): Promise<Blob> {
+    try {
+      const blob = await apiClient.get<void, Blob>(
+        `/events/${eventId}/registrations/export`,
+        {
+          responseType: 'blob',
+        }
+      )
+      return blob
+    } catch (error) {
+      if (isApiError(error)) {
+        console.error(`[RegistrationService.exportRegistrations] API Error ${error.status}: ${error.message}`)
+        throw error
+      }
+      throw new Error('Failed to export registrations.')
     }
   },
 }

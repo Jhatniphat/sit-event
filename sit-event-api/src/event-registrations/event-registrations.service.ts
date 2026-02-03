@@ -9,6 +9,9 @@ import { UsersService } from '../users/users.service';
 import { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { EventRegistrationsGateway } from './event-registrations.gateway';
 import { RegistrationStatus } from '../../generated/prisma';
+import { FormType } from 'generated/prisma';
+import * as ExcelJS from 'exceljs';
+import type { Response } from 'express';
 
 @Injectable()
 export class EventRegistrationsService {
@@ -45,16 +48,56 @@ export class EventRegistrationsService {
       throw new ConflictException('You are already registered for this event');
     }
 
-    return this.prisma.eventRegistration.create({
-      data: {
-        event: {
-          connect: { id: eventId },
+    return this.prisma.$transaction(async (tx) => {
+      // 1. Create registration for the main event
+      const mainRegistration = await tx.eventRegistration.create({
+        data: {
+          event: { connect: { id: eventId } },
+          user: { connect: { id: user.id } },
+          // sessionId defaults to null
         },
-        user: {
-          connect: { id: user.id },
+      });
+
+      // 2. Check for auto-register sessions
+      const autoSessions = await tx.eventSession.findMany({
+        where: {
+          eventId: eventId,
+          autoRegister: true,
         },
-        // sessionId defaults to null
-      },
+      });
+
+      // 3. Register user to auto-register sessions (bypass seats for now)
+      for (const session of autoSessions) {
+        // if (session.availableSeats > 0) {
+          // Check if already registered (shouldn't happen for new event reg, but good practice if logic changes)
+           const existingSessionReg = await tx.eventRegistration.findUnique({
+              where: {
+                userId_eventId_sessionId: {
+                  userId: user.id,
+                  eventId: eventId,
+                  sessionId: session.id
+                }
+              }
+           });
+           
+           if (!existingSessionReg) {
+              await tx.eventRegistration.create({
+                data: {
+                  event: { connect: { id: eventId } },
+                  user: { connect: { id: user.id } },
+                  session: { connect: { id: session.id } },
+                },
+              });
+
+              await tx.eventSession.update({
+                where: { id: session.id },
+                data: { availableSeats: { decrement: 1 } },
+              });
+           }
+        // }
+      }
+
+      return mainRegistration;
     });
   }
 
@@ -68,6 +111,23 @@ export class EventRegistrationsService {
         `User with email '${authenticatedUser.email}' not found in database.`,
       );
     }
+
+    // Delete form submissions for this event
+    const eventForms = await this.prisma.eventForm.findMany({
+      where: { eventId },
+      select: { id: true },
+    });
+
+    if (eventForms.length > 0) {
+      const formIds = eventForms.map((f) => f.id);
+      await this.prisma.eventFormSubmission.deleteMany({
+        where: {
+          userId: user.id,
+          formId: { in: formIds },
+        },
+      });
+    }
+
     const deleteResult = await this.prisma.eventRegistration.deleteMany({
       where: {
         eventId: eventId,
@@ -186,17 +246,128 @@ export class EventRegistrationsService {
     });
   }
 
+
+  // =============================================
+  // Get Registration Columns (For Admin Approval)
+  // =============================================
+  async getRegistrationColumns(eventId: string) {
+    const systemColumns = [
+      { id: 'firstName', label: 'First Name', type: 'TEXT', isSystem: true },
+      { id: 'lastName', label: 'Last Name', type: 'TEXT', isSystem: true },
+      { id: 'email', label: 'Email', type: 'TEXT', isSystem: true },
+      { id: 'phoneNumber', label: 'Phone Number', type: 'TEXT', isSystem: true },
+      { id: 'school', label: 'School / Organization', type: 'TEXT', isSystem: true },
+      { id: 'registeredAt', label: 'Registered Timestamp', type: 'DATE', isSystem: true },
+    ];
+
+    // Find PRE_EVENT form
+    const form = await this.prisma.eventForm.findFirst({
+      where: {
+        eventId: eventId,
+        type: FormType.PRE_EVENT,
+      },
+      include: {
+        fields: {
+          orderBy: { order: 'asc' },
+        },
+      },
+    });
+
+    const formColumns = form
+      ? form.fields.map((f) => ({
+          id: f.id,
+          label: f.question,
+          type: f.fieldType,
+          isSystem: false,
+        }))
+      : [];
+
+    return [...systemColumns, ...formColumns];
+  }
+
   // =============================================
   // Get Pending Registrations for Admin
   // =============================================
-  async getPendingRegistrations(eventId: string) {
-    return this.prisma.eventRegistration.findMany({
+  async getPendingRegistrations(
+    eventId: string,
+    queryFields?: string[],
+    queryQuestionIds?: string[],
+  ) {
+    const registrations = await this.prisma.eventRegistration.findMany({
       where: {
         eventId: eventId,
         status: RegistrationStatus.PENDING,
       },
       include: { user: true, session: true },
       orderBy: { registeredAt: 'asc' },
+    });
+
+    // If no specific fields requested, return standard full object (Backward Compatibility)
+    if (
+      (!queryFields || queryFields.length === 0) &&
+      (!queryQuestionIds || queryQuestionIds.length === 0)
+    ) {
+      return registrations;
+    }
+
+    // Prepare for dynamic mapping
+    let answersMap: Record<string, Record<string, string>> = {}; // userId -> { fieldId: answer }
+
+    if (queryQuestionIds && queryQuestionIds.length > 0) {
+      const userIds = registrations.map((r) => r.userId);
+      const submissions = await this.prisma.eventFormSubmission.findMany({
+        where: {
+          form: {
+            eventId: eventId,
+            type: FormType.PRE_EVENT,
+          },
+          userId: { in: userIds },
+        },
+        include: {
+          answers: true,
+        },
+      });
+
+      submissions.forEach((sub) => {
+        const userAnswers: Record<string, string> = {};
+        sub.answers.forEach((a) => {
+          if (a.answer) {
+            userAnswers[a.fieldId] = a.answer;
+          }
+        });
+        answersMap[sub.userId] = userAnswers;
+      });
+    }
+
+    // Map result to flat object
+    return registrations.map((reg) => {
+      const row: any = {
+        id: reg.id,
+        userId: reg.userId,
+        // Always include basic status
+        status: reg.status,
+      };
+
+      // Map System Fields
+      if (queryFields && queryFields.length > 0) {
+        queryFields.forEach((field) => {
+          if (field === 'registeredAt') {
+            row[field] = reg.registeredAt;
+          } else if (reg.user && field in reg.user) {
+            row[field] = (reg.user as any)[field];
+          }
+        });
+      }
+
+      // Map Question Answers
+      if (queryQuestionIds && queryQuestionIds.length > 0) {
+        const userAns = answersMap[reg.userId] || {};
+        queryQuestionIds.forEach((qId) => {
+          row[qId] = userAns[qId] || null;
+        });
+      }
+
+      return row;
     });
   }
 
@@ -339,5 +510,115 @@ export class EventRegistrationsService {
     );
 
     return updatedSessionRegistration;
+  }
+
+  // =============================================
+  // Export Registrations to Excel
+  // =============================================
+  async exportRegistrations(eventId: string, res: Response) {
+    const event = await this.prisma.event.findUnique({
+      where: { id: eventId },
+    });
+
+    if (!event) {
+      throw new NotFoundException('Event not found.');
+    }
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Registrations');
+
+    // 1. Get Columns
+    const columnsDef = await this.getRegistrationColumns(eventId);
+    worksheet.columns = columnsDef.map((col) => ({
+      header: col.label,
+      key: col.id,
+      width: 20,
+    }));
+
+    // 2. Format Header Row
+    worksheet.getRow(1).font = { bold: true };
+
+    // 3. Fetch Data (Fetch ALL registrations for this event to export)
+    // Reuse logic from getPendingRegistrations but remove 'PENDING' filter
+    // and include 'questionIds' for all dynamic columns.
+    
+    // Extract dynamic question IDs from columnsDef
+    const questionIds = columnsDef
+      .filter((c) => !c.isSystem)
+      .map((c) => c.id);
+
+    // Fetch all registrations
+    const registrations = await this.prisma.eventRegistration.findMany({
+      where: {
+        eventId: eventId,
+        // We might want to filter out 'REJECTED' or keep all?
+        // Usually export implies "Participants", which are typically Approved or Pending.
+        // But let's just dump everything to let user filter in Excel.
+      },
+      include: { user: true, session: true },
+      orderBy: { registeredAt: 'asc' },
+    });
+
+    // Fetch Answers
+    let answersMap: Record<string, Record<string, string>> = {};
+    if (questionIds.length > 0) {
+      const userIds = registrations.map((r) => r.userId);
+      const submissions = await this.prisma.eventFormSubmission.findMany({
+        where: {
+          form: {
+            eventId: eventId,
+            type: FormType.PRE_EVENT,
+          },
+          userId: { in: userIds },
+        },
+        include: {
+          answers: true,
+        },
+      });
+
+      submissions.forEach((sub) => {
+        const userAnswers: Record<string, string> = {};
+        sub.answers.forEach((a) => {
+          if (a.answer) {
+            userAnswers[a.fieldId] = a.answer;
+          }
+        });
+        answersMap[sub.userId] = userAnswers;
+      });
+    }
+
+    // 4. Populate Rows
+    registrations.forEach((reg) => {
+      const row: any = {};
+      
+      // Map System Fields
+      columnsDef.forEach((col) => {
+        if (col.isSystem) {
+          if (col.id === 'registeredAt') {
+             row[col.id] = reg.registeredAt;
+          } else if (reg.user && (col.id in reg.user)) {
+             row[col.id] = (reg.user as any)[col.id];
+          }
+        } else {
+             // Map Form Answers
+             const userAns = answersMap[reg.userId] || {};
+             row[col.id] = userAns[col.id] || '';
+        }
+      });
+      
+      worksheet.addRow(row);
+    });
+
+    // 5. Send Response
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename=registrations-${eventId}.xlsx`,
+    );
+
+    return workbook.xlsx.write(res);
   }
 }
