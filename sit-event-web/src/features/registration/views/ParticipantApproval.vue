@@ -3,7 +3,7 @@ import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import { RegistrationService } from '@/features/registration/services/RegistrationService'
-import { Check, X, ArrowLeft, Loader2, Settings2 } from 'lucide-vue-next'
+import { Check, X, ArrowLeft, Loader2, Settings2, Download } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -100,6 +100,34 @@ const handleReject = async (registrationId: string) => {
   }
 }
 
+const isExporting = ref(false)
+
+const handleExport = async () => {
+  isExporting.value = true
+  try {
+    const blob = await RegistrationService.exportRegistrations(eventId)
+    
+    // Create download link
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', `registrations-${eventId}.xlsx`)
+    document.body.appendChild(link)
+    link.click()
+    
+    // Cleanup
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+    
+    toast.success('Export successful')
+  } catch (error: any) {
+    console.error(error)
+    toast.error('Failed to export')
+  } finally {
+    isExporting.value = false
+  }
+}
+
 const toggleColumn = (colId: string) => {
   if (selectedColumnIds.value.includes(colId)) {
     selectedColumnIds.value = selectedColumnIds.value.filter(id => id !== colId)
@@ -143,6 +171,18 @@ const visibleColumns = computed(() => {
         </div>
 
         <div class="flex items-center gap-2">
+           <!-- Export Button -->
+           <Button 
+            variant="outline" 
+            class="flex items-center gap-2"
+            :disabled="isExporting"
+            @click="handleExport"
+           >
+             <Loader2 v-if="isExporting" class="w-4 h-4 animate-spin" />
+             <Download v-else class="w-4 h-4" />
+             Export Excel
+           </Button>
+
            <!-- Column Selector -->
            <DropdownMenu>
             <DropdownMenuTrigger as-child>

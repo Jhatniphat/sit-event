@@ -10,7 +10,8 @@ import { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { EventRegistrationsGateway } from './event-registrations.gateway';
 import { RegistrationStatus } from '../../generated/prisma';
 import { FormType } from 'generated/prisma';
-
+import * as ExcelJS from 'exceljs';
+import type { Response } from 'express';
 
 @Injectable()
 export class EventRegistrationsService {
@@ -509,5 +510,115 @@ export class EventRegistrationsService {
     );
 
     return updatedSessionRegistration;
+  }
+
+  // =============================================
+  // Export Registrations to Excel
+  // =============================================
+  async exportRegistrations(eventId: string, res: Response) {
+    const event = await this.prisma.event.findUnique({
+      where: { id: eventId },
+    });
+
+    if (!event) {
+      throw new NotFoundException('Event not found.');
+    }
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Registrations');
+
+    // 1. Get Columns
+    const columnsDef = await this.getRegistrationColumns(eventId);
+    worksheet.columns = columnsDef.map((col) => ({
+      header: col.label,
+      key: col.id,
+      width: 20,
+    }));
+
+    // 2. Format Header Row
+    worksheet.getRow(1).font = { bold: true };
+
+    // 3. Fetch Data (Fetch ALL registrations for this event to export)
+    // Reuse logic from getPendingRegistrations but remove 'PENDING' filter
+    // and include 'questionIds' for all dynamic columns.
+    
+    // Extract dynamic question IDs from columnsDef
+    const questionIds = columnsDef
+      .filter((c) => !c.isSystem)
+      .map((c) => c.id);
+
+    // Fetch all registrations
+    const registrations = await this.prisma.eventRegistration.findMany({
+      where: {
+        eventId: eventId,
+        // We might want to filter out 'REJECTED' or keep all?
+        // Usually export implies "Participants", which are typically Approved or Pending.
+        // But let's just dump everything to let user filter in Excel.
+      },
+      include: { user: true, session: true },
+      orderBy: { registeredAt: 'asc' },
+    });
+
+    // Fetch Answers
+    let answersMap: Record<string, Record<string, string>> = {};
+    if (questionIds.length > 0) {
+      const userIds = registrations.map((r) => r.userId);
+      const submissions = await this.prisma.eventFormSubmission.findMany({
+        where: {
+          form: {
+            eventId: eventId,
+            type: FormType.PRE_EVENT,
+          },
+          userId: { in: userIds },
+        },
+        include: {
+          answers: true,
+        },
+      });
+
+      submissions.forEach((sub) => {
+        const userAnswers: Record<string, string> = {};
+        sub.answers.forEach((a) => {
+          if (a.answer) {
+            userAnswers[a.fieldId] = a.answer;
+          }
+        });
+        answersMap[sub.userId] = userAnswers;
+      });
+    }
+
+    // 4. Populate Rows
+    registrations.forEach((reg) => {
+      const row: any = {};
+      
+      // Map System Fields
+      columnsDef.forEach((col) => {
+        if (col.isSystem) {
+          if (col.id === 'registeredAt') {
+             row[col.id] = reg.registeredAt;
+          } else if (reg.user && (col.id in reg.user)) {
+             row[col.id] = (reg.user as any)[col.id];
+          }
+        } else {
+             // Map Form Answers
+             const userAns = answersMap[reg.userId] || {};
+             row[col.id] = userAns[col.id] || '';
+        }
+      });
+      
+      worksheet.addRow(row);
+    });
+
+    // 5. Send Response
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename=registrations-${eventId}.xlsx`,
+    );
+
+    return workbook.xlsx.write(res);
   }
 }

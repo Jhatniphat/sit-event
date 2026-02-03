@@ -1,5 +1,6 @@
-import { Controller, Post, Param, Delete, HttpCode, Patch, Get, Query } from '@nestjs/common';
+import { Controller, Post, Param, Delete, HttpCode, Patch, Get, Query, Res } from '@nestjs/common';
 import { EventRegistrationsService } from './event-registrations.service';
+import type { Response } from 'express';
 import { RegistrationStatus } from '../../generated/prisma';
 import { 
   Roles, 
@@ -169,5 +170,17 @@ export class EventRegistrationsController {
     @Param('sessionId') sessionId: string,
   ) {
     return this.eventRegistrationsService.checkInUserSession(eventId, userId, sessionId);
+  }
+
+  // =============================================
+  // Export Registrations (Admin)
+  // =============================================
+  @Get(':eventId/registrations/export')
+  @AdminOnly()
+  async exportRegistrations(
+    @Param('eventId') eventId: string,
+    @Res() res: Response,
+  ) {
+    return this.eventRegistrationsService.exportRegistrations(eventId, res);
   }
 }

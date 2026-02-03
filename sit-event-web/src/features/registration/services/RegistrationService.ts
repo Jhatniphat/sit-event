@@ -441,4 +441,22 @@ export const RegistrationService = {
       throw new Error('Failed to reject registration.')
     }
   },
+
+  async exportRegistrations(eventId: string): Promise<Blob> {
+    try {
+      const blob = await apiClient.get<void, Blob>(
+        `/events/${eventId}/registrations/export`,
+        {
+          responseType: 'blob',
+        }
+      )
+      return blob
+    } catch (error) {
+      if (isApiError(error)) {
+        console.error(`[RegistrationService.exportRegistrations] API Error ${error.status}: ${error.message}`)
+        throw error
+      }
+      throw new Error('Failed to export registrations.')
+    }
+  },
 }
