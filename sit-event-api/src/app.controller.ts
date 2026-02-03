@@ -21,4 +21,10 @@ export class AppController {
       message: 'SIT Event API is running',
     };
   }
+
+  @Public()
+  @Get('prisma-status')
+  async getPrismaStatus() {
+    return this.appService.getPrismaStatus();
+  }
 }
