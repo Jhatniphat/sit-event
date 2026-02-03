@@ -79,12 +79,39 @@ export class EventRegistrationsController {
   }
 
   // =============================================
+  // Get Registration Columns (Admin)
+  // =============================================
+  @Get(':eventId/registrations/columns')
+  @AdminOnly()
+  async getRegistrationColumns(@Param('eventId') eventId: string) {
+    return this.eventRegistrationsService.getRegistrationColumns(eventId);
+  }
+
+  // =============================================
   // Get Pending Registrations (Admin)
   // =============================================
   @Get(':eventId/registrations/pending')
   @AdminOnly()
-  async getPendingRegistrations(@Param('eventId') eventId: string) {
-    return this.eventRegistrationsService.getPendingRegistrations(eventId);
+  async getPendingRegistrations(
+    @Param('eventId') eventId: string,
+    @Query('fields') fields?: string | string[],
+    @Query('questionIds') questionIds?: string | string[],
+  ) {
+    // Normalize query params to string[]
+    const parseArray = (input: string | string[] | undefined): string[] => {
+      if (!input) return [];
+      if (Array.isArray(input)) return input;
+      return input.split(',').map((s) => s.trim());
+    };
+
+    const fieldsArray = parseArray(fields);
+    const questionsArray = parseArray(questionIds);
+
+    return this.eventRegistrationsService.getPendingRegistrations(
+        eventId, 
+        fieldsArray, 
+        questionsArray
+    );
   }
 
   // =============================================

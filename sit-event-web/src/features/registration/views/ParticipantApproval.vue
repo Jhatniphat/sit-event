@@ -1,51 +1,80 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import { RegistrationService } from '@/features/registration/services/RegistrationService'
-import { Check, X, ArrowLeft, Loader2 } from 'lucide-vue-next'
+import { Check, X, ArrowLeft, Loader2, Settings2 } from 'lucide-vue-next'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuCheckboxItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu'
 
 const route = useRoute()
 const router = useRouter()
 const eventId = route.params.id as string
 
-// --- Interfaces ตรงกับ JSON Response ---
-interface UserInfo {
+// --- Interfaces ---
+interface ColumnDef {
   id: string
-  email: string
-  firstName: string
-  lastName: string
+  label: string
+  type: string
+  isSystem: boolean
 }
 
-interface SessionInfo {
-  id: string
-  name: string
-  // field อื่นๆ ถ้าจำเป็น
-}
-
-interface PendingRegistration {
-  id: string
-  userId: string
-  eventId: string
-  sessionId: string | null
-  status: string
-  registeredAt: string
-  user: UserInfo      // ข้อมูล User ที่แนบมาใน response
-  session: SessionInfo | null // ข้อมูล Session (ถ้ามี)
-}
-
-const registrations = ref<PendingRegistration[]>([])
+// Data
+const columns = ref<ColumnDef[]>([])
+const selectedColumnIds = ref<string[]>([])
+const registrations = ref<any[]>([])
 const isLoading = ref(true)
+const isFetchingColumns = ref(true)
+
+// --- Initialization ---
+onMounted(async () => {
+  await fetchColumns()
+  // Default: Select All columns initially
+  selectedColumnIds.value = columns.value.map(c => c.id)
+  await fetchRegistrations()
+})
 
 // --- Actions ---
-const fetchPendingRegistrations = async () => {
+const fetchColumns = async () => {
+  isFetchingColumns.value = true
+  try {
+    const data = await RegistrationService.getRegistrationColumns(eventId)
+    columns.value = data
+  } catch (error: any) {
+    toast.error('Failed to load columns')
+  } finally {
+    isFetchingColumns.value = false
+  }
+}
+
+const fetchRegistrations = async () => {
   isLoading.value = true
   try {
-    // Response มี user object มาให้แล้ว ไม่ต้อง map ไปดึงเพิ่ม
-    const data = await RegistrationService.getPendingRegistrations(eventId)
-    registrations.value = data as unknown as PendingRegistration[]
+    // Separate selected columns into fields and questionIds
+    const systemFields = columns.value
+      .filter(c => c.isSystem && selectedColumnIds.value.includes(c.id))
+      .map(c => c.id)
+
+    const questionIds = columns.value
+      .filter(c => !c.isSystem && selectedColumnIds.value.includes(c.id))
+      .map(c => c.id)
+
+    const data = await RegistrationService.getPendingRegistrations(
+      eventId, 
+      systemFields, 
+      questionIds
+    )
+    registrations.value = data
   } catch (error: any) {
-    toast.error(error.message || 'Failed to fetch pending registrations')
+    toast.error(error.message || 'Failed to fetch registrations')
   } finally {
     isLoading.value = false
   }
@@ -55,7 +84,6 @@ const handleApprove = async (registrationId: string) => {
   try {
     await RegistrationService.approveRegistration(eventId, registrationId)
     toast.success('Registration approved')
-    // ลบรายการที่ทำรายการแล้วออกจาก list
     registrations.value = registrations.value.filter(r => r.id !== registrationId)
   } catch (error: any) {
     toast.error(error.message || 'Failed to approve')
@@ -72,126 +100,177 @@ const handleReject = async (registrationId: string) => {
   }
 }
 
+const toggleColumn = (colId: string) => {
+  if (selectedColumnIds.value.includes(colId)) {
+    selectedColumnIds.value = selectedColumnIds.value.filter(id => id !== colId)
+  } else {
+    selectedColumnIds.value.push(colId)
+  }
+}
+
 const goBack = () => {
   router.back()
 }
 
-onMounted(() => {
-  fetchPendingRegistrations()
-})
-
 // --- Helpers ---
-const formatDate = (dateStr: string | Date) => {
-  return new Date(dateStr).toLocaleString('en-US', {
+const formatDate = (dateStr: string) => {
+  if(!dateStr) return '-'
+  return new Date(dateStr).toLocaleString('th-TH', {
     dateStyle: 'medium',
     timeStyle: 'short'
   })
 }
+
+const visibleColumns = computed(() => {
+  return columns.value.filter(c => selectedColumnIds.value.includes(c.id))
+})
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-50/50 p-8">
+  <div class="min-h-screen bg-gray-50/50 p-4 md:p-8">
     <div class="max-w-7xl mx-auto space-y-6">
       
-      <div class="flex items-center gap-4">
-        <button 
-          @click="goBack" 
-          class="p-2 rounded-full hover:bg-gray-200 transition-colors"
-        >
-          <ArrowLeft class="w-6 h-6 text-gray-600" />
-        </button>
-        <div>
-          <h1 class="text-3xl font-bold tracking-tight text-gray-900">Participant Approval</h1>
-          <p class="text-muted-foreground text-gray-500 mt-1">
-            Review and manage pending registration requests.
-          </p>
+      <!-- Header -->
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-4">
+          <button 
+            @click="goBack" 
+            class="p-2 rounded-full hover:bg-gray-200 transition-colors"
+          >
+            <ArrowLeft class="w-5 h-5" />
+          </button>
+          <h1 class="text-2xl font-bold">Participant Approval</h1>
+        </div>
+
+        <div class="flex items-center gap-2">
+           <!-- Column Selector -->
+           <DropdownMenu>
+            <DropdownMenuTrigger as-child>
+              <Button variant="outline" class="flex items-center gap-2">
+                <Settings2 class="w-4 h-4" />
+                Customize Columns
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent class="w-56" align="end">
+              <DropdownMenuLabel>Toggle Columns</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <div class="max-h-[300px] overflow-y-auto">
+                <DropdownMenuCheckboxItem
+                    v-for="col in columns" 
+                    :key="col.id"
+                    :checked="selectedColumnIds.includes(col.id)"
+                    @select="(e: Event) => { e.preventDefault(); toggleColumn(col.id); }"
+                >
+                    {{ col.label }}
+                </DropdownMenuCheckboxItem>
+              </div>
+              <DropdownMenuSeparator />
+              <Button 
+                variant="ghost" 
+                class="w-full justify-center text-xs" 
+                @click="fetchRegistrations"
+              >
+                Apply Changes
+              </Button>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <Button @click="fetchRegistrations" variant="default" size="sm">
+            <Loader2 v-if="isLoading" class="w-4 h-4 animate-spin mr-2" />
+            Refresh
+          </Button>
         </div>
       </div>
 
-      <div class="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-        <div class="overflow-x-auto">
+      <!-- Main Content -->
+      <div class="bg-white rounded-xl shadow-sm border overflow-hidden">
+        
+        <!-- Loading State -->
+        <div v-if="isLoading" class="p-12 flex justify-center items-center">
+          <Loader2 class="w-8 h-8 animate-spin text-primary" />
+        </div>
+
+        <!-- Empty State -->
+        <div v-else-if="registrations.length === 0" class="p-12 text-center text-gray-500">
+          No pending registrations found.
+        </div>
+
+        <!-- Data Table -->
+        <div v-else class="overflow-x-auto">
           <table class="w-full text-sm text-left">
-            <thead class="bg-gray-50 border-b border-gray-200 text-gray-600 font-medium">
+            <thead class="bg-gray-50 text-gray-600 font-medium border-b">
               <tr>
-                <th class="px-6 py-4">User Name</th>
-                <th class="px-6 py-4">Context</th> <th class="px-6 py-4">Email</th>
-                <th class="px-6 py-4">Registered At</th>
-                <th class="px-6 py-4">Status</th>
+                <th class="px-6 py-4 whitespace-nowrap">Status</th>
+                <th 
+                    v-for="col in visibleColumns" 
+                    :key="col.id"
+                    class="px-6 py-4 whitespace-nowrap min-w-[150px]"
+                >
+                    {{ col.label }}
+                </th>
                 <th class="px-6 py-4 text-right">Actions</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
-              
-              <tr v-if="isLoading">
-                <td colspan="6" class="px-6 py-12 text-center text-gray-500">
-                  <div class="flex flex-col items-center gap-2">
-                    <Loader2 class="w-8 h-8 animate-spin text-blue-500" />
-                    <span>Loading pending requests...</span>
-                  </div>
-                </td>
-              </tr>
-
-              <tr v-else-if="registrations.length === 0">
-                <td colspan="6" class="px-6 py-12 text-center text-gray-500">
-                  No pending registrations found.
-                </td>
-              </tr>
-
               <tr 
                 v-for="reg in registrations" 
                 :key="reg.id"
-                class="hover:bg-gray-50/80 transition-colors"
+                class="hover:bg-gray-50/50 transition-colors"
+                :class="{ 'opacity-50 pointer-events-none': isLoading }"
               >
-                <td class="px-6 py-4 font-medium text-gray-900">
-                   {{ reg.user?.firstName }} {{ reg.user?.lastName }}
-                </td>
-                
-                <td class="px-6 py-4 text-gray-600">
-                    <span v-if="reg.session" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-blue-50 text-blue-700 text-xs font-medium border border-blue-100">
-                      Session: {{ reg.session.name }}
-                    </span>
-                    <span v-else class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-purple-50 text-purple-700 text-xs font-medium border border-purple-100">
-                      Main Event
-                    </span>
-                </td>
-
-                <td class="px-6 py-4 text-gray-600">
-                  {{ reg.user?.email || '-' }}
-                </td>
-
-                <td class="px-6 py-4 text-gray-600">
-                  {{ formatDate(reg.registeredAt) }}
-                </td>
-
+                <!-- Static Status Column -->
                 <td class="px-6 py-4">
-                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                  <Badge variant="outline" class="bg-yellow-50 text-yellow-700 border-yellow-200">
                     {{ reg.status }}
-                  </span>
+                  </Badge>
                 </td>
 
-                <td class="px-6 py-4 text-right space-x-2">
-                  <button 
-                    @click="handleApprove(reg.id)"
-                    class="inline-flex items-center justify-center p-2 rounded-md text-green-600 hover:bg-green-50 border border-transparent hover:border-green-200 transition-all"
-                    title="Approve"
-                  >
-                    <Check class="w-5 h-5" />
-                  </button>
-                  <button 
-                    @click="handleReject(reg.id)"
-                    class="inline-flex items-center justify-center p-2 rounded-md text-red-600 hover:bg-red-50 border border-transparent hover:border-red-200 transition-all"
-                    title="Reject"
-                  >
-                    <X class="w-5 h-5" />
-                  </button>
+                <!-- Dynamic Data Columns -->
+                <td 
+                    v-for="col in visibleColumns" 
+                    :key="col.id"
+                    class="px-6 py-4"
+                >
+                    <template v-if="col.type === 'DATE' || col.id === 'registeredAt'">
+                        {{ formatDate(reg[col.id]) }}
+                    </template>
+                    <template v-else-if="col.type === 'CHECKBOX' && reg[col.id]">
+                         <!-- Handle comma separated values if any -->
+                         {{ reg[col.id] }}
+                    </template>
+                     <template v-else>
+                        {{ reg[col.id] || '-' }}
+                    </template>
+                </td>
+
+                <!-- Actions -->
+                <td class="px-6 py-4 text-right whitespace-nowrap">
+                  <div class="flex justify-end gap-2">
+                    <button 
+                      @click="handleApprove(reg.id)"
+                      class="p-1.5 rounded-md text-green-600 hover:bg-green-50 transition-colors"
+                      title="Approve"
+                    >
+                      <Check class="w-5 h-5" />
+                    </button>
+                    <button 
+                      @click="handleReject(reg.id)"
+                      class="p-1.5 rounded-md text-red-600 hover:bg-red-50 transition-colors"
+                      title="Reject"
+                    >
+                      <X class="w-5 h-5" />
+                    </button>
+                  </div>
                 </td>
               </tr>
-
             </tbody>
           </table>
         </div>
       </div>
-      
     </div>
   </div>
 </template>
+
+<style scoped>
+/* Add any specific styles if needed */
+</style>

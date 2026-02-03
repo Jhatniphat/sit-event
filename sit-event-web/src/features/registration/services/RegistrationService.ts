@@ -369,11 +369,40 @@ export const RegistrationService = {
    * ADMIN / ORGANIZER APPROVAL SECTION
    * -------------------------------------------------- */
 
-  async getPendingRegistrations(eventId: string): Promise<PendingRegistration[]> {
+  async getRegistrationColumns(eventId: string) {
     try {
-      return await apiClient.get<void, PendingRegistration[]>(
-        `/events/${eventId}/registrations/pending`
-      )
+      return await apiClient.get<
+        void,
+        { id: string; label: string; type: string; isSystem: boolean }[]
+      >(`/events/${eventId}/registrations/columns`)
+    } catch (error) {
+       if (isApiError(error)) {
+        console.error(`[RegistrationService.getRegistrationColumns] API Error ${error.status}: ${error.message}`)
+        throw error
+       }
+      throw new Error('Failed to fetch registration columns')
+    }
+  },
+
+  async getPendingRegistrations(
+    eventId: string,
+    fields?: string[],
+    questionIds?: string[],
+  ): Promise<any[]> {
+    try {
+      // Build query string
+      const params = new URLSearchParams()
+      if (fields && fields.length > 0) {
+        params.append('fields', fields.join(','))
+      }
+      if (questionIds && questionIds.length > 0) {
+        params.append('questionIds', questionIds.join(','))
+      }
+
+      const queryString = params.toString()
+      const url = `/events/${eventId}/registrations/pending${queryString ? `?${queryString}` : ''}`
+
+      return await apiClient.get<void, any[]>(url)
     } catch (error) {
       if (isApiError(error)) {
         console.error(`[RegistrationService.getPendingRegistrations] API Error ${error.status}: ${error.message}`)

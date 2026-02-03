@@ -9,6 +9,8 @@ import { UsersService } from '../users/users.service';
 import { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { EventRegistrationsGateway } from './event-registrations.gateway';
 import { RegistrationStatus } from '../../generated/prisma';
+import { FormType } from 'generated/prisma';
+
 
 @Injectable()
 export class EventRegistrationsService {
@@ -243,17 +245,128 @@ export class EventRegistrationsService {
     });
   }
 
+
+  // =============================================
+  // Get Registration Columns (For Admin Approval)
+  // =============================================
+  async getRegistrationColumns(eventId: string) {
+    const systemColumns = [
+      { id: 'firstName', label: 'First Name', type: 'TEXT', isSystem: true },
+      { id: 'lastName', label: 'Last Name', type: 'TEXT', isSystem: true },
+      { id: 'email', label: 'Email', type: 'TEXT', isSystem: true },
+      { id: 'phoneNumber', label: 'Phone Number', type: 'TEXT', isSystem: true },
+      { id: 'school', label: 'School / Organization', type: 'TEXT', isSystem: true },
+      { id: 'registeredAt', label: 'Registered Timestamp', type: 'DATE', isSystem: true },
+    ];
+
+    // Find PRE_EVENT form
+    const form = await this.prisma.eventForm.findFirst({
+      where: {
+        eventId: eventId,
+        type: FormType.PRE_EVENT,
+      },
+      include: {
+        fields: {
+          orderBy: { order: 'asc' },
+        },
+      },
+    });
+
+    const formColumns = form
+      ? form.fields.map((f) => ({
+          id: f.id,
+          label: f.question,
+          type: f.fieldType,
+          isSystem: false,
+        }))
+      : [];
+
+    return [...systemColumns, ...formColumns];
+  }
+
   // =============================================
   // Get Pending Registrations for Admin
   // =============================================
-  async getPendingRegistrations(eventId: string) {
-    return this.prisma.eventRegistration.findMany({
+  async getPendingRegistrations(
+    eventId: string,
+    queryFields?: string[],
+    queryQuestionIds?: string[],
+  ) {
+    const registrations = await this.prisma.eventRegistration.findMany({
       where: {
         eventId: eventId,
         status: RegistrationStatus.PENDING,
       },
       include: { user: true, session: true },
       orderBy: { registeredAt: 'asc' },
+    });
+
+    // If no specific fields requested, return standard full object (Backward Compatibility)
+    if (
+      (!queryFields || queryFields.length === 0) &&
+      (!queryQuestionIds || queryQuestionIds.length === 0)
+    ) {
+      return registrations;
+    }
+
+    // Prepare for dynamic mapping
+    let answersMap: Record<string, Record<string, string>> = {}; // userId -> { fieldId: answer }
+
+    if (queryQuestionIds && queryQuestionIds.length > 0) {
+      const userIds = registrations.map((r) => r.userId);
+      const submissions = await this.prisma.eventFormSubmission.findMany({
+        where: {
+          form: {
+            eventId: eventId,
+            type: FormType.PRE_EVENT,
+          },
+          userId: { in: userIds },
+        },
+        include: {
+          answers: true,
+        },
+      });
+
+      submissions.forEach((sub) => {
+        const userAnswers: Record<string, string> = {};
+        sub.answers.forEach((a) => {
+          if (a.answer) {
+            userAnswers[a.fieldId] = a.answer;
+          }
+        });
+        answersMap[sub.userId] = userAnswers;
+      });
+    }
+
+    // Map result to flat object
+    return registrations.map((reg) => {
+      const row: any = {
+        id: reg.id,
+        userId: reg.userId,
+        // Always include basic status
+        status: reg.status,
+      };
+
+      // Map System Fields
+      if (queryFields && queryFields.length > 0) {
+        queryFields.forEach((field) => {
+          if (field === 'registeredAt') {
+            row[field] = reg.registeredAt;
+          } else if (reg.user && field in reg.user) {
+            row[field] = (reg.user as any)[field];
+          }
+        });
+      }
+
+      // Map Question Answers
+      if (queryQuestionIds && queryQuestionIds.length > 0) {
+        const userAns = answersMap[reg.userId] || {};
+        queryQuestionIds.forEach((qId) => {
+          row[qId] = userAns[qId] || null;
+        });
+      }
+
+      return row;
     });
   }
 
