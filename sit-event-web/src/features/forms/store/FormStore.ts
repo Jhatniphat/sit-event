@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { FormService } from '../services/FormServices'
+import { FormService, FormType } from '../services/FormServices'
 import type {
   FormFieldPayload,
   CreateEventFormDto,
@@ -28,6 +28,7 @@ export const useFormStore = defineStore('form', () => {
   const isLoading = ref<boolean>(false)
   const currentFormId = ref<string | null>(null)
   const deletedFieldIds = ref<string[]>([])
+  const formsList = ref<EventFormResponse[]>([])
 
   // --- Getters ---
   const questionTypes = computed(() => [
@@ -43,6 +44,7 @@ export const useFormStore = defineStore('form', () => {
     formTitle.value = ''
     deletedFieldIds.value = []
     formDescription.value = ''
+
     currentFormId.value = null
     isLoading.value = false
   }
@@ -83,14 +85,14 @@ export const useFormStore = defineStore('form', () => {
   }
 
   // --- Service Actions (API) ---
-
-  const createInitialForm = async (eventId: string): Promise<EventFormResponse> => {
+  const createInitialForm = async (eventId: string, type: FormType = FormType.POST_EVENT): Promise<EventFormResponse> => {
     isLoading.value = true
     try {
       const createDto: CreateEventFormDto = {
-        title: 'Form Title',
+        title: type === FormType.PRE_EVENT ? 'Pre-Event Form' : 'Post-Event Form',
         description: '',
         isActive: false,
+        type: type,
       }
       const formRes = await FormService.createForm(eventId, createDto)
       currentFormId.value = formRes.id
@@ -103,7 +105,19 @@ export const useFormStore = defineStore('form', () => {
     }
   }
 
-  const fetchForm = async (eventId: string) => {
+  const fetchForms = async (eventId: string) => {
+      isLoading.value = true
+      try {
+        const res = await FormService.getForms(eventId)
+        formsList.value = res
+      } catch (error) {
+        console.error('Fetch forms failed:', error)
+      } finally {
+        isLoading.value = false
+      }
+  }
+
+  const loadForm = async (eventId: string, formId: string) => {
     isLoading.value = true
     currentFormId.value = null
     questions.value = []
@@ -112,7 +126,7 @@ export const useFormStore = defineStore('form', () => {
     formIsActive.value = false
 
     try {
-      const res = await FormService.getFormForUser(eventId)
+      const res = await FormService.getFormById(eventId, formId)
       if (res && res.id) {
         currentFormId.value = res.id
         formTitle.value = res.title || ''
@@ -133,6 +147,16 @@ export const useFormStore = defineStore('form', () => {
     } finally {
       isLoading.value = false
     }
+  }
+
+  // Deprecated: use loadForm and fetchForms
+  const fetchForm = async (eventId: string) => {
+    // Legacy support or remove? keeping for finding bugs
+    // Assuming retrieving all forms and picking first? Or just failing?
+    // Let's redirect to fetchForms logic if possible, but this functin signature was (eventId).
+    // Better to change usages.
+    console.warn('fetchForm is deprecated. Use loadForm or fetchForms') 
+    isLoading.value = false
   }
 
   const saveFullForm = async (eventId: string): Promise<boolean> => {
@@ -207,7 +231,6 @@ export const useFormStore = defineStore('form', () => {
     isLoading.value = true
     try {
       await FormService.deleteForm(eventId, formId)
-      resetForm()
       return true
     } catch (error) {
       console.error('Delete form failed:', error)
@@ -224,6 +247,7 @@ export const useFormStore = defineStore('form', () => {
     formIsActive,
     isLoading,
     currentFormId,
+    formsList,
     questionTypes,
     deletedFieldIds,
     resetForm,
@@ -233,7 +257,10 @@ export const useFormStore = defineStore('form', () => {
     removeOption,
     createInitialForm,
     fetchForm,
+    fetchForms,
+    loadForm,
     saveFullForm,
     deleteForm,
   }
 })
+

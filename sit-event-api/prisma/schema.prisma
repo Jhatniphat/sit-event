@@ -57,6 +57,11 @@ enum StaffStatus {
   REFUSED
 }
 
+enum FormType {
+  PRE_EVENT
+  POST_EVENT
+}
+
 enum RegistrationStatus {
   PENDING
   APPROVED
@@ -115,7 +120,7 @@ model Event {
   staff         EventStaff[]
   faqs          EventFAQ[]
   badges        EventBadge[]
-  form          EventForm?
+  forms         EventForm[]
   creator       User?                 @relation("EventCreator", fields: [creatorId], references: [id])
   creatorId     String?
   certificated  CertificateTemplate[]
@@ -134,6 +139,7 @@ model EventSession {
   maxSeats       Int
   availableSeats Int
   pointsAwarded  Int?
+  autoRegister   Boolean  @default(false)
   createdAt      DateTime @default(now()) @db.Timestamptz
   updatedAt      DateTime @updatedAt @db.Timestamptz
 
@@ -200,7 +206,8 @@ model EventFAQ {
 
 model EventForm {
   id          String   @id @default(uuid())
-  eventId     String   @unique // 1 Event มีได้ 1 Form
+  eventId     String
+  type        FormType @default(POST_EVENT)
   title       String
   description String?  @db.Text
   isActive    Boolean  @default(false)
@@ -212,6 +219,7 @@ model EventForm {
   fields      EventFormField[]
   submissions EventFormSubmission[]
 
+  @@unique([eventId, type]) // 1 Event มีได้ 1 Form type
   @@map("event_forms")
 }
 

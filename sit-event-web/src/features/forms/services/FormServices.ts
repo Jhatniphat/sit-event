@@ -9,10 +9,16 @@ export interface FormFieldPayload {
   options?: string[]
 }
 
+export enum FormType {
+  PRE_EVENT = 'PRE_EVENT',
+  POST_EVENT = 'POST_EVENT'
+}
+
 export interface CreateEventFormDto {
   title: string
   description?: string
   isActive: boolean
+  type?: FormType
 }
 
 export interface SubmitAnswerPayload {
@@ -32,6 +38,7 @@ export interface FormFieldResponse extends FormFieldPayload {
 export interface EventFormResponse {
   id: string
   eventId: string
+  type: FormType
   title: string
   description?: string
   isActive: boolean
@@ -122,8 +129,17 @@ export class FormService {
    * ==========================================
    */
 
-  static async getFormForUser(eventId: string): Promise<EventFormResponse> {
-    return apiClient.get(`/events/${eventId}/forms`)
+  static async getFormForUser(eventId: string, type?: FormType): Promise<EventFormResponse> {
+    const params = type ? { type } : {}
+    return apiClient.get(`/events/${eventId}/forms`, { params })
+  }
+
+  static async getForms(eventId: string): Promise<EventFormResponse[]> {
+     return apiClient.get(`/events/${eventId}/forms`)
+  }
+
+  static async getFormById(eventId: string, formId: string): Promise<EventFormResponse> {
+    return apiClient.get(`/events/${eventId}/forms/${formId}`)
   }
 
   static async submitForm(

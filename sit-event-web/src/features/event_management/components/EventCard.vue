@@ -67,13 +67,13 @@ const truncatedDescription = computed(() => {
 const buttonText = computed(() => {
   if (props.event.hasRegister) return 'ยกเลิกการลงทะเบียน'
   if (daysRemaining.value <= 0) return 'ปิดรับสมัครแล้ว'
-  if (props.event.canRegisterAtStaff || props.event.canRegisterAtParticipant) return 'ลงทะเบียนเข้าร่วม'
-  return 'ไม่สามารถลงทะเบียนได้'
+  // Always show register if active, even if need login (handled in click)
+  return 'ลงทะเบียนเข้าร่วม'
 })
 
 const isButtonDisabled = computed(() => {
   if (props.event.hasRegister) return false
-  return daysRemaining.value <= 0 || (!props.event.canRegisterAtStaff && !props.event.canRegisterAtParticipant)
+  return daysRemaining.value <= 0 
 })
 
 const buttonVariant = computed(() => {

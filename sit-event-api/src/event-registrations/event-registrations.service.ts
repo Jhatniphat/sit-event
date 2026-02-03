@@ -45,16 +45,56 @@ export class EventRegistrationsService {
       throw new ConflictException('You are already registered for this event');
     }
 
-    return this.prisma.eventRegistration.create({
-      data: {
-        event: {
-          connect: { id: eventId },
+    return this.prisma.$transaction(async (tx) => {
+      // 1. Create registration for the main event
+      const mainRegistration = await tx.eventRegistration.create({
+        data: {
+          event: { connect: { id: eventId } },
+          user: { connect: { id: user.id } },
+          // sessionId defaults to null
         },
-        user: {
-          connect: { id: user.id },
+      });
+
+      // 2. Check for auto-register sessions
+      const autoSessions = await tx.eventSession.findMany({
+        where: {
+          eventId: eventId,
+          autoRegister: true,
         },
-        // sessionId defaults to null
-      },
+      });
+
+      // 3. Register user to auto-register sessions (bypass seats for now)
+      for (const session of autoSessions) {
+        // if (session.availableSeats > 0) {
+          // Check if already registered (shouldn't happen for new event reg, but good practice if logic changes)
+           const existingSessionReg = await tx.eventRegistration.findUnique({
+              where: {
+                userId_eventId_sessionId: {
+                  userId: user.id,
+                  eventId: eventId,
+                  sessionId: session.id
+                }
+              }
+           });
+           
+           if (!existingSessionReg) {
+              await tx.eventRegistration.create({
+                data: {
+                  event: { connect: { id: eventId } },
+                  user: { connect: { id: user.id } },
+                  session: { connect: { id: session.id } },
+                },
+              });
+
+              await tx.eventSession.update({
+                where: { id: session.id },
+                data: { availableSeats: { decrement: 1 } },
+              });
+           }
+        // }
+      }
+
+      return mainRegistration;
     });
   }
 
@@ -68,6 +108,23 @@ export class EventRegistrationsService {
         `User with email '${authenticatedUser.email}' not found in database.`,
       );
     }
+
+    // Delete form submissions for this event
+    const eventForms = await this.prisma.eventForm.findMany({
+      where: { eventId },
+      select: { id: true },
+    });
+
+    if (eventForms.length > 0) {
+      const formIds = eventForms.map((f) => f.id);
+      await this.prisma.eventFormSubmission.deleteMany({
+        where: {
+          userId: user.id,
+          formId: { in: formIds },
+        },
+      });
+    }
+
     const deleteResult = await this.prisma.eventRegistration.deleteMany({
       where: {
         eventId: eventId,

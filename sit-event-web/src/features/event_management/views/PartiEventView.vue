@@ -25,6 +25,7 @@ import { Button } from '@/components/ui/button'
 import UnregistrationDialog from '@/features/registration/components/UnregistrationDialog.vue'
 import SessionSelectionDialog from '@/features/registration/components/SessionSelectionDialog.vue'
 import { toast } from 'vue-sonner'
+import { FormType } from '@/features/forms/services/FormServices'
 
 const eventStore = useEventStore()
 const events = computed(() => eventStore.events)
@@ -111,7 +112,9 @@ const currentRegistrationPayload = ref<RegisterPayload | null>(null)
 
 const handleRegister = (payload: RegisterPayload) => {
   if (!authStore.isAuthenticated) {
-    toast.error('กรุณาเข้าสู่ระบบก่อน')
+    if (confirm('กรุณาเข้าสู่ระบบก่อนลงทะเบียน ต้องการไปที่หน้าเข้าสู่ระบบหรือไม่?')) {
+      authStore.loginRedirect()
+    }
     return
   }
   currentRegistrationPayload.value = payload
@@ -138,11 +141,53 @@ const onConfirmRegistration = async (eventId: string, role: RegistrationRole) =>
   } 
   
   // กรณี PARTICIPANT
+  // if (role === 'PARTICIPANT') {
+  //   try {
+  //     // 2. Fetch Sessions ของ Event นั้นๆ
+  //     sessionLoading.value = true
+  //     await eventStore.fetchEventSessions(eventId)
+  //     const sessions = eventStore.currentEventSessions
+
+  //     if (sessions && sessions.length > 0) {
+  //       // CASE A: มี Sub-sessions -> ไปหน้าเลือก Session
+  //       selectedEventIdForSession.value = eventId
+  //       isRegisDialogOpen.value = false // ปิดหน้าเลือก Role
+  //       isSessionDialogOpen.value = true // เปิดหน้าเลือก Session
+  //     } else {
+  //       // CASE B: ไม่มี Sub-sessions -> ลงทะเบียน Event ตามปกติ (Flow เดิม)
+  //       isRegisDialogOpen.value = false
+  //       await registerStore.registerForEvent(eventId, { sessionId: '' }) // sessionId ว่าง หรือ undefined ตาม spec เดิม
+  //       toast.success('ลงทะเบียนสำเร็จ', {
+  //         description: 'คุณได้ลงทะเบียนเข้าร่วมกิจกรรมเรียบร้อยแล้ว',
+  //       })
+  //     }
+  //   } catch (err: any) {
+  //      console.error(err)
+  //      toast.error('เกิดข้อผิดพลาด', { description: 'ไม่สามารถตรวจสอบรอบกิจกรรมได้' })
+  //      isRegisDialogOpen.value = false
+  //   } finally {
+  //      sessionLoading.value = false
+  //   }
+  // }
+
   if (role === 'PARTICIPANT') {
-    // 1. ยังไม่ปิด Dialog เลือก Role หรือแสดง Loading ก่อนก็ได้
-    // แต่เพื่อความ Smooth เราจะเช็ค Session ก่อน
+    // Find the event in the store to get its forms
+    const targetEvent = events.value.find(e => e.id === eventId)
+    const forms = targetEvent?.forms || []
+    const preForm = forms.find(f => f.type === FormType.PRE_EVENT && f.isActive)
+
+    if (preForm) {
+      router.push({
+        name: 'FormView',
+        params: { id: eventId },
+        query: { type: FormType.PRE_EVENT }
+      })
+      isRegisDialogOpen.value = false
+      return
+    }
+
+    // No Pre-Event Form -> Check for Sub-sessions
     try {
-      // 2. Fetch Sessions ของ Event นั้นๆ
       sessionLoading.value = true
       await eventStore.fetchEventSessions(eventId)
       const sessions = eventStore.currentEventSessions
@@ -153,12 +198,12 @@ const onConfirmRegistration = async (eventId: string, role: RegistrationRole) =>
         isRegisDialogOpen.value = false // ปิดหน้าเลือก Role
         isSessionDialogOpen.value = true // เปิดหน้าเลือก Session
       } else {
-        // CASE B: ไม่มี Sub-sessions -> ลงทะเบียน Event ตามปกติ (Flow เดิม)
-        isRegisDialogOpen.value = false
-        await registerStore.registerForEvent(eventId, { sessionId: '' }) // sessionId ว่าง หรือ undefined ตาม spec เดิม
+        // CASE B: ไม่มี Sub-sessions -> ลงทะเบียน Event ตามปกติ
+        await registerStore.registerForEvent(eventId, { sessionId: '' }) // sessionId ว่าง
         toast.success('ลงทะเบียนสำเร็จ', {
           description: 'คุณได้ลงทะเบียนเข้าร่วมกิจกรรมเรียบร้อยแล้ว',
         })
+        isRegisDialogOpen.value = false
       }
     } catch (err: any) {
        console.error(err)

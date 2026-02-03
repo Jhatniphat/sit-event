@@ -6,6 +6,7 @@ import { toast } from 'vue-sonner'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/zod'
 import * as z from 'zod'
+import { FormType } from '@/features/forms/services/FormServices'
 
 // --- Shadcn UI Components ---
 import { Button } from '@/components/ui/button'
@@ -33,8 +34,11 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select' // (ตรวจสอบว่า project มี component นี้ ถ้าไม่มีให้ใช้ select html ธรรมดาได้)
+} from '@/components/ui/select'
+import { Checkbox } from '@/components/ui/checkbox'
 import { useCertificateStore, type FrontendCertificateElement } from '@/features/certificate/store/CertificateStore'
+import { useFormStore } from '@/features/forms/store/FormStore'
+import { Badge } from '@/components/ui/badge'
 // --- Custom Components ---
 import TagInput from '@/components/ui/commons/TagInput.vue'
 
@@ -45,6 +49,7 @@ const props = defineProps<{
 
 const eventStore = useEventStore()
 const certificateStore = useCertificateStore()
+const formStore = useFormStore()
 const isEditMode = computed(() => !!props.id)
 
 // --- Constants ---
@@ -322,6 +327,7 @@ const subSessionSchema = z.object({
   location: z.string().min(1, 'กรุณาระบุสถานที่'),
   maxSeats: z.coerce.number().min(1, 'จำนวนที่นั่งต้องมีอย่างน้อย 1 ที่นั่ง'),
   pointsAwarded: z.coerce.number().min(0, 'คะแนนต้องไม่ติดลบ'),
+  autoRegister: z.boolean().optional(),
 }).refine((data) => data.end > data.start, {
   message: "เวลาจบ Session ต้องหลังจากเวลาเริ่ม",
   path: ["end"],
@@ -387,6 +393,7 @@ const addSubSession = () => {
     end: new Date(),
     location: '',
     maxSeats: 1, 
+    autoRegister: false,
     pointsAwarded: 0,
     thumbnail: null,
     previewUrl: null,
@@ -421,7 +428,41 @@ const removeSessionImage = (index: number) => {
   subSessions.value[index].thumbnail = null
   subSessions.value[index].previewUrl = null
 }
+// --- Forms Logic ---
+const handleCreateForm = async (type: string) => {
+  if (!props.id) {
+    toast.error('Please save the event first before adding forms.')
+    return
+  }
+  try {
+    const res = await formStore.createInitialForm(props.id, type as FormType)
+    router.push({
+      name: 'CreateForms',
+      params: { id: props.id, formId: res.id },
+    })
+  } catch (err: any) {
+    toast.error('Failed to create form')
+  }
+}
 
+const handleEditForm = (formId: string) => {
+  router.push({
+    name: 'CreateForms',
+    params: { id: props.id!, formId },
+  })
+}
+
+const getFormByType = (type: string) => {
+  return formStore.formsList.find(f => f.type === type)
+}
+
+// Dialog State
+const isCreateFormDialogOpen = ref(false)
+
+const createForm = async (type: FormType) => {
+  isCreateFormDialogOpen.value = false
+  await handleCreateForm(type)
+}
 
 // --- Lifecycle ---
 onMounted(async () => {
@@ -429,6 +470,8 @@ onMounted(async () => {
     try {
       if (!props.id) return;
       await eventStore.fetchEventById(props.id)
+      await formStore.fetchForms(props.id) // Fetch forms
+      
       const eventToEdit = eventStore.currentEvent
 
       if (eventToEdit) {
@@ -849,6 +892,11 @@ const toDateTimeLocal = (date?: Date) => {
                             <Input type="number" v-model="session.pointsAwarded" min="0" class="mt-1.5"/>
                           </div>
                        </div>
+                       
+                       <div class="flex items-center space-x-2 pt-2">
+                          <Checkbox :id="'auto-reg-'+index" :checked="session.autoRegister" @update:checked="(v) => session.autoRegister = v" />
+                          <Label :for="'auto-reg-'+index" class="cursor-pointer text-sm">Auto Register (Automatically register participants for this session)</Label>
+                       </div>
                   </div>
                 </div>
 
@@ -859,6 +907,29 @@ const toDateTimeLocal = (date?: Date) => {
 
               </div>
             </div>
+          </div>
+        </div>
+
+        <div class="space-y-4" v-if="isEditMode">
+          <div class="flex items-center justify-between">
+            <h2 class="text-lg font-semibold text-gray-800">Event Forms</h2>
+            <Button type="button" size="sm" @click="isCreateFormDialogOpen = true">Create Form</Button>
+          </div>
+          
+          <div v-if="formStore.formsList.length > 0" class="grid gap-4">
+            <div v-for="form in formStore.formsList" :key="form.id" class="border p-4 rounded-lg flex justify-between items-center bg-white shadow-sm">
+              <div>
+                <h3 class="font-medium">{{ form.type === FormType.PRE_EVENT ? 'Pre-Event Form' : 'Post-Event Form' }}</h3>
+                <p class="text-sm text-gray-500">{{ form.title }}</p>
+              </div>
+              <div class="flex items-center gap-2">
+                 <Badge :variant="form.isActive ? 'default' : 'secondary'">{{ form.isActive ? 'Active' : 'Inactive' }}</Badge>
+                 <Button type="button" variant="outline" size="sm" @click="handleEditForm(form.id)">Edit</Button>
+              </div>
+            </div>
+          </div>
+          <div v-else class="text-center p-8 bg-gray-50 rounded-lg border border-dashed text-gray-500">
+             No forms created yet.
           </div>
         </div>
 
@@ -1253,6 +1324,49 @@ const toDateTimeLocal = (date?: Date) => {
                  </div>
              </div>
          </div>
+      </DialogContent>
+    </Dialog>
+
+    <Dialog v-model:open="isCreateFormDialogOpen">
+      <DialogContent class="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>Create Form</DialogTitle>
+          <DialogDescription>Select the type of form you want to create.</DialogDescription>
+        </DialogHeader>
+        
+        <div class="grid gap-4 py-4">
+          <Button 
+            type="button" 
+            variant="outline" 
+            class="h-20 justify-start px-4 w-full" 
+            :disabled="!!getFormByType(FormType.PRE_EVENT)"
+            @click="createForm(FormType.PRE_EVENT)"
+          >
+            <div class="text-left w-full">
+              <div class="font-semibold">Pre-Event Form</div>
+              <div class="text-xs text-muted-foreground whitespace-normal">Form for participants to fill before registration</div>
+            </div>
+            <div v-if="getFormByType(FormType.PRE_EVENT)" class="ml-auto text-xs text-red-500 font-medium">
+              Created
+            </div>
+          </Button>
+          
+          <Button 
+            type="button" 
+            variant="outline" 
+            class="h-20 justify-start px-4 w-full"
+            :disabled="!!getFormByType(FormType.POST_EVENT)"
+            @click="createForm(FormType.POST_EVENT)"
+          >
+            <div class="text-left w-full">
+              <div class="font-semibold">Post-Event Form</div>
+              <div class="text-xs text-muted-foreground whitespace-normal">Feedback form after the event</div>
+            </div>
+             <div v-if="getFormByType(FormType.POST_EVENT)" class="ml-auto text-xs text-red-500 font-medium">
+              Created
+            </div>
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
     

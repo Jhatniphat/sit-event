@@ -145,10 +145,10 @@ export class EventSessionsService {
       );
     }
 
-    // ตรวจสอบว่ามีที่ว่าง
-    if (session.availableSeats <= 0) {
-      throw new BadRequestException('No available seats for this session');
-    }
+    // ตรวจสอบว่ามีที่ว่าง (Bypassed)
+    // if (session.availableSeats <= 0) {
+    //   throw new BadRequestException('No available seats for this session');
+    // }
 
     // หา user
     const user = await this.usersService.findByEmail(authenticatedUser.email);

@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { onMounted, ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { FormService, type EventFormResponse } from '../services/FormServices'
+import { FormService, type EventFormResponse, FormType } from '../services/FormServices'
+import { EventService } from '@/features/event_management/services/EventServices'
+import SessionSelectionDialog from '@/features/registration/components/SessionSelectionDialog.vue'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -24,9 +26,15 @@ const props = defineProps({
   },
 })
 
+// Dialog State
+const isSessionDialogOpen = ref(false)
+const sessionLoading = ref(false)
+const availableSessions = ref<any[]>([])
+
 onMounted(async () => {
   try {
-    const res = await FormService.getFormForUser(eventId)
+    const type = route.query.type as FormType
+    const res = await FormService.getFormForUser(eventId, type)
     console.log('Fetched form:', res)
     if (res.isActive === false) {
       router.push({ name: 'FormClosed' })
@@ -109,8 +117,39 @@ const handleSubmit = async () => {
         }
       }),
     }
-    await FormService.submitForm(eventId, form.value.id, payload)
-    toast.success('ส่งแบบฟอร์มสำเร็จ!')
+    
+    // Check if Pre-Event Form
+    const type = route.query.type as FormType
+    if (type === FormType.PRE_EVENT) {
+      // 1. ลงทะเบียน Event ก่อน
+      await EventService.registerForEvent(eventId, { sessionId: '' })
+
+      // 2. Submit Form
+      await FormService.submitForm(eventId, form.value.id, payload)
+      toast.success('ส่งแบบฟอร์มและลงทะเบียนสำเร็จ!')
+
+      // 3. Load Sessions to check if we need to show select dialog
+      const sessions = await EventService.getEventSessions(eventId)
+      if (sessions && sessions.length > 0) {
+        availableSessions.value = sessions
+        // Filter out auto-register sessions? User said: "if there are sub-session that is not auto register..."
+        // In backend, auto-register = true means already registered. 
+        // We should show sessions that are NOT auto-register (optional/manual selection)
+        availableSessions.value = sessions.filter(s => !s.autoRegister)
+
+        if (availableSessions.value.length > 0) {
+           isSessionDialogOpen.value = true
+           // Stop here, wait for dialog
+           isSubmitting.value = false
+           return
+        }
+      }
+    } else {
+      // Post Event or others: Submit Form directly
+      await FormService.submitForm(eventId, form.value.id, payload)
+      toast.success('ส่งแบบฟอร์มสำเร็จ!')
+    }
+
     router.push({ name: 'Home' })
   } catch (error: any) {
     const status = error.response?.status || error.status
@@ -118,13 +157,42 @@ const handleSubmit = async () => {
     if (status === 409) {
       toast.error('คุณได้ส่งแบบฟอร์มนี้ไปแล้ว')
     } else if (status === 403) {
+      // Pre-event form logic changes error handling slightly? 
+      // If we register first, 403 might mean something else.
+      // But standard error handling is fine.
       toast.error('คุณไม่ได้เข้าร่วมอีเวนต์นี้ จึงไม่สามารถส่งแบบฟอร์มได้')
     } else {
       toast.error('เกิดข้อผิดพลาดในการส่งฟอร์ม')
     }
   } finally {
-    isSubmitting.value = false
+    if (!isSessionDialogOpen.value) {
+        isSubmitting.value = false
+    }
   }
+}
+
+const onConfirmSessionSelection = async (sessionIds: string[]) => {
+  sessionLoading.value = true
+  try {
+    const promises = sessionIds.map((sessionId) =>
+      EventService.registerForSession(eventId, sessionId)
+    )
+    await Promise.all(promises)
+    toast.success('ลงทะเบียน Sub-session เรียบร้อยแล้ว')
+    isSessionDialogOpen.value = false
+    router.push({ name: 'Home' })
+  } catch (err: any) {
+    console.error(err)
+    toast.error('การลงทะเบียน Session ล้มเหลว')
+  } finally {
+    sessionLoading.value = false
+  }
+}
+
+const onBackFromSession = () => {
+    // User already registered for main event, just close dialog and go home
+    isSessionDialogOpen.value = false
+    router.push({ name: 'Home' })
 }
 
 // ฟังก์ชันสำหรับสร้าง Writable Computed เพื่อจัดการ string โดยเฉพาะ
@@ -238,9 +306,17 @@ const getTextValue = (fieldId: string) => {
         :disabled="isSubmitting"
         class="bg-black hover:bg-gray-800 px-7 py-5 text-md rounded-lg shadow-lg transition-all active:scale-95"
       >
-        <span v-if="isSubmitting">กำลังส่ง...</span>
-        <span v-else>ส่ง</span>
+        <span v-if="isSubmitting">กำลังดำเนินการ...</span>
+        <span v-else>{{ route.query.type === FormType.PRE_EVENT ? 'ลงทะเบียน' : 'ส่ง' }}</span>
       </Button>
     </div>
+
+    <SessionSelectionDialog
+      v-model:open="isSessionDialogOpen"
+      :sessions="availableSessions"
+      :isLoading="sessionLoading"
+      @confirm="onConfirmSessionSelection"
+      @back="onBackFromSession"
+    />
   </div>
 </template>

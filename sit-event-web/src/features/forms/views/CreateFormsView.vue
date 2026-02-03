@@ -27,7 +27,10 @@ const eventId = route.params.id as string
 const initialData = ref('')
 
 onMounted(async () => {
-  await formStore.fetchForm(eventId)
+  const formId = route.params.formId as string
+  if (formId) {
+    await formStore.loadForm(eventId, formId)
+  }
 
   initialData.value = JSON.stringify({
     title: formStore.formTitle,

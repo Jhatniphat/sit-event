@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsDateString, IsInt, Min, IsOptional } from 'class-validator';
+import { IsString, IsNotEmpty, IsDateString, IsInt, Min, IsOptional, IsBoolean } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateEventSessionDto {
@@ -50,6 +50,15 @@ export class CreateEventSessionDto {
   @Min(1)
   @IsNotEmpty()
   maxSeats: number;
+
+  @ApiPropertyOptional({
+    description: 'Whether to automatically register participants for this session when they register for the event',
+    example: false,
+    default: false,
+  })
+  @IsBoolean()
+  @IsOptional()
+  autoRegister?: boolean;
 
   @ApiPropertyOptional({
     description: 'Points awarded for attending this session',
