@@ -83,7 +83,6 @@ const heroSlides = ref<HeroSlide[]>([
     buttonText: 'ดูรายละเอียด',
     buttonLink: 'https://www.facebook.com/share/p/186e1sQipm/',
     eventStartDate: '2026-02-07T19:00:00Z',
-    bgImage: '../src/assets/images/gradient_img.png',
   },
 ])
 
