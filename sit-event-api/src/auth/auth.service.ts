@@ -223,19 +223,41 @@ export class AuthService {
         return { user, isNewUser: false };
       }
     } else {
-      // For new users, determine initial role based on email domain
-      const initialRole = this.determineUserRole(keycloakUser.email);
-      this.logger.log(`Creating new user: ${keycloakUser.email} with initial role: ${initialRole}`);
+      // For new users, try to get existing role from Keycloak first
+      let roleToUse: UserRole | null = null;
+      let shouldAssignRoleToKeycloak = false;
       
-      // Assign initial role to Keycloak
-      await this.keycloakAdminService.assignRoleToUser(keycloakUser.sub, initialRole);
+      try {
+        const keycloakRole = await this.keycloakAdminService.getUserRole(keycloakUser.sub
+        );
+        if (keycloakRole) {
+           this.logger.log(`Found existing role ${keycloakRole} in Keycloak for new user ${keycloakUser.email}`);
+           roleToUse = keycloakRole;
+        }
+      } catch (error) {
+         this.logger.warn(`Failed to check existing Keycloak role for new user: ${error.message}`);
+      }
+      
+      // If no role found in Keycloak, determine based on email
+      if (!roleToUse) {
+        roleToUse = this.determineUserRole(keycloakUser.email);
+        shouldAssignRoleToKeycloak = true;
+        this.logger.log(`No existing role found. Determined initial role: ${roleToUse} for ${keycloakUser.email}`);
+      }
 
-      // Create new user with initial role
+      this.logger.log(`Creating new user: ${keycloakUser.email} with role: ${roleToUse}`);
+      
+      // Assign initial role to Keycloak if it wasn't there
+      if (shouldAssignRoleToKeycloak) {
+        await this.keycloakAdminService.assignRoleToUser(keycloakUser.sub, roleToUse);
+      }
+
+      // Create new user with role
       const user = await this.usersService.createUser({
         email: keycloakUser.email,
         firstName: keycloakUser.given_name,
         lastName: keycloakUser.family_name,
-        userRole: initialRole,
+        userRole: roleToUse,
       });
       
       return { user, isNewUser: true };
