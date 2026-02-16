@@ -284,6 +284,7 @@ interface SubSession {
   location: string
   maxSeats: number
   pointsAwarded: number
+  autoRegister: boolean
   isExpanded: boolean
   thumbnail: File | null
   previewUrl: string | null
@@ -512,6 +513,7 @@ onMounted(async () => {
             location: s.location,
             maxSeats: s.maxSeats,
             pointsAwarded: s.pointsAwarded,
+            autoRegister: s.autoRegister,
             isExpanded: false,
             thumbnail: null,
             previewUrl: null
@@ -615,7 +617,8 @@ const onSubmit = form.handleSubmit(async (values) => {
                 endTime: session.end.toISOString(),
                 location: session.location,
                 maxSeats: Number(session.maxSeats),
-                pointsAwarded: Number(session.pointsAwarded)
+                pointsAwarded: Number(session.pointsAwarded),
+                autoRegister: session.autoRegister
             }
 
             if (session.isNew) {
