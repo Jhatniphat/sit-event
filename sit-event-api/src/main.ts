@@ -3,7 +3,9 @@ import { AppModule } from './app.module';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import cookieParser from 'cookie-parser';
 import { ConfigService } from '@nestjs/config';
-import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { SwaggerModule } from '@nestjs/swagger';
+import * as fs from 'fs';
+import * as path from 'path';
 
 async function bootstrap() {
   process.env['NODE_TLS_REJECT_UNAUTHORIZED'] = '0';
@@ -20,29 +22,10 @@ async function bootstrap() {
   // Cookie parser middleware
   app.use(cookieParser());
 
-  // Swagger Configuration
-  const config = new DocumentBuilder()
-    .setTitle('SIT Event API')
-    .setDescription('API documentation for SIT Event Management System')
-    .setVersion('1.0')
-    .addTag('Event Sessions', 'Event session management endpoints')
-    .addTag('Events', 'Event management endpoints')
-    .addTag('Event Registrations', 'Event registration endpoints')
-    .addBearerAuth(
-      {
-        type: 'http',
-        scheme: 'bearer',
-        bearerFormat: 'JWT',
-        name: 'JWT',
-        description: 'Enter JWT token',
-        in: 'header',
-      },
-      'JWT-auth',
-    )
-    .build();
-
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api', app, document);
+  // Swagger Configuration — load from swagger.json
+  const swaggerJsonPath = path.join(process.cwd(), 'swagger.json');
+  const swaggerDocument = JSON.parse(fs.readFileSync(swaggerJsonPath, 'utf-8'));
+  SwaggerModule.setup('api', app, swaggerDocument);
 
   logger.log(`Swagger documentation available at: http://localhost:${configService.get('PORT') ?? 3000}/api`);
 
