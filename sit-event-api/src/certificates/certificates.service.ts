@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { MinioClientService } from '../minio/minio-client.service';
 import { CreateCertificateTemplateDto } from './dto/create-certificate-template.dto';
@@ -22,7 +22,7 @@ export class CertificatesService {
     file: Express.Multer.File,
   ) {
     if (!file) {
-      throw new BadRequestException('Background image file is required');
+      throw new Error('Background image file is required');
     }
 
     const uploadResult = await this.minioClient.uploadFile(file);
@@ -126,7 +126,7 @@ export class CertificatesService {
 
     if (dto.fieldType === FieldType.Image) {
       if (!file) {
-        throw new BadRequestException('File is required for Image field type');
+        throw new Error('File is required for Image field type');
       }
       const uploadResult = await this.minioClient.uploadFile(file);
       sourceFilepath = uploadResult.fileName;
