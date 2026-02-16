@@ -51,15 +51,13 @@ const showDialog = ref(false)
 const isPaused = ref(false)
 const isProcessing = ref(false)
 const errorMsg = ref('')
-
-// [NEW] State สำหรับเลือกโหมด Check-in
-// targetId: 'main' = Event หลัก, หรือเป็น sessionId = Sub-session นั้นๆ
 const selectedTargetId = ref<string>('main') 
-// [NEW] Dialog สำหรับกรณีต้อง Check-in Event ก่อน
 const showChainCheckInDialog = ref(false) 
 
 // --- Computed ---
+eventStore.fetchEventSessions(eventIdFromRoute) 
 const sessions = computed(() => eventStore.currentEventSessions)
+console.log(sessions.value)
 const currentEventName = computed(() => eventStore.currentEvent?.name || 'Event')
 
 // ชื่อของ Target ที่กำลังเลือกอยู่ (ไว้แสดงใน Dialog)

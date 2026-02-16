@@ -27,10 +27,24 @@ export class EventRegistrationsService {
   ) {
     const event = await this.prisma.event.findUnique({
       where: { id: eventId },
+      include: {
+        forms: true, // Include forms to check for PRE_EVENT
+      },
     });
     if (!event) {
       throw new NotFoundException(`Event with ID '${eventId}' not found.`);
     }
+
+    // Check if there is an active Pre-Event form
+    const hasActivePreEventForm = event.forms.some(
+      (form) => form.type === FormType.PRE_EVENT && form.isActive,
+    );
+
+    // Determine registration status
+    const initialStatus = hasActivePreEventForm
+      ? RegistrationStatus.PENDING
+      : RegistrationStatus.APPROVED;
+
     const user = await this.usersService.findByEmail(authenticatedUser.email);
     if (!user) {
       throw new NotFoundException(
@@ -54,6 +68,7 @@ export class EventRegistrationsService {
         data: {
           event: { connect: { id: eventId } },
           user: { connect: { id: user.id } },
+          status: initialStatus,
           // sessionId defaults to null
         },
       });
@@ -86,6 +101,7 @@ export class EventRegistrationsService {
                   event: { connect: { id: eventId } },
                   user: { connect: { id: user.id } },
                   session: { connect: { id: session.id } },
+                  status: initialStatus,
                 },
               });
 
@@ -406,6 +422,12 @@ export class EventRegistrationsService {
 
   // --- Check In Logic (Updated for Main Event Only) ---
   async checkInUser(eventId: string, userId: string) {
+    const isActive = this.eventRegistrationsGateway.isUserActive(userId);
+
+    if (!isActive) {
+      throw new BadRequestException('User is not active on QR Code page.');
+    }
+
     // 1. ค้นหาใบสมัคร Event หลัก (sessionId ต้องเป็น null)
     const registration = await this.prisma.eventRegistration.findFirst({
       where: {
@@ -454,6 +476,12 @@ export class EventRegistrationsService {
 
   // --- Check In Logic (New for Sub-Session) ---
   async checkInUserSession(eventId: string, userId: string, sessionId: string) {
+    const isActive = this.eventRegistrationsGateway.isUserActive(userId);
+
+    if (!isActive) {
+      throw new BadRequestException('User is not active on QR Code page.');
+    }
+
     // 1. ตรวจสอบก่อนว่า Check-in Event หลักหรือยัง
     const mainRegistration = await this.prisma.eventRegistration.findFirst({
       where: {

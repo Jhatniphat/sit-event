@@ -194,6 +194,7 @@ export const useEventStore = defineStore('events', {
         console.log('Before Push, Current Sessions:', this.currentEventSessions)
         console.log('New Session Created:', newSession)
         this.currentEventSessions.push(newSession)
+        console.log('After Push, Current Sessions:', this.currentEventSessions)
       } catch (error) {
         throw error
       }

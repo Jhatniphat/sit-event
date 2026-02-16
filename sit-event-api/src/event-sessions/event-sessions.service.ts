@@ -2,7 +2,7 @@ import { Injectable, NotFoundException, BadRequestException, ConflictException }
 import { CreateEventSessionDto } from './dto/create-event-session.dto';
 import { UpdateEventSessionDto } from './dto/update-event-session.dto';
 import { PrismaService } from '../prisma.service';
-import { EventSession, EventRegistration } from 'generated/prisma';
+import { EventSession, EventRegistration, FormType, RegistrationStatus } from 'generated/prisma';
 import { UsersService } from '../users/users.service';
 import { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 
@@ -163,6 +163,14 @@ export class EventSessionsService {
       where: {
         eventId: eventId,
         userId: user.id,
+        sessionId: null, // Check main event registration
+      },
+      include: {
+        event: {
+          include: {
+            forms: true,
+          },
+        },
       },
     });
 
@@ -171,6 +179,14 @@ export class EventSessionsService {
         'You must register for the event before registering for a session',
       );
     }
+
+    // Check pre-event form
+    const hasActivePreEventForm = eventRegistration.event.forms.some(
+      (f) => f.type === FormType.PRE_EVENT && f.isActive,
+    );
+    const initialStatus = hasActivePreEventForm
+      ? RegistrationStatus.PENDING
+      : RegistrationStatus.APPROVED;
 
     // ตรวจสอบว่าลงทะเปียน session นี้แล้วหรือยัง
     const existingSessionRegistration = await this.prisma.eventRegistration.findFirst({
@@ -193,6 +209,7 @@ export class EventSessionsService {
         eventId,
         userId: user.id,
         sessionId,
+        status: initialStatus,
       },
       include: {
         event: {

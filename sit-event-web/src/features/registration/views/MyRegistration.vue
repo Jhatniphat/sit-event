@@ -7,7 +7,7 @@ import MyStaffing from '../components/MyStaffing.vue'
 
 const router = useRouter()
 const registerStore = useRegistrationStore()
-const myBookRegis = computed(() => registerStore.myRegistrations ?? [])
+const myBookRegis = computed(() => (registerStore.myRegistrations ?? []).filter((r) => !r.sessionId))
 const myStaffRegis = computed(() => registerStore.myStaffStatus ?? [])
 const returnToHomePage = () => {
   router.push({ name: 'Home' })
