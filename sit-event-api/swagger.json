@@ -1,7 +1,7 @@
 {
   "openapi": "3.0.0",
   "info": {
-    "title": "Event Management API",
+    "title": "SIT Event API",
     "description": "Complete API documentation for the event management system with authentication, events, registrations, and staff management.",
     "version": "1.0.0"
   },
@@ -31,6 +31,10 @@
     {
       "name": "Users",
       "description": "User management endpoints."
+    },
+    {
+      "name": "Event Sessions",
+      "description": "Endpoints for managing event sessions, session registrations, and attendance."
     },
     {
       "name": "Event Forms",
@@ -329,8 +333,10 @@
         },
         "responses": {
           "201": { "description": "Event created successfully" },
+          "400": { "description": "Bad request - invalid input data" },
           "401": { "description": "Unauthorized" },
-          "403": { "description": "Forbidden" }
+          "403": { "description": "Forbidden" },
+          "404": { "description": "User not found" }
         }
       },
       "get": {
@@ -466,7 +472,9 @@
         "responses": {
           "201": { "description": "Registered successfully" },
           "400": { "description": "Bad request" },
-          "401": { "description": "Unauthorized" }
+          "401": { "description": "Unauthorized" },
+          "404": { "description": "Event or user not found" },
+          "409": { "description": "Already registered for this event" }
         }
       }
     },
@@ -742,6 +750,7 @@
         ],
         "responses": {
           "200": { "description": "User checked in successfully" },
+          "400": { "description": "Must check-in at main event first" },
           "401": { "description": "Unauthorized" },
           "404": { "description": "User or registration not found" }
         }
@@ -771,7 +780,9 @@
         "responses": {
           "201": { "description": "Application submitted, status PENDING" },
           "400": { "description": "Bad request" },
-          "401": { "description": "Unauthorized" }
+          "401": { "description": "Unauthorized" },
+          "404": { "description": "User or event not found" },
+          "409": { "description": "Already have an active application" }
         }
       }
     },
@@ -859,7 +870,9 @@
           "201": { "description": "Staff entry created" },
           "400": { "description": "Bad request" },
           "401": { "description": "Unauthorized" },
-          "403": { "description": "Forbidden" }
+          "403": { "description": "Forbidden" },
+          "404": { "description": "User or event not found" },
+          "409": { "description": "User is already a staff member" }
         }
       }
     },
@@ -921,6 +934,232 @@
           "401": { "description": "Unauthorized" },
           "403": { "description": "Forbidden" },
           "404": { "description": "Staff entry not found" }
+        }
+      }
+    },
+    "/events/{eventId}/sessions": {
+      "post": {
+        "tags": ["Event Sessions"],
+        "summary": "Create a new session for an event (Organizer only)",
+        "description": "Creates a new session within an event with time, location, and seat configuration.",
+        "security": [{ "JWT-auth": [] }],
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" },
+            "description": "Event ID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateEventSessionDto" }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Session created successfully" },
+          "400": { "description": "Invalid input data (e.g., start time after end time)" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden - Organizer access required" },
+          "404": { "description": "Event not found" }
+        }
+      },
+      "get": {
+        "tags": ["Event Sessions"],
+        "summary": "Get all sessions for an event (Public)",
+        "description": "Returns all sessions for a specific event ordered by start time.",
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" },
+            "description": "Event ID"
+          }
+        ],
+        "responses": {
+          "200": { "description": "List of all sessions for the event" },
+          "404": { "description": "Event not found" }
+        }
+      }
+    },
+    "/events/{eventId}/sessions/me/registered": {
+      "get": {
+        "tags": ["Event Sessions"],
+        "summary": "Get my registered sessions in an event",
+        "description": "Returns all sessions that the current user has registered for in a specific event.",
+        "security": [{ "JWT-auth": [] }],
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" },
+            "description": "Event ID"
+          }
+        ],
+        "responses": {
+          "200": { "description": "List of registered sessions" },
+          "401": { "description": "Unauthorized" },
+          "404": { "description": "Event or user not found" }
+        }
+      }
+    },
+    "/events/{eventId}/sessions/users/{userId}/registered": {
+      "get": {
+        "tags": ["Event Sessions"],
+        "summary": "Get registered sessions for a specific user (Organizer only)",
+        "description": "Returns all sessions a specific user has registered for in an event.",
+        "security": [{ "JWT-auth": [] }],
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" },
+            "description": "Event ID"
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" },
+            "description": "User ID"
+          }
+        ],
+        "responses": {
+          "200": { "description": "List of registered sessions for the user" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden - Organizer access required" },
+          "404": { "description": "Event or user not found" }
+        }
+      }
+    },
+    "/events/{eventId}/sessions/{sessionId}": {
+      "get": {
+        "tags": ["Event Sessions"],
+        "summary": "Get a specific session by ID (Public)",
+        "description": "Returns detailed information about a specific session including registrations.",
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" },
+            "description": "Event ID"
+          },
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" },
+            "description": "Session ID"
+          }
+        ],
+        "responses": {
+          "200": { "description": "Session details with registrations" },
+          "404": { "description": "Session not found or does not belong to event" }
+        }
+      },
+      "patch": {
+        "tags": ["Event Sessions"],
+        "summary": "Update a session (Organizer only)",
+        "description": "Updates session details such as name, time, location, or seats.",
+        "security": [{ "JWT-auth": [] }],
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" },
+            "description": "Event ID"
+          },
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" },
+            "description": "Session ID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpdateEventSessionDto" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Session updated successfully" },
+          "400": { "description": "Invalid data (e.g., start time after end time, maxSeats below registered count)" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden - Organizer access required" },
+          "404": { "description": "Session not found or does not belong to event" }
+        }
+      },
+      "delete": {
+        "tags": ["Event Sessions"],
+        "summary": "Delete a session (Organizer only)",
+        "description": "Deletes a session. Associated registrations will be cascade deleted.",
+        "security": [{ "JWT-auth": [] }],
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" },
+            "description": "Event ID"
+          },
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" },
+            "description": "Session ID"
+          }
+        ],
+        "responses": {
+          "204": { "description": "Session deleted successfully" },
+          "400": { "description": "Session does not belong to event" },
+          "401": { "description": "Unauthorized" },
+          "403": { "description": "Forbidden - Organizer access required" },
+          "404": { "description": "Session not found" }
+        }
+      }
+    },
+    "/events/{eventId}/sessions/{sessionId}/register": {
+      "post": {
+        "tags": ["Event Sessions"],
+        "summary": "Register for a specific session",
+        "description": "Registers the current user for a session. User must have registered for the event first.",
+        "security": [{ "JWT-auth": [] }],
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" },
+            "description": "Event ID"
+          },
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" },
+            "description": "Session ID"
+          }
+        ],
+        "responses": {
+          "201": { "description": "Successfully registered for the session" },
+          "400": { "description": "Must register for event first or session does not belong to event" },
+          "401": { "description": "Unauthorized" },
+          "404": { "description": "Session or user not found" },
+          "409": { "description": "Already registered for this session" }
         }
       }
     },
@@ -1292,6 +1531,8 @@
         "responses": {
           "201": { "description": "Form successfully submitted" },
           "400": { "description": "Form not active or required fields missing" },
+          "403": { "description": "Must register and/or check-in before submitting" },
+          "404": { "description": "Form or user not found" },
           "409": { "description": "User already submitted this form" }
         }
       }
@@ -1316,7 +1557,8 @@
           }
         ],
         "responses": {
-          "200": { "description": "Returns user submission or null" }
+          "200": { "description": "Returns user submission or null" },
+          "404": { "description": "User not found" }
         }
       }
     },
@@ -1772,6 +2014,69 @@
           "website": { "type": "string", "format": "uri" },
           "needWifi": { "type": "boolean" },
           "certificateCriteria": { "type": "string" }
+        }
+      },
+      "CreateEventSessionDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Session name",
+            "example": "Opening Ceremony"
+          },
+          "description": {
+            "type": "string",
+            "description": "Session description",
+            "example": "Opening ceremony for the event"
+          },
+          "startTime": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Session start time in ISO 8601 format",
+            "example": "2026-03-01T09:00:00Z"
+          },
+          "endTime": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Session end time in ISO 8601 format",
+            "example": "2026-03-01T12:00:00Z"
+          },
+          "location": {
+            "type": "string",
+            "description": "Session location",
+            "example": "Main Hall, Building A"
+          },
+          "maxSeats": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Maximum number of seats available",
+            "example": 100
+          },
+          "autoRegister": {
+            "type": "boolean",
+            "default": false,
+            "description": "Auto-register participants when they register for the event"
+          },
+          "pointsAwarded": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Points awarded for attending this session",
+            "example": 10
+          }
+        },
+        "required": ["name", "startTime", "endTime", "maxSeats"]
+      },
+      "UpdateEventSessionDto": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "description": { "type": "string" },
+          "startTime": { "type": "string", "format": "date-time" },
+          "endTime": { "type": "string", "format": "date-time" },
+          "location": { "type": "string" },
+          "maxSeats": { "type": "integer", "minimum": 1 },
+          "autoRegister": { "type": "boolean" },
+          "pointsAwarded": { "type": "integer", "minimum": 0 }
         }
       },
       "ApplyToBeStaffDto": {
