@@ -7,9 +7,9 @@ import {
   type EventRegistration,
   type RegisterForEventDto,
   type PaginationMeta,
-  type EventSession,     
-  type CreateSessionDto, 
-  type UpdateSessionDto  
+  type EventSession,
+  type CreateSessionDto,
+  type UpdateSessionDto
 } from '@/features/event_management/services/EventServices'
 import { type ParsedApiError } from '@/shared/utils/FetchUtils'
 
@@ -45,6 +45,7 @@ export const useEventStore = defineStore('events', {
     events: [],
     pagination: null,
     currentEvent: null,
+    currentEventSessions: [],
     myRegistrations: [],
     isLoadingList: false,
     isLoadingDetail: false,
@@ -68,7 +69,7 @@ export const useEventStore = defineStore('events', {
      */
     async fetchAllEvents(page: number, limit: number) {
       if (this.events.length > 0 && this.pagination?.page === page) {
-         // logic cache อย่างง่าย
+        // logic cache อย่างง่าย
       }
       this.isLoadingList = true
       this.error = null
@@ -86,9 +87,9 @@ export const useEventStore = defineStore('events', {
     async fetchEventById(id: string) {
       // Clear previous sessions when switching event detail
       if (this.currentEvent?.id !== id) {
-        this.currentEventSessions = [] 
+        this.currentEventSessions = []
       }
-      
+
       this.isLoadingDetail = true
       this.error = null
       try {
@@ -97,9 +98,9 @@ export const useEventStore = defineStore('events', {
         // Update list if exists
         const index = this.events.findIndex(e => e.id === id)
         if (index === -1) {
-            this.events.push(data)
+          this.events.push(data)
         } else {
-            this.events[index] = data
+          this.events[index] = data
         }
       } catch (error) {
         this.error = handleError(error, 'Failed to fetch event details.')
@@ -175,7 +176,7 @@ export const useEventStore = defineStore('events', {
     },
 
     // * ===== Session Actions =====
-    
+
     async fetchEventSessions(eventId: string) {
       try {
         const sessions = await EventService.getEventSessions(eventId)
