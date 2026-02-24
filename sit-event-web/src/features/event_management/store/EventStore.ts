@@ -181,21 +181,15 @@ export const useEventStore = defineStore('events', {
       try {
         const sessions = await EventService.getEventSessions(eventId)
         this.currentEventSessions = sessions
-        console.log('Fetched Sessions:', sessions)
-        console.log('Current Store Sessions:', this.currentEventSessions)
       } catch (error) {
         console.error(handleError(error, 'Failed to fetch sessions'))
-        // ไม่ throw error เพื่อไม่ให้บล็อกการทำงานหลัก แค่ sessions ไม่ขึ้น
       }
     },
 
     async createSession(eventId: string, sessionData: CreateSessionDto) {
       try {
         const newSession = await EventService.createSession(eventId, sessionData)
-        console.log('Before Push, Current Sessions:', this.currentEventSessions)
-        console.log('New Session Created:', newSession)
         this.currentEventSessions.push(newSession)
-        console.log('After Push, Current Sessions:', this.currentEventSessions)
       } catch (error) {
         throw error
       }
