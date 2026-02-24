@@ -13,7 +13,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 // เพิ่ม import icons สำหรับ Mobile Menu (Menu, X)
-import { ChevronDown, LayoutDashboard, Calendar, User, LogOut, Globe, Menu, X, MessageSquareWarning } from 'lucide-vue-next';
+import { ChevronDown, LayoutDashboard, Calendar, User, LogOut, Globe, Menu, X, MessageSquareWarning, Server } from 'lucide-vue-next';
 
 const authStore = useAuthStore();
 const router = useRouter();
@@ -81,6 +81,10 @@ const isAuthenticated = computed(() => authStore.isAuthenticated);
                 <DropdownMenuItem @click="navigateTo('/admin/dashboard')">
                   <LayoutDashboard class="mr-2 h-4 w-4" />
                   <span>Dashboard</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem @click="navigateTo('/admin/server-status')">
+                  <Server class="mr-2 h-4 w-4" />
+                  <span>Server Status</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem @click="navigateTo('/admin/events')">
                   <Calendar class="mr-2 h-4 w-4" />
@@ -188,6 +192,14 @@ const isAuthenticated = computed(() => authStore.isAuthenticated);
           >
             <LayoutDashboard class="mr-2 h-4 w-4" />
             Dashboard
+          </Button>
+          <Button 
+            variant="ghost" 
+            class="w-full justify-start pl-8" 
+            @click="navigateTo('/admin/server-status')"
+          >
+            <Server class="mr-2 h-4 w-4" />
+            Server Status
           </Button>
           <Button 
             variant="ghost" 

@@ -20,6 +20,15 @@ const allAuthenticated = [...adminRoles, ...userRoles]
 const routes: Array<RouteRecordRaw> = [
   // --- Admin/Organizer Routes (Requires Admin/Organizer Role) ---
   {
+    path: '/admin/server-status',
+    name: 'ServerStatus',
+    component: () => import('@/views/admin/ServerStatusView.vue'),
+    meta: {
+      requiresAuth: true,
+      roles: adminRoles,
+    },
+  },
+  {
     path: '/admin/events',
     name: 'OrgEventView',
     component: () => import('../features/event_management/views/OrgEventView.vue'),
