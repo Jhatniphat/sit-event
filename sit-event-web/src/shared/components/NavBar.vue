@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
-import { useRouter } from 'vue-router';
-import { useAuthStore } from '@/features/auth/stores/auth.store'; 
+import { ref, computed } from 'vue'
+import { useRouter } from 'vue-router'
+import { useAuthStore } from '@/features/auth/stores/auth.store'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,61 +9,72 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Button } from '@/components/ui/button';
+} from '@/components/ui/dropdown-menu'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Button } from '@/components/ui/button'
 // เพิ่ม import icons สำหรับ Mobile Menu (Menu, X)
-import { ChevronDown, LayoutDashboard, Calendar, User, LogOut, Globe, Menu, X, MessageSquareWarning, Server } from 'lucide-vue-next';
+import {
+  ChevronDown,
+  LayoutDashboard,
+  Calendar,
+  User,
+  LogOut,
+  Globe,
+  Menu,
+  X,
+  MessageSquareWarning,
+  Server,
+} from 'lucide-vue-next'
 
-const authStore = useAuthStore();
-const router = useRouter();
-const isMobileMenuOpen = ref(false); // State สำหรับเปิด/ปิดเมนูมือถือ
+const authStore = useAuthStore()
+const router = useRouter()
+const isMobileMenuOpen = ref(false) // State สำหรับเปิด/ปิดเมนูมือถือ
 
 // --- Computed ---
 const isAdminOrOrganizer = computed(() => {
-  const role = authStore.user?.userRole;
-  return role === 'Organizer' || role === 'Admin' || role === 'ADMIN' || role === 'ORGANIZER';
-});
+  const role = authStore.user?.userRole
+  return role === 'Organizer' || role === 'Admin' || role === 'ADMIN' || role === 'ORGANIZER'
+})
 
 const userInitials = computed(() => {
-  if (!authStore.user) return 'UE';
-  return `${authStore.user.firstName.charAt(0)}${authStore.user.lastName.charAt(0)}`.toUpperCase();
-});
+  if (!authStore.user) return 'UE'
+  return `${authStore.user.firstName.charAt(0)}${authStore.user.lastName.charAt(0)}`.toUpperCase()
+})
 
 // --- Actions ---
-const handleLogin = () => authStore.loginRedirect();
-const handleLogout = () => authStore.logoutRedirect();
+const handleLogin = () => authStore.loginRedirect()
+const handleLogout = () => authStore.logoutRedirect()
 
 const navigateTo = (path: string) => {
-  router.push(path);
-  isMobileMenuOpen.value = false; // ปิดเมนูเมื่อเปลี่ยนหน้า
-};
+  router.push(path)
+  isMobileMenuOpen.value = false // ปิดเมนูเมื่อเปลี่ยนหน้า
+}
 
 const toggleMobileMenu = () => {
-  isMobileMenuOpen.value = !isMobileMenuOpen.value;
-};
+  isMobileMenuOpen.value = !isMobileMenuOpen.value
+}
 
-const isAuthenticated = computed(() => authStore.isAuthenticated);
+const isAuthenticated = computed(() => authStore.isAuthenticated)
 </script>
 
 <template>
   <nav class="border-b bg-white dark:bg-gray-950 shadow-sm relative z-50">
     <div class="container mx-auto px-4 py-3">
       <div class="flex items-center justify-between">
-        
         <div class="flex items-center gap-6">
-          <a 
+          <a
             id="sit-event-home"
-            href="#" 
-            @click.prevent="navigateTo('/')" 
+            href="#"
+            @click.prevent="navigateTo('/')"
             class="text-xl font-bold text-primary hover:opacity-80 transition-opacity"
           >
             SIT Event
           </a>
 
           <div class="hidden md:flex items-center gap-4 text-gray-800">
-            <Button v-if="isAuthenticated && !isAdminOrOrganizer"
-              variant="ghost" 
+            <Button
+              v-if="isAuthenticated && !isAdminOrOrganizer"
+              variant="ghost"
               @click="navigateTo('/myactivities')"
               class="text-sm font-medium"
             >
@@ -96,14 +107,20 @@ const isAuthenticated = computed(() => authStore.isAuthenticated);
         </div>
 
         <div class="flex items-center gap-2">
-          
           <div v-if="authStore.isAuthenticated" class="flex items-center text-gray-800">
             <DropdownMenu>
               <DropdownMenuTrigger as-child>
-                <Button variant="ghost" class="flex items-center gap-2 px-2 hover:bg-slate-100 rounded-full h-auto py-1">
+                <Button
+                  variant="ghost"
+                  class="flex items-center gap-2 px-2 hover:bg-slate-100 rounded-full h-auto py-1"
+                >
                   <div class="text-right hidden sm:block">
-                    <p class="text-sm font-medium leading-none" id="username">{{ authStore.user?.firstName }} {{ authStore.user?.lastName }}</p>
-                    <p class="text-xs text-muted-foreground" id="role">{{ authStore.user?.userRole }}</p>
+                    <p class="text-sm font-medium leading-none" id="username">
+                      {{ authStore.user?.firstName }} {{ authStore.user?.lastName }}
+                    </p>
+                    <p class="text-xs text-muted-foreground" id="role">
+                      {{ authStore.user?.userRole }}
+                    </p>
                   </div>
                   <Avatar class="h-8 w-8 sm:h-9 sm:w-9 border">
                     <AvatarImage src="" alt="User Avatar" />
@@ -112,15 +129,15 @@ const isAuthenticated = computed(() => authStore.isAuthenticated);
                   <ChevronDown class="h-4 w-4 opacity-50 hidden sm:block" />
                 </Button>
               </DropdownMenuTrigger>
-              
+
               <DropdownMenuContent align="end" class="w-56">
                 <DropdownMenuLabel class="sm:hidden">
                   {{ authStore.user?.firstName }} {{ authStore.user?.lastName }}
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator class="sm:hidden" />
-                <DropdownMenuItem @click="navigateTo('/profile/edit')">
+                <DropdownMenuItem @click="navigateTo('/profile/me')">
                   <User class="mr-2 h-4 w-4" />
-                  <span>Edit Profile</span>
+                  <span>My Profile</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem>
                   <Globe class="mr-2 h-4 w-4" />
@@ -128,7 +145,10 @@ const isAuthenticated = computed(() => authStore.isAuthenticated);
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem as-child>
-                  <a href="mailto:jhatniphat.sara+sitems@gmail.com?subject=Report%20Probleam%20and%20Feedback%20-%20SIT%20Event" class="w-full cursor-pointer">
+                  <a
+                    href="mailto:jhatniphat.sara+sitems@gmail.com?subject=Report%20Probleam%20and%20Feedback%20-%20SIT%20Event"
+                    class="w-full cursor-pointer"
+                  >
                     <MessageSquareWarning class="mr-2 h-4 w-4" />
                     <span>Report & Feedback</span>
                   </a>
@@ -144,40 +164,43 @@ const isAuthenticated = computed(() => authStore.isAuthenticated);
 
           <div v-else class="hidden md:flex items-center gap-2">
             <Button variant="ghost" class="text-muted-foreground" as-child>
-               <a href="mailto:jhatniphat.sara+sitems@gmail.com?subject=Report%20Probleam%20and%20Feedback%20-%20SIT%20Event">
+              <a
+                href="mailto:jhatniphat.sara+sitems@gmail.com?subject=Report%20Probleam%20and%20Feedback%20-%20SIT%20Event"
+              >
                 <!-- <MessageSquareWarning class="mr-2 h-4 w-4" /> -->
                 Report & Feedback
-               </a>
+              </a>
             </Button>
             <Button @click="handleLogin">Login</Button>
           </div>
 
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            class="md:hidden ml-1" 
-            @click="toggleMobileMenu"
-          >
+          <Button variant="ghost" size="icon" class="md:hidden ml-1" @click="toggleMobileMenu">
             <X v-if="isMobileMenuOpen" class="h-5 w-5" />
             <Menu v-else class="h-5 w-5" />
           </Button>
         </div>
       </div>
 
-      <div v-if="isMobileMenuOpen" class="md:hidden mt-3 border-t pt-4 space-y-3 pb-2 animate-in slide-in-from-top-2 duration-200">
+      <div
+        v-if="isMobileMenuOpen"
+        class="md:hidden mt-3 border-t pt-4 space-y-3 pb-2 animate-in slide-in-from-top-2 duration-200"
+      >
         <div v-if="!authStore.isAuthenticated" class="px-2 space-y-2">
-           <Button class="w-full" @click="handleLogin">Login</Button>
-           <Button variant="outline" class="w-full justify-start" as-child>
-             <a href="mailto:jhatniphat.sara+sitems@gmail.com?subject=Report%20Probleam%20and%20Feedback%20-%20SIT%20Event">
-                <MessageSquareWarning class="mr-2 h-4 w-4" />
-                Report & Feedback
-             </a>
-           </Button>
+          <Button class="w-full" @click="handleLogin">Login</Button>
+          <Button variant="outline" class="w-full justify-start" as-child>
+            <a
+              href="mailto:jhatniphat.sara+sitems@gmail.com?subject=Report%20Probleam%20and%20Feedback%20-%20SIT%20Event"
+            >
+              <MessageSquareWarning class="mr-2 h-4 w-4" />
+              Report & Feedback
+            </a>
+          </Button>
         </div>
 
-        <Button v-if="isAuthenticated && !isAdminOrOrganizer"
-          variant="ghost" 
-          class="w-full justify-start text-base" 
+        <Button
+          v-if="isAuthenticated && !isAdminOrOrganizer"
+          variant="ghost"
+          class="w-full justify-start text-base"
           @click="navigateTo('/myactivities')"
         >
           My Booking
@@ -185,25 +208,25 @@ const isAuthenticated = computed(() => authStore.isAuthenticated);
 
         <div v-if="isAdminOrOrganizer" class="space-y-1 pt-2 border-t mt-2">
           <p class="px-4 text-xs font-semibold text-muted-foreground uppercase mb-2">My Admin</p>
-          <Button 
-            variant="ghost" 
-            class="w-full justify-start pl-8" 
+          <Button
+            variant="ghost"
+            class="w-full justify-start pl-8"
             @click="navigateTo('/admin/dashboard')"
           >
             <LayoutDashboard class="mr-2 h-4 w-4" />
             Dashboard
           </Button>
-          <Button 
-            variant="ghost" 
-            class="w-full justify-start pl-8" 
+          <Button
+            variant="ghost"
+            class="w-full justify-start pl-8"
             @click="navigateTo('/admin/server-status')"
           >
             <Server class="mr-2 h-4 w-4" />
             Server Status
           </Button>
-          <Button 
-            variant="ghost" 
-            class="w-full justify-start pl-8" 
+          <Button
+            variant="ghost"
+            class="w-full justify-start pl-8"
             @click="navigateTo('/admin/events')"
           >
             <Calendar class="mr-2 h-4 w-4" />

@@ -97,6 +97,18 @@ const routes: Array<RouteRecordRaw> = [
     },
   },
   {
+    path: '/profile/me',
+    name: 'MyProfile',
+    component: () => import('../features/users/views/ProfileView.vue'),
+    meta: { requiresAuth: true, roles: allAuthenticated },
+  },
+  {
+    path: '/profile/me/edit',
+    name: 'EditMyProfile',
+    component: () => import('../features/users/views/ProfileEdit.vue'),
+    meta: { requiresAuth: true, roles: allAuthenticated },
+  },
+  {
     path: '/events/:id/register/qrcode',
     name: 'ShowQRCode',
     props: true,
