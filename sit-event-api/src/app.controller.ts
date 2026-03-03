@@ -4,7 +4,7 @@ import { Public } from 'nest-keycloak-connect';
 
 @Controller()
 export class AppController {
-  constructor(private readonly appService: AppService) {}
+  constructor(private readonly appService: AppService) { }
 
   @Public()
   @Get()
@@ -26,5 +26,33 @@ export class AppController {
   @Get('prisma-status')
   async getPrismaStatus() {
     return this.appService.getPrismaStatus();
+  }
+
+  @Public()
+  @Get('status/redis')
+  async getRedisStatus() {
+    return this.appService.getRedisStatus();
+  }
+
+  @Public()
+  @Get('status/keycloak')
+  async getKeycloakStatus() {
+    return this.appService.getKeycloakStatus();
+  }
+
+  @Public()
+  @Get('status')
+  async getAllStatus() {
+    return this.appService.getAllStatus();
+  }
+
+  @Public()
+  @Get('status/websocket')
+  getWebsocketTest() {
+    return {
+      status: 'ok',
+      message: 'WebSocket endpoint is ready for connection from frontend',
+      timestamp: new Date().toISOString(),
+    };
   }
 }

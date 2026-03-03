@@ -1,7 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { PrismaService } from '../prisma.service';
+import { AuthenticatedUser } from '../common';
 
 @Injectable()
 export class UsersService {
@@ -17,6 +18,28 @@ export class UsersService {
     return this.prisma.user.findUnique({
       where: { email },
     });
+  }
+
+  async getProfile(keycloakUser: AuthenticatedUser) {
+    // ดึงข้อมูลจาก database โดยใช้ email
+    const dbUser = await this.prisma.user.findUnique({
+      where: { email: keycloakUser.email },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        phoneNumber: true,
+        school: true,
+        roleInSchool: true,
+        province: true,
+      },
+    });
+
+    if (!dbUser) {
+      throw new NotFoundException('User not found in database');
+    }
+    return dbUser;
   }
 
   async updateUser(id: string, userData: UpdateUserDto) {

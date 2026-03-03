@@ -3,10 +3,16 @@ import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { Public } from 'nest-keycloak-connect';
+import { CurrentUser, type AuthenticatedUser } from '../common';
 
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
+
+  @Get('me')
+  getMyProfile(@CurrentUser() user: AuthenticatedUser) {
+    return this.usersService.getProfile(user);
+  }
 
   @Post()
   @Public()

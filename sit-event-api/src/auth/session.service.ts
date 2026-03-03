@@ -46,7 +46,7 @@ export class SessionService {
   private async initializeRedis() {
     try {
       const redisUrl = this.configService.get('REDIS_URL') || 'redis://localhost:6379';
-      
+
       this.redisClient = createClient({
         url: redisUrl,
       });
@@ -115,7 +115,7 @@ export class SessionService {
       const cookieValue = this.createSignedCookie(sessionId);
 
       this.logger.log(`Session created for user: ${user.email} with ID: ${sessionId}`);
-      
+
       return { sessionId, cookieValue };
     } catch (error) {
       this.logger.error('Failed to create session:', error);
@@ -167,21 +167,21 @@ export class SessionService {
 
       // Parse and verify signed cookie
       const sessionId = this.verifySignedCookie(cookieValue);
-      
+
       if (!sessionId) {
         throw new UnauthorizedException('Invalid session cookie signature');
       }
 
       // Get session data from Redis
       const sessionData = await this.getSession(sessionId);
-      
+
       if (!sessionData) {
         throw new UnauthorizedException('Session not found or expired');
       }
 
       // Check if access token is expired and refresh if needed
       const refreshedSession = await this.refreshAccessTokenIfNeeded(sessionData);
-      
+
       return refreshedSession;
     } catch (error) {
       this.logger.error('Session validation failed:', error);
@@ -364,7 +364,7 @@ export class SessionService {
       const cookieData: CookieSession = JSON.parse(cookieDataString);
 
       const expectedSignature = this.signData(cookieData.sessionId);
-      
+
       if (cookieData.signature === expectedSignature) {
         return cookieData.sessionId;
       }
@@ -420,6 +420,25 @@ export class SessionService {
       }
     } catch (error) {
       this.logger.error('Error disconnecting Redis client:', error);
+    }
+  }
+
+  /**
+   * Check Redis connection status
+   */
+  async getRedisStatus() {
+    try {
+      if (!this.redisClient) {
+        return { status: 'error', message: 'Redis client is not initialized' };
+      }
+      await this.redisClient.ping();
+      return { status: 'ok', message: 'Redis is connected' };
+    } catch (error) {
+      return {
+        status: 'error',
+        message: 'Failed to connect to Redis',
+        error: error.message,
+      };
     }
   }
 }

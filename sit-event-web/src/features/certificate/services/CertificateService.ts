@@ -4,10 +4,37 @@ import { type ParsedApiError } from '@/shared/utils/FetchUtils'
 // ===== 1. Interfaces & Types =====
 
 // Re-export or Define types needed for the service
+export interface BackendCertificateElement {
+  templateId: string;
+  fieldName: string;
+  fieldType: string;
+  x: number;
+  y: number;
+  width: number | null;
+  height: number | null;
+  placeHolder: string | null;
+  fontSize: number | null;
+  fontFamily: string | null;
+  color: string | null;
+  fontWeight: string | null;
+  textAlign: string | null;
+  dateFormat: string | null;
+  id: string;
+  sourceFilepath: string | null;
+}
+
+export interface EventCertificateResponse {
+  templateUrl: string;
+  elements: BackendCertificateElement[];
+  eventId: string;
+  id: string;
+  templateFilepath: string;
+}
+
 export interface CertificateTemplate {
   id: string
   eventId: string
-  backgroundUrl?: string // สมมติว่า backend return url หรือ path
+  backgroundUrl?: string
   createdAt: string
   updatedAt: string
 }
@@ -37,21 +64,26 @@ function isApiError(error: unknown): error is ParsedApiError {
 
 // ===== 3. Certificate Service Methods =====
 export const CertificateService = {
-  
+
   // --- Templates ---
 
   /**
    * ดึง Template ตาม Event ID
    * [GET] /certificates/templates?eventId=...
    */
-  async getTemplateByEventId(eventId: string): Promise<CertificateTemplate | null> {
+  async getTemplateByEventId(eventId: string): Promise<EventCertificateResponse | null> {
     try {
-      const response = await apiClient.get<CertificateTemplate[], CertificateTemplate[]>(
-        `/certificates/templates`, 
+      const response = await apiClient.get<any, any>(
+        `/certificates/templates`,
         { params: { eventId } }
       )
-      // Return the first one found or null
-      return response && response.length > 0 ? response[0] : null
+
+      if (Array.isArray(response) && response.length > 0) {
+        return response[0] as EventCertificateResponse
+      } else if (response && !Array.isArray(response) && response.id) {
+        return response as EventCertificateResponse
+      }
+      return null
     } catch (error: unknown) {
       if (isApiError(error)) {
         console.error(`[CertificateService.getTemplateByEventId] API Error ${error.status}: ${error.message}`)

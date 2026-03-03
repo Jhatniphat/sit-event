@@ -20,6 +20,15 @@ const allAuthenticated = [...adminRoles, ...userRoles]
 const routes: Array<RouteRecordRaw> = [
   // --- Admin/Organizer Routes (Requires Admin/Organizer Role) ---
   {
+    path: '/admin/server-status',
+    name: 'ServerStatus',
+    component: () => import('@/views/admin/ServerStatusView.vue'),
+    meta: {
+      requiresAuth: true,
+      roles: adminRoles,
+    },
+  },
+  {
     path: '/admin/events',
     name: 'OrgEventView',
     component: () => import('../features/event_management/views/OrgEventView.vue'),
@@ -86,6 +95,18 @@ const routes: Array<RouteRecordRaw> = [
       requiresAuth: true,
       roles: allAuthenticated,
     },
+  },
+  {
+    path: '/profile/me',
+    name: 'MyProfile',
+    component: () => import('../features/users/views/ProfileView.vue'),
+    meta: { requiresAuth: true, roles: allAuthenticated },
+  },
+  {
+    path: '/profile/me/edit',
+    name: 'EditMyProfile',
+    component: () => import('../features/users/views/ProfileEdit.vue'),
+    meta: { requiresAuth: true, roles: allAuthenticated },
   },
   {
     path: '/events/:id/register/qrcode',
