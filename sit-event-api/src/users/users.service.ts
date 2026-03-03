@@ -6,7 +6,7 @@ import { AuthenticatedUser } from '../common';
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   async createUser(userData: CreateUserDto) {
     return this.prisma.user.create({
@@ -40,6 +40,23 @@ export class UsersService {
       throw new NotFoundException('User not found in database');
     }
     return dbUser;
+  }
+
+  async updateMyProfile(keycloakUser: AuthenticatedUser, updateData: UpdateUserDto) {
+    const user = await this.getProfile(keycloakUser);
+
+    return this.prisma.user.update({
+      where: { id: user.id },
+      data: updateData,
+    });
+  }
+
+  async deleteMyProfile(keycloakUser: AuthenticatedUser) {
+    const user = await this.getProfile(keycloakUser);
+
+    return this.prisma.user.delete({
+      where: { id: user.id },
+    });
   }
 
   async updateUser(id: string, userData: UpdateUserDto) {
