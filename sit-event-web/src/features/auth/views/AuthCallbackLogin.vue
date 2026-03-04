@@ -15,15 +15,20 @@ onMounted(async () => {
   if (code) {
     try {
       await authStore.handleLoginCallback(code)
-      await authStore.checkSession()
-      router.push('/')
+      
+      const redirectUrl = localStorage.getItem('redirect_url')
+      if (redirectUrl) {
+        localStorage.removeItem('redirect_url')
+        router.push(redirectUrl)
+      } else {
+        router.push('/')
+      }
     } catch (error) {
       console.error('Authentication failed:', error)
       toast.error('Authentication failed. Please try logging in again.')
       router.push('/')
     }
   } else {
-    // กรณีไม่มี Code ให้กลับไปหน้าแรกทันที
     router.push('/')
   }
 })

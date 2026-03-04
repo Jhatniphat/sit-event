@@ -38,16 +38,19 @@ export const useAuthStore = defineStore('auth', () => {
       return;
     }
     try {
+      localStorage.setItem('redirect_url', window.location.pathname + window.location.search);
       await authService.startLoginRedirect();
     } catch (error) {
       console.error('Login failed to start:', error);
     }
   }
 
-  function loginRedirect() {
+  function loginRedirect(redirectUrl?: string) {
+    const urlToSave = redirectUrl || window.location.pathname + window.location.search;
+    localStorage.setItem('redirect_url', urlToSave);
     window.location.href = `${import.meta.env.VITE_API_BASE_URL}/auth/login`;
   }
-  
+
   function logoutRedirect() {
     window.location.href = `${import.meta.env.VITE_API_BASE_URL}/auth/logout`;
   }
@@ -63,11 +66,9 @@ export const useAuthStore = defineStore('auth', () => {
       user.value = response.user;
       accessToken.value = sessionResponse.session?.accessToken || null;
       refreshToken.value = sessionResponse.session?.refreshToken || null;
-      
-      router.push({ name: 'Home' });
     } catch (error) {
       console.error('Login callback failed:', error);
-      router.push({ name: 'Home' });
+      throw error;
     }
   }
 

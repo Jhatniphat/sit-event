@@ -39,6 +39,10 @@ onMounted(async () => {
   try {
     // 1. โหลดข้อมูล Event
     await eventStore.fetchEventById(eventId)
+    
+    if (eventStore.error || !eventStore.currentEvent || eventStore.currentEvent.id !== eventId) {
+      throw new Error(eventStore.error || 'ไม่พบข้อมูลกิจกรรม')
+    }
 
     // 2. โหลดข้อมูล Sub-Sessions
     await eventStore.fetchEventSessions(eventId)
@@ -48,10 +52,10 @@ onMounted(async () => {
       await registerStore.fetchMyRegistrations()
       await registerStore.fetchMyStaffStatus()
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error(error)
-    toast.error('ไม่พบข้อมูลกิจกรรม')
-    router.push('/')
+    toast.error(error?.response?.data?.message || error.message || 'เกิดข้อผิดพลาด')
+    router.replace({ path: '/404', query: { error: 'event' } })
   } finally {
     isLoading.value = false
   }
