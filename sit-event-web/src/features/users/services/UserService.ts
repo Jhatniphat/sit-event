@@ -10,7 +10,15 @@ export interface Profileinfo {
   province?: string
   roleInSchool?: string
   school?: string
-  // เพิ่ม field อื่นๆ ตามที่ API return มาจริง
+}
+
+export interface UpdateUserDto {
+  firstName?: string
+  lastName?: string
+  phoneNumber?: string
+  school?: string
+  province?: string
+  roleInSchool?: string
 }
 
 function isApiError(error: unknown): error is ParsedApiError {
@@ -30,6 +38,31 @@ export const UserService = {
       }
       console.error('[UserService.getMyUser] Unexpected Error:', error)
       throw new Error('An unexpected error occurred while fetching user details.')
+    }
+  },
+  async updateMyProfile(updateDto: UpdateUserDto): Promise<Profileinfo> {
+    try {
+      return await apiClient.patch<UpdateUserDto, Profileinfo>(`/users/me`, updateDto)
+    } catch (error) {
+      if (isApiError(error)) {
+        console.error(`[UserService.updateMyProfile] API Error ${error.status}: ${error.message}`)
+        throw error
+      }
+      console.error('[UserService.updateMyProfile] Unexpected Error:', error)
+      throw new Error('An unexpected error occurred during update.')
+    }
+  },
+
+  async deleteMyProfile(): Promise<void> {
+    try {
+      await apiClient.delete<void>(`/users/me`)
+    } catch (error) {
+      if (isApiError(error)) {
+        console.error(`[UserService.deleteMyProfile] API Error ${error.status}: ${error.message}`)
+        throw error
+      }
+      console.error('[UserService.deleteMyProfile] Unexpected Error:', error)
+      throw new Error('An unexpected error occurred during deletion.')
     }
   },
 }

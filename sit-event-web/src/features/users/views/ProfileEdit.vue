@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, watch } from 'vue'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -10,6 +10,7 @@ import * as zod from 'zod'
 import { toTypedSchema } from '@vee-validate/zod'
 import { toast } from 'vue-sonner'
 import { useRouter } from 'vue-router'
+import type { UpdateUserDto } from '../services/UserService'
 
 const userStore = useUserStore()
 const router = useRouter()
@@ -20,10 +21,10 @@ const profileSchema = toTypedSchema(
     firstName: zod.string().min(1, 'กรุณากรอกชื่อ'),
     lastName: zod.string().min(1, 'กรุณากรอกนามสกุล'),
     email: zod.string().email('รูปแบบอีเมลไม่ถูกต้อง'),
-    phoneNumber: zod.string().optional(),
-    province: zod.string().optional(),
-    roleInSchool: zod.string().optional(),
-    school: zod.string().optional(),
+    phoneNumber: zod.string().nullable().optional(),
+    province: zod.string().nullable().optional(),
+    roleInSchool: zod.string().nullable().optional(),
+    school: zod.string().nullable().optional(),
   }),
 )
 
@@ -31,8 +32,6 @@ const profileSchema = toTypedSchema(
 const { handleSubmit, errors, setValues } = useForm({
   validationSchema: profileSchema,
 })
-
-// สร้าง Field แบบผูกค่าอัตโนมัติ
 const { value: firstName } = useField<string>('firstName')
 const { value: lastName } = useField<string>('lastName')
 const { value: email } = useField<string>('email')
@@ -58,6 +57,24 @@ onMounted(async () => {
   }
 })
 
+watch(
+  () => userStore.profile,
+  (newProfile) => {
+    if (newProfile) {
+      setValues({
+        firstName: newProfile.firstName,
+        lastName: newProfile.lastName,
+        email: newProfile.email,
+        phoneNumber: newProfile.phoneNumber || '',
+        province: newProfile.province || '',
+        roleInSchool: newProfile.roleInSchool || '',
+        school: newProfile.school || '',
+      })
+    }
+  },
+  { immediate: true },
+)
+
 const userInitials = computed(() => {
   if (!userStore.profile) return 'UE'
   return `${userStore.profile.firstName.charAt(0)}${userStore.profile.lastName.charAt(0)}`.toUpperCase()
@@ -65,12 +82,27 @@ const userInitials = computed(() => {
 
 // 3. Submit
 const onSubmit = handleSubmit(async (values) => {
-  try {
-    toast.success('โบ๋เบ๋')
-    // await userStore.updateProfile(values)
-    // toast.success('บันทึกข้อมูลสำเร็จ')
-  } catch (e) {
-    toast.error('บันทึกข้อมูลล้มเหลว')
+  console.log('Submitting form with values:', values) // Debug log
+  // กรองเอาเฉพาะ field ที่เราต้องการ update เท่านั้น
+  const updatePayload = {
+    firstName: values.firstName,
+    lastName: values.lastName,
+    phoneNumber: values.phoneNumber,
+    province: values.province,
+    roleInSchool: values.roleInSchool,
+    school: values.school,
+  }
+
+  // กรองค่า null/undefined ออก (ถ้ามี)
+  const cleanedPayload = Object.fromEntries(
+    Object.entries(updatePayload).filter(([_, v]) => v != null),
+  )
+  const success = await userStore.updateProfileInfo(cleanedPayload as UpdateUserDto)
+  if (success) {
+    toast.success('บันทึกข้อมูลสำเร็จ')
+    router.push('/profile/me')
+  } else {
+    toast.error('บันทึกข้อมูลล้มเหลว: ' + (userStore.error || ''))
   }
 })
 </script>
@@ -97,12 +129,16 @@ const onSubmit = handleSubmit(async (values) => {
               <div class="space-y-1">
                 <Label>ชื่อ</Label>
                 <Input v-model="firstName" :class="{ 'border-red-500': errors.firstName }" />
-                <p class="text-xs text-red-500 h-4">{{ errors.firstName }}</p>
+                <p v-if="errors.firstName" class="text-xs text-red-500 h-4">
+                  {{ errors.firstName }}
+                </p>
               </div>
               <div class="space-y-1">
                 <Label>นามสกุล</Label>
                 <Input v-model="lastName" :class="{ 'border-red-500': errors.lastName }" />
-                <p class="text-xs text-red-500 h-4">{{ errors.lastName }}</p>
+                <p v-if="errors.lastName" class="text-xs text-red-500 h-4">
+                  {{ errors.lastName }}
+                </p>
               </div>
             </div>
 
@@ -122,11 +158,24 @@ const onSubmit = handleSubmit(async (values) => {
               </div>
             </div>
 
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div class="space-y-1">
+                <Label>บทบาทในโรงเรียน</Label>
+                <Input v-model="roleInSchool" />
+              </div>
+              <div class="space-y-1">
+                <Label>โรงเรียน/มหาวิทยาลัย</Label>
+                <Input v-model="school" />
+              </div>
+            </div>
+
             <div class="flex justify-end pt-4 gap-3">
               <Button type="button" variant="outline" @click="router.push('/profile/me')"
                 >ย้อนกลับ</Button
               >
-              <Button type="submit">บันทึกข้อมูล</Button>
+              <Button type="submit" :disabled="userStore.isLoading">
+                {{ userStore.isLoading ? 'กำลังบันทึก...' : 'บันทึกข้อมูล' }}
+              </Button>
             </div>
           </form>
         </div>
