@@ -1,12 +1,17 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Inject, forwardRef } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { PrismaService } from '../prisma.service';
 import { AuthenticatedUser } from '../common';
+import { KeycloakAdminService } from '../auth/keycloak-admin.service';
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) { }
+  constructor(
+    private prisma: PrismaService,
+    @Inject(forwardRef(() => KeycloakAdminService))
+    private keycloakAdminService: KeycloakAdminService
+  ) { }
 
   async createUser(userData: CreateUserDto) {
     return this.prisma.user.create({
@@ -45,6 +50,14 @@ export class UsersService {
   async updateMyProfile(keycloakUser: AuthenticatedUser, updateData: UpdateUserDto) {
     const user = await this.getProfile(keycloakUser);
 
+    // Update inside Keycloak Admin
+    await this.keycloakAdminService.updateUser(keycloakUser.sub, {
+      firstName: updateData.firstName,
+      lastName: updateData.lastName,
+      school: updateData.school,
+      phoneNumber: updateData.phoneNumber,
+    });
+
     return this.prisma.user.update({
       where: { id: user.id },
       data: updateData,
@@ -53,6 +66,9 @@ export class UsersService {
 
   async deleteMyProfile(keycloakUser: AuthenticatedUser) {
     const user = await this.getProfile(keycloakUser);
+
+    // Delete inside Keycloak Admin
+    await this.keycloakAdminService.deleteUser(keycloakUser.sub);
 
     return this.prisma.user.delete({
       where: { id: user.id },

@@ -28,7 +28,7 @@ export class AuthService {
     private readonly configService: ConfigService,
     private readonly usersService: UsersService,
     private readonly keycloakAdminService: KeycloakAdminService,
-  ) {}
+  ) { }
 
   getLoginUrl(): string {
     const authServerUrl = this.configService.get('KC_AUTH_SERVER_URL');
@@ -45,21 +45,21 @@ export class AuthService {
 
     const loginUrl = `${authServerUrl}/realms/${realm}/protocol/openid-connect/auth?${params.toString()}`;
     this.logger.log(`Generated login URL with redirect_uri: ${redirectUri}`);
-    
+
     return loginUrl;
   }
 
   async handleCallback(code: string): Promise<any> {
     try {
       this.logger.log(`Starting callback process with code: ${code.substring(0, 10)}...`);
-      
+
       // Exchange code for tokens
       let tokenResponse = await this.exchangeCodeForTokens(code);
-      
+
       // Get user info from Keycloak
       const userInfo = await this.getUserInfo(tokenResponse.access_token);
-      
-      
+
+
       // Create or update user in our database
       const result = await this.createOrUpdateUser(userInfo);
 
@@ -69,7 +69,7 @@ export class AuthService {
         try {
           // Wait a moment for Keycloak to process the role assignment
           await new Promise(resolve => setTimeout(resolve, 1000));
-          
+
           // Refresh the token to get the updated roles
           tokenResponse = await this.refreshAccessToken(tokenResponse.refresh_token);
           this.logger.log('Token refreshed successfully with new roles');
@@ -103,7 +103,7 @@ export class AuthService {
     const redirectUri = this.configService.get('KC_REDIRECT_URI') || 'http://localhost:3000/auth/callback';
 
     const tokenUrl = `${authServerUrl}/realms/${realm}/protocol/openid-connect/token`;
-    
+
     const params = new URLSearchParams({
       grant_type: 'authorization_code',
       client_id: clientId,
@@ -115,7 +115,7 @@ export class AuthService {
     try {
       this.logger.log(`Making token request to: ${tokenUrl}`);
       this.logger.log(`With redirect_uri: ${redirectUri}`);
-      
+
       const response = await axios.post(tokenUrl, params.toString(), {
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
@@ -145,7 +145,7 @@ export class AuthService {
 
     try {
       this.logger.log(`Getting user info from: ${userInfoUrl}`);
-      
+
       const response = await axios.get(userInfoUrl, {
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -170,74 +170,86 @@ export class AuthService {
   private async createOrUpdateUser(keycloakUser: KeycloakUser) {
     // Check if user exists
     const existingUser = await this.usersService.findByEmail(keycloakUser.email);
-    
+
+    // Fetch custom attributes from Keycloak (e.g. school, phoneNumber)
+    const userAttributes = await this.keycloakAdminService.getUserAttributes(keycloakUser.sub);
+    const school = userAttributes?.school?.[0] || userAttributes?.School?.[0];
+    const phoneNumber = userAttributes?.phoneNumber?.[0] || userAttributes?.phone_number?.[0] || userAttributes?.phone?.[0];
+
+    const additionalData = {
+      ...(school && { school }),
+      ...(phoneNumber && { phoneNumber }),
+    };
     if (existingUser) {
       // For existing users, get their role from Keycloak
       this.logger.log(`Updating existing user: ${keycloakUser.email}`);
-      
+
       try {
         // Get role from Keycloak
         const keycloakRole = await this.keycloakAdminService.getUserRole(keycloakUser.sub);
-        
+
         // If user has a role in Keycloak, sync it to database
         if (keycloakRole) {
           this.logger.log(`Syncing role ${keycloakRole} from Keycloak to database for user: ${keycloakUser.email}`);
-          
+
           const user = await this.usersService.updateUser(existingUser.id, {
             firstName: keycloakUser.given_name,
             lastName: keycloakUser.family_name,
             email: keycloakUser.email,
             userRole: keycloakRole, // Update role from Keycloak
+            ...additionalData,
           });
-          
+
           return { user, isNewUser: false };
         } else {
           // No role in Keycloak, preserve existing database role and sync it to Keycloak
           this.logger.log(`No role found in Keycloak, syncing database role to Keycloak for user: ${keycloakUser.email}`);
-          
+
           if (existingUser.userRole) {
             await this.keycloakAdminService.assignRoleToUser(
-              keycloakUser.sub, 
+              keycloakUser.sub,
               existingUser.userRole
             );
           }
-          
+
           const user = await this.usersService.updateUser(existingUser.id, {
             firstName: keycloakUser.given_name,
             lastName: keycloakUser.family_name,
             email: keycloakUser.email,
+            ...additionalData,
           });
-          
+
           return { user, isNewUser: false };
         }
       } catch (error) {
         this.logger.error(`Failed to sync role for user ${keycloakUser.email}: ${error.message}`);
-        
+
         // Fallback: just update basic user info
         const user = await this.usersService.updateUser(existingUser.id, {
           firstName: keycloakUser.given_name,
           lastName: keycloakUser.family_name,
           email: keycloakUser.email,
+          ...additionalData,
         });
-        
+
         return { user, isNewUser: false };
       }
     } else {
       // For new users, try to get existing role from Keycloak first
       let roleToUse: UserRole | null = null;
       let shouldAssignRoleToKeycloak = false;
-      
+
       try {
         const keycloakRole = await this.keycloakAdminService.getUserRole(keycloakUser.sub
         );
         if (keycloakRole) {
-           this.logger.log(`Found existing role ${keycloakRole} in Keycloak for new user ${keycloakUser.email}`);
-           roleToUse = keycloakRole;
+          this.logger.log(`Found existing role ${keycloakRole} in Keycloak for new user ${keycloakUser.email}`);
+          roleToUse = keycloakRole;
         }
       } catch (error) {
-         this.logger.warn(`Failed to check existing Keycloak role for new user: ${error.message}`);
+        this.logger.warn(`Failed to check existing Keycloak role for new user: ${error.message}`);
       }
-      
+
       // If no role found in Keycloak, determine based on email
       if (!roleToUse) {
         roleToUse = this.determineUserRole(keycloakUser.email);
@@ -246,7 +258,7 @@ export class AuthService {
       }
 
       this.logger.log(`Creating new user: ${keycloakUser.email} with role: ${roleToUse}`);
-      
+
       // Assign initial role to Keycloak if it wasn't there
       if (shouldAssignRoleToKeycloak) {
         await this.keycloakAdminService.assignRoleToUser(keycloakUser.sub, roleToUse);
@@ -258,8 +270,9 @@ export class AuthService {
         firstName: keycloakUser.given_name,
         lastName: keycloakUser.family_name,
         userRole: roleToUse,
+        ...additionalData,
       });
-      
+
       return { user, isNewUser: true };
     }
   }
@@ -267,7 +280,7 @@ export class AuthService {
   private determineUserRole(email: string): UserRole {
     // Extract domain part after @
     const domain = email.split('@')[1]?.toLowerCase();
-    
+
     // Check if domain contains "kmutt"
     if (domain && domain.includes('kmutt')) {
       this.logger.log(`Email ${email} contains 'kmutt' domain, assigning INTERNAL_STUDENT role`);
@@ -285,7 +298,7 @@ export class AuthService {
     const clientSecret = this.configService.get('KC_CLIENT_SECRET');
 
     const tokenUrl = `${authServerUrl}/realms/${realm}/protocol/openid-connect/token`;
-    
+
     const params = new URLSearchParams({
       grant_type: 'refresh_token',
       client_id: clientId,
@@ -295,7 +308,7 @@ export class AuthService {
 
     try {
       this.logger.log('Refreshing access token');
-      
+
       const response = await axios.post(tokenUrl, params.toString(), {
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
@@ -337,7 +350,7 @@ export class AuthService {
 
     const logoutUrl = `${authServerUrl}/realms/${realm}/protocol/openid-connect/logout?${params.toString()}`;
     this.logger.log(`Generated logout URL with client_id and post_logout_redirect_uri`);
-    
+
     return logoutUrl;
   }
 }

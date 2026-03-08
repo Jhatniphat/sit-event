@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { CertificatesController } from './certificates.controller';
 import { CertificatesService } from './certificates.service';
-import { FieldType } from '@prisma/client';
+import { FieldType } from '../../generated/prisma';
 
 describe('CertificatesController', () => {
   let controller: CertificatesController;
@@ -38,12 +38,12 @@ describe('CertificatesController', () => {
   });
 
   it('should call service.createElement', async () => {
-    const dto = { 
-        templateId: '1', 
-        fieldName: 'test', 
-        fieldType: FieldType.Text, 
-        x: 0, 
-        y: 0 
+    const dto = {
+      templateId: '1',
+      fieldName: 'test',
+      fieldType: FieldType.Text,
+      x: 0,
+      y: 0
     };
     await controller.createElement(dto, undefined);
     expect(service.createElement).toHaveBeenCalledWith(dto, undefined);
