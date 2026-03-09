@@ -1,12 +1,20 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { Pencil, Trash2 } from 'lucide-vue-next'
+import { Pencil, Trash2, EllipsisVertical } from 'lucide-vue-next'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { useUserStore } from '../store/UserStore'
 import { useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { useAuthStore } from '@/features/auth/stores/auth.store'
 
 const userStore = useUserStore()
@@ -67,24 +75,43 @@ const userInitials = computed(() => {
   <div class="min-h-screen bg-gray-50/50 p-4 sm:p-8">
     <div class="max-w-4xl mx-auto">
       <div class="border rounded-2xl p-5 sm:p-8 bg-white relative">
-        <div class="flex flex-col sm:flex-row gap-2 absolute top-5 right-5 sm:top-8 sm:right-8">
-          <Button variant="outline" size="icon" class="" @click="router.push('/profile/me/edit')">
-            <Pencil class="h-4 w-4" />
-          </Button>
-          <button
-            @click="handleTrashClick"
-            class="flex items-center gap-2 px-3 py-2 text-red-500 bg-red-50 hover:bg-red-100 rounded-md transition-all duration-300 ease-in-out"
-            :class="{ 'w-32': deleteState === 'confirming', 'w-10': deleteState === 'idle' }"
-          >
-            <Trash2 class="w-4 h-4 shrink-0" />
-
-            <span
-              v-if="deleteState === 'confirming'"
-              class="text-sm font-medium whitespace-nowrap overflow-hidden transition-all duration-300"
+        <div class="absolute top-5 right-5 sm:top-8 sm:right-8">
+          <div class="hidden sm:flex gap-2">
+            <Button variant="outline" size="icon" @click="router.push('/profile/me/edit')">
+              <Pencil class="h-4 w-4" />
+            </Button>
+            <button
+              @click="handleTrashClick"
+              class="flex items-center gap-2 px-3 py-2 text-red-500 bg-red-50 hover:bg-red-100 rounded-md transition-all duration-300 ease-in-out"
+              :class="{ 'w-32': deleteState === 'confirming', 'w-10': deleteState === 'idle' }"
             >
-              Delete User
-            </span>
-          </button>
+              <Trash2 class="h-4 w-4 shrink-0" />
+              <span
+                v-if="deleteState === 'confirming'"
+                class="text-sm font-medium whitespace-nowrap overflow-hidden transition-all duration-300"
+              >
+                Delete User
+              </span>
+            </button>
+          </div>
+
+          <div class="sm:hidden">
+            <DropdownMenu>
+              <DropdownMenuTrigger as-child>
+                <Button variant="ghost" size="icon">
+                  <EllipsisVertical class="h-5 w-5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" class="w-48">
+                <DropdownMenuItem @click="router.push('/profile/me/edit')">
+                  <Pencil class="mr-2 h-4 w-4" /> Edit Profile
+                </DropdownMenuItem>
+                <DropdownMenuItem class="text-red-600 focus:text-red-600" @click="confirmDelete">
+                  <Trash2 class="mr-2 h-4 w-4" /> Delete User
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
 
         <div class="flex flex-col sm:flex-row items-center gap-6">
@@ -102,20 +129,20 @@ const userInitials = computed(() => {
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 mt-8 border-t pt-6">
           <div>
-            <Label class="text-gray-400">เบอร์โทรศัพท์</Label>
-            <p class="text-lg">{{ userStore.profile?.phoneNumber || '-' }}</p>
+            <Label class="text-gray-400 text-xs">Phone</Label>
+            <p class="text-md">{{ userStore.profile?.phoneNumber || '-' }}</p>
           </div>
           <div>
-            <Label class="text-gray-400">จังหวัด</Label>
-            <p class="text-lg">{{ userStore.profile?.province || '-' }}</p>
+            <Label class="text-gray-400 text-xs">Province</Label>
+            <p class="text-md">{{ userStore.profile?.province || '-' }}</p>
           </div>
           <div>
-            <Label class="text-gray-400">บทบาทในโรงเรียน</Label>
-            <p class="text-lg">{{ userStore.profile?.roleInSchool || '-' }}</p>
+            <Label class="text-gray-400 text-xs">Role in School</Label>
+            <p class="text-md">{{ userStore.profile?.roleInSchool || '-' }}</p>
           </div>
           <div>
-            <Label class="text-gray-400">โรงเรียน/มหาวิทยาลัย</Label>
-            <p class="text-lg">{{ userStore.profile?.school || '-' }}</p>
+            <Label class="text-gray-400 text-xs">School/University</Label>
+            <p class="text-md">{{ userStore.profile?.school || '-' }}</p>
           </div>
         </div>
       </div>
@@ -124,7 +151,7 @@ const userInitials = computed(() => {
       v-if="showDeleteModal"
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
     >
-      <div class="bg-white rounded-lg shadow-lg max-w-md w-full p-6 space-y-4">
+      <div class="bg-white rounded-lg shadow-lg max-w-md w-full p-6 space-y-4 m-5 sm:m-0">
         <h3 class="text-lg font-semibold text-gray-900">Confirm Deletion</h3>
         <p class="text-gray-500">
           Are you sure you want to delete this account? This action cannot be undone.

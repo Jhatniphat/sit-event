@@ -30,7 +30,6 @@ export const useUserStore = defineStore('user', {
       this.isLoading = true
       this.error = null
       try {
-        console.log('Updating profile with data:', updateDto)
         const updatedProfile = await UserService.updateMyProfile(updateDto)
 
         // อัปเดต State ใน Store ให้เป็นค่าใหม่ที่ได้จาก Server
@@ -42,7 +41,7 @@ export const useUserStore = defineStore('user', {
         return true
       } catch (error) {
         this.error = error instanceof Error ? error.message : 'Update failed.'
-        return false // ส่งค่ากลับว่าล้มเหลว
+        return false
       } finally {
         this.isLoading = false
       }
@@ -53,7 +52,6 @@ export const useUserStore = defineStore('user', {
       this.error = null
       try {
         await UserService.deleteMyProfile()
-
         // ล้างข้อมูลใน Store เมื่อลบโปรไฟล์สำเร็จ
         this.profile = null
         return true

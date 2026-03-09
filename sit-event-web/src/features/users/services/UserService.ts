@@ -29,7 +29,6 @@ export const UserService = {
   async getMyUser(): Promise<Profileinfo> {
     try {
       const user = await apiClient.get<Profileinfo, Profileinfo>(`/users/me`)
-      console.log('Fetched user details:', user)
       return user
     } catch (error) {
       if (isApiError(error)) {
