@@ -233,7 +233,7 @@ router.beforeEach((to, from, next) => {
   if (requiresAuth) {
     // 2. If user is not authenticated, redirect to Login
     if (!authStore.isAuthenticated) {
-      authStore.loginRedirect()
+      authStore.loginRedirect(to.fullPath)
       return
     }
 

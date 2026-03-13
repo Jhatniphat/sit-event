@@ -1,8 +1,24 @@
 <script setup lang="ts">
-import { useRouter } from 'vue-router'
+import { computed } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { Button } from '@/components/ui/button' 
 
 const router = useRouter()
+const route = useRoute()
+
+const errorTypeMap: Record<string, string> = {
+  event: 'กิจกรรม',
+  form: 'แบบสอบถาม',
+  ticket: 'ตั๋วเข้าร่วมงาน',
+}
+
+const entityName = computed(() => {
+  const errorQuery = route.query.error as string
+  if (errorQuery && errorTypeMap[errorQuery]) {
+    return errorTypeMap[errorQuery]
+  }
+  return 'หน้า'
+})
 
 const goHome = () => {
   router.push({ name: 'Home' })
@@ -21,10 +37,10 @@ const goHome = () => {
     </div>
 
     <h2 class="text-3xl font-bold text-gray-900 mb-2">
-      ไม่พบหน้าที่คุณต้องการ
+      ไม่พบ{{ entityName }}ที่คุณต้องการ
     </h2>
     <p class="text-gray-500 max-w-md mb-8">
-      หน้าที่คุณกำลังพยายามเข้าถึงอาจถูกย้าย ลบ หรือไม่มีอยู่จริงในระบบ
+      {{ entityName }}ที่คุณกำลังพยายามเข้าถึงอาจถูกย้าย ลบ หรือไม่มีอยู่จริงในระบบ
       กรุณาตรวจสอบ URL หรือกลับไปที่หน้าหลัก
     </p>
 

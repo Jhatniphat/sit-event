@@ -1,12 +1,12 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { EventSessionsService } from './event-sessions.service';
 import { PrismaModule } from 'src/prisma.module';
 import { EventSessionsController } from './event-sessions.controller';
-import { UsersService } from '../users/users.service';
+import { UsersModule } from '../users/users.module';
 
 @Module({
   controllers: [EventSessionsController],
-  providers: [EventSessionsService, UsersService],
-  imports: [PrismaModule],
+  providers: [EventSessionsService],
+  imports: [PrismaModule, UsersModule],
 })
-export class EventSessionsModule {}
+export class EventSessionsModule { }

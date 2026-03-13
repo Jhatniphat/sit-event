@@ -42,7 +42,7 @@ export class KeycloakAdminService {
 
       const roleNames = roles.map(role => role.name).filter(name => name !== undefined) as string[];
       this.logger.log(`Retrieved ${roleNames.length} roles for user '${userId}': ${roleNames.join(', ')}`);
-      
+
       // Map and return the first valid role
       const mappedRole = this.mapKeycloakRoleToEnum(roleNames);
       return mappedRole;
@@ -108,6 +108,63 @@ export class KeycloakAdminService {
       this.logger.log(`Assigned role '${roleName}' to user '${userId}' in Keycloak`);
     } catch (error) {
       this.logger.error(`Failed to assign role in Keycloak: ${error.message}`);
+    }
+  }
+
+  /**
+   * Get user attributes (e.g., school, phoneNumber) from Keycloak
+   */
+  async getUserAttributes(userId: string): Promise<Record<string, any>> {
+    try {
+      await this.authenticate();
+      const user = await this.kcAdminClient.users.findOne({ id: userId });
+      return user?.attributes || {};
+    } catch (error) {
+      this.logger.error(`Failed to get user attributes from Keycloak: ${error.message}`);
+      return {};
+    }
+  }
+
+  /**
+   * Update user details in Keycloak
+   */
+  async updateUser(userId: string, data: { firstName?: string; lastName?: string; school?: string; phoneNumber?: string }) {
+    try {
+      await this.authenticate();
+
+      const updatePayload: any = {};
+
+      if (data.firstName !== undefined) updatePayload.firstName = data.firstName;
+      if (data.lastName !== undefined) updatePayload.lastName = data.lastName;
+
+      // Handle attributes
+      if (data.school !== undefined || data.phoneNumber !== undefined) {
+        const user = await this.kcAdminClient.users.findOne({ id: userId });
+        updatePayload.attributes = user?.attributes || {};
+
+        if (data.school !== undefined) updatePayload.attributes.school = [data.school];
+        if (data.phoneNumber !== undefined) updatePayload.attributes.phoneNumber = [data.phoneNumber];
+      }
+
+      if (Object.keys(updatePayload).length > 0) {
+        await this.kcAdminClient.users.update({ id: userId }, updatePayload);
+        this.logger.log(`Updated user '${userId}' in Keycloak`);
+      }
+    } catch (error) {
+      this.logger.error(`Failed to update user in Keycloak: ${error.message}`);
+    }
+  }
+
+  /**
+   * Delete user from Keycloak
+   */
+  async deleteUser(userId: string) {
+    try {
+      await this.authenticate();
+      await this.kcAdminClient.users.del({ id: userId });
+      this.logger.log(`Deleted user '${userId}' from Keycloak`);
+    } catch (error) {
+      this.logger.error(`Failed to delete user from Keycloak: ${error.message}`);
     }
   }
 }

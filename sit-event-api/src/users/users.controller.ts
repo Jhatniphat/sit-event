@@ -7,11 +7,24 @@ import { CurrentUser, type AuthenticatedUser } from '../common';
 
 @Controller('users')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(private readonly usersService: UsersService) { }
 
   @Get('me')
   getMyProfile(@CurrentUser() user: AuthenticatedUser) {
     return this.usersService.getProfile(user);
+  }
+
+  @Patch('me')
+  updateMyProfile(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() updateUserDto: UpdateUserDto,
+  ) {
+    return this.usersService.updateMyProfile(user, updateUserDto);
+  }
+
+  @Delete('me')
+  deleteMyProfile(@CurrentUser() user: AuthenticatedUser) {
+    return this.usersService.deleteMyProfile(user);
   }
 
   @Post()

@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { CertificatesService } from './certificates.service';
 import { PrismaService } from '../prisma.service';
 import { MinioClientService } from '../minio/minio-client.service';
-import { FieldType } from '@prisma/client';
+import { FieldType } from '../../generated/prisma';
 
 describe('CertificatesService', () => {
   let service: CertificatesService;
@@ -56,12 +56,12 @@ describe('CertificatesService', () => {
     it('should upload file and create template', async () => {
       const dto = { eventId: 'event-123' };
       const file = { buffer: Buffer.from('test') } as any;
-      
+
       jest.spyOn(minio, 'uploadFile').mockResolvedValue({ fileName: 'test.jpg' });
-      jest.spyOn(prisma.certificateTemplate, 'create').mockResolvedValue({ 
-        id: '1', 
-        eventId: dto.eventId, 
-        templateFilepath: 'test.jpg' 
+      jest.spyOn(prisma.certificateTemplate, 'create').mockResolvedValue({
+        id: '1',
+        eventId: dto.eventId,
+        templateFilepath: 'test.jpg'
       } as any);
 
       const result = await service.createTemplate(dto, file);
@@ -76,12 +76,12 @@ describe('CertificatesService', () => {
 
   describe('createElement', () => {
     it('should create element with image upload', async () => {
-      const dto = { 
-        templateId: 'tmpl-1', 
-        fieldName: 'Sig', 
-        fieldType: FieldType.Image, 
-        x: 10, 
-        y: 10 
+      const dto = {
+        templateId: 'tmpl-1',
+        fieldName: 'Sig',
+        fieldType: FieldType.Image,
+        x: 10,
+        y: 10
       };
       const file = { buffer: Buffer.from('sig') } as any;
 

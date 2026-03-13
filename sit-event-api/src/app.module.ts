@@ -25,6 +25,7 @@ import { MinioClientModule } from './minio/minio.module';
 import { EventSessionsModule } from './event-sessions/event-sessions.module';
 import { EventFormsModule } from './event-forms/event-forms.module';
 import { CertificatesModule } from './certificates/certificates.module';
+import { EmailModule } from './emails/email.module';
 
 @Module({
   imports: [
@@ -55,6 +56,7 @@ import { CertificatesModule } from './certificates/certificates.module';
     EventSessionsModule,
     EventFormsModule,
     CertificatesModule,
+    EmailModule,
   ],
   controllers: [AppController],
   providers: [

@@ -51,9 +51,48 @@
     {
       "name": "Certificates",
       "description": "Endpoints for managing certificate templates and elements."
+    },
+    {
+      "name": "Email",
+      "description": "Endpoints for sending emails (notifications, certificates, form links)."
     }
   ],
   "paths": {
+    "/emails/send": {
+      "post": {
+        "tags": ["Email"],
+        "summary": "ส่งอีเมล (Admin only)",
+        "description": "ส่งอีเมลแบบ manual โดย Admin สามารถใช้ template หรือ html/text ได้",
+        "security": [{ "JWT-auth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SendEmailDto" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "ส่งอีเมลสำเร็จ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "message": { "type": "string", "example": "ส่งอีเมลไปยัง 1 คนสำเร็จ" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "description": "ข้อมูลไม่ถูกต้อง หรือส่งอีเมลไม่สำเร็จ" },
+          "401": { "description": "ไม่ได้ Login" },
+          "403": { "description": "ไม่มีสิทธิ์ (ต้องเป็น Admin)" }
+        }
+      }
+    },
     "/auth/login": {
       "get": {
         "tags": ["Authentication"],
@@ -2391,6 +2430,55 @@
             "example": "2026-01-30T10:00:00.000Z"
           }
         }
+      },
+      "SendEmailDto": {
+        "type": "object",
+        "properties": {
+          "to": {
+            "type": "array",
+            "items": { "type": "string", "format": "email" },
+            "description": "อีเมลผู้รับ (รับได้หลายคน)",
+            "example": ["user1@example.com", "user2@example.com"]
+          },
+          "subject": {
+            "type": "string",
+            "description": "หัวข้ออีเมล",
+            "example": "แจ้งผลการสมัครเข้าร่วม Event"
+          },
+          "template": {
+            "type": "string",
+            "enum": ["approval", "rejection", "form-link", "certificate", "custom"],
+            "description": "ชื่อ Template ที่จะใช้",
+            "example": "approval"
+          },
+          "context": {
+            "type": "object",
+            "description": "ข้อมูลสำหรับใส่ใน Template",
+            "example": { "participantName": "สมชาย", "eventName": "Tech Conference" }
+          },
+          "html": {
+            "type": "string",
+            "description": "เนื้อหา HTML (ใช้แทน template)",
+            "example": "<h1>สวัสดี</h1><p>ขอบคุณที่สมัคร</p>"
+          },
+          "text": {
+            "type": "string",
+            "description": "เนื้อหาข้อความธรรมดา",
+            "example": "สวัสดี ขอบคุณที่สมัคร"
+          },
+          "attachments": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "filename": { "type": "string", "example": "certificate.pdf" },
+                "path": { "type": "string", "example": "/uploads/cert.pdf" }
+              }
+            },
+            "description": "ไฟล์แนบ"
+          }
+        },
+        "required": ["to", "subject"]
       }
     },
     "securitySchemes": {
