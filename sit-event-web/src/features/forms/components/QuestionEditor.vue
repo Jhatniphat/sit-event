@@ -17,7 +17,7 @@ import { Separator } from '@/components/ui/separator'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { useRoute, useRouter } from 'vue-router'
 import { useFormStore } from '../store/FormStore'
-import { computed, onMounted, ref } from 'vue'
+import { computed, ref } from 'vue'
 import { toast } from 'vue-sonner'
 
 const router = useRouter()
@@ -25,21 +25,6 @@ const route = useRoute()
 const formStore = useFormStore()
 const eventId = route.params.id as string
 const initialData = ref('')
-
-onMounted(async () => {
-  const formId = route.params.formId as string
-  if (formId) {
-    await formStore.loadForm(eventId, formId)
-  }
-
-  initialData.value = JSON.stringify({
-    title: formStore.formTitle,
-    description: formStore.formDescription,
-    isActive: formStore.formIsActive,
-    questions: formStore.questions,
-    deletedIds: formStore.deletedFieldIds,
-  })
-})
 
 const isDirty = computed(() => {
   const currentData = JSON.stringify({

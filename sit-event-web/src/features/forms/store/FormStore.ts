@@ -85,7 +85,10 @@ export const useFormStore = defineStore('form', () => {
   }
 
   // --- Service Actions (API) ---
-  const createInitialForm = async (eventId: string, type: FormType = FormType.POST_EVENT): Promise<EventFormResponse> => {
+  const createInitialForm = async (
+    eventId: string,
+    type: FormType = FormType.POST_EVENT,
+  ): Promise<EventFormResponse> => {
     isLoading.value = true
     try {
       const createDto: CreateEventFormDto = {
@@ -106,15 +109,15 @@ export const useFormStore = defineStore('form', () => {
   }
 
   const fetchForms = async (eventId: string) => {
-      isLoading.value = true
-      try {
-        const res = await FormService.getForms(eventId)
-        formsList.value = res
-      } catch (error) {
-        console.error('Fetch forms failed:', error)
-      } finally {
-        isLoading.value = false
-      }
+    isLoading.value = true
+    try {
+      const res = await FormService.getForms(eventId)
+      formsList.value = res
+    } catch (error) {
+      console.error('Fetch forms failed:', error)
+    } finally {
+      isLoading.value = false
+    }
   }
 
   const loadForm = async (eventId: string, formId: string) => {
@@ -150,14 +153,14 @@ export const useFormStore = defineStore('form', () => {
   }
 
   // Deprecated: use loadForm and fetchForms
-  const fetchForm = async (eventId: string) => {
-    // Legacy support or remove? keeping for finding bugs
-    // Assuming retrieving all forms and picking first? Or just failing?
-    // Let's redirect to fetchForms logic if possible, but this functin signature was (eventId).
-    // Better to change usages.
-    console.warn('fetchForm is deprecated. Use loadForm or fetchForms') 
-    isLoading.value = false
-  }
+  // const fetchForm = async (eventId: string) => {
+  //   // Legacy support or remove? keeping for finding bugs
+  //   // Assuming retrieving all forms and picking first? Or just failing?
+  //   // Let's redirect to fetchForms logic if possible, but this functin signature was (eventId).
+  //   // Better to change usages.
+  //   console.warn('fetchForm is deprecated. Use loadForm or fetchForms')
+  //   isLoading.value = false
+  // }
 
   const saveFullForm = async (eventId: string): Promise<boolean> => {
     if (!currentFormId.value) return false
@@ -240,6 +243,18 @@ export const useFormStore = defineStore('form', () => {
     }
   }
 
+  const getAllFormResponses = async (eventId: string, formId: string) => {
+    isLoading.value = true
+    try {
+      const responses = await FormService.getAllSubmission(eventId, formId)
+      return responses
+    } catch (error) {
+      console.error('Get all form responses failed:', error)
+    } finally {
+      isLoading.value = false
+    }
+  }
+
   return {
     questions,
     formTitle,
@@ -261,6 +276,6 @@ export const useFormStore = defineStore('form', () => {
     loadForm,
     saveFullForm,
     deleteForm,
+    getAllFormResponses,
   }
 })
-

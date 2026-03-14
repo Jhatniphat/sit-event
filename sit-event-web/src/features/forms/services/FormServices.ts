@@ -11,7 +11,7 @@ export interface FormFieldPayload {
 
 export enum FormType {
   PRE_EVENT = 'PRE_EVENT',
-  POST_EVENT = 'POST_EVENT'
+  POST_EVENT = 'POST_EVENT',
 }
 
 export interface CreateEventFormDto {
@@ -61,6 +61,34 @@ export interface ReorderFieldItem {
 
 export interface ReorderFieldsDto {
   fields: ReorderFieldItem[]
+}
+
+export interface SubmissionUser {
+  id: string
+  email: string
+  firstName: string
+  lastName: string
+}
+
+export interface SubmissionAnswer {
+  id: string
+  submissionId: string
+  fieldId: string
+  answer: string
+  field: {
+    id: string
+    question: string
+    fieldType: QuestionType
+  }
+}
+
+export interface FormSubmissionResponse {
+  id: string
+  formId: string
+  userId: string
+  submittedAt: string
+  user: SubmissionUser
+  answers: SubmissionAnswer[]
 }
 
 export class FormService {
@@ -135,7 +163,7 @@ export class FormService {
   }
 
   static async getForms(eventId: string): Promise<EventFormResponse[]> {
-     return apiClient.get(`/events/${eventId}/forms`)
+    return apiClient.get(`/events/${eventId}/forms`)
   }
 
   static async getFormById(eventId: string, formId: string): Promise<EventFormResponse> {
@@ -152,5 +180,12 @@ export class FormService {
 
   static async getMySubmission(eventId: string, formId: string): Promise<SubmitFormDto> {
     return apiClient.get(`/events/${eventId}/forms/${formId}/my-submission`)
+  }
+
+  static async getAllSubmission(
+    eventId: string,
+    formId: string,
+  ): Promise<FormSubmissionResponse[]> {
+    return apiClient.get(`/events/${eventId}/forms/${formId}/submissions`)
   }
 }

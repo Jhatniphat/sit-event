@@ -8,7 +8,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import { toast } from 'vue-sonner'
 
@@ -35,13 +34,20 @@ onMounted(async () => {
   try {
     const type = route.query.type as FormType
     const res = await FormService.getFormForUser(eventId, type)
-    console.log('Fetched form:', res)
-    if (res.isActive === false) {
+
+    const formData = Array.isArray(res) ? res[0] : res
+
+    if (!formData) {
+      toast.error('ไม่พบข้อมูลแบบฟอร์ม')
+      return
+    }
+
+    if (formData.isActive === false && !props.isPreviewMode) {
       router.push({ name: 'FormClosed' })
       return
     }
-    form.value = res
-    res.fields.forEach((field) => {
+    form.value = formData
+    formData.fields.forEach((field) => {
       if (field.fieldType === 'CHECKBOX') {
         answers.value[field.id] = []
       } else {
@@ -117,7 +123,7 @@ const handleSubmit = async () => {
         }
       }),
     }
-    
+
     // Check if Pre-Event Form
     const type = route.query.type as FormType
     if (type === FormType.PRE_EVENT) {
@@ -133,15 +139,15 @@ const handleSubmit = async () => {
       if (sessions && sessions.length > 0) {
         availableSessions.value = sessions
         // Filter out auto-register sessions? User said: "if there are sub-session that is not auto register..."
-        // In backend, auto-register = true means already registered. 
+        // In backend, auto-register = true means already registered.
         // We should show sessions that are NOT auto-register (optional/manual selection)
-        availableSessions.value = sessions.filter(s => !s.autoRegister)
+        availableSessions.value = sessions.filter((s) => !s.autoRegister)
 
         if (availableSessions.value.length > 0) {
-           isSessionDialogOpen.value = true
-           // Stop here, wait for dialog
-           isSubmitting.value = false
-           return
+          isSessionDialogOpen.value = true
+          // Stop here, wait for dialog
+          isSubmitting.value = false
+          return
         }
       }
     } else {
@@ -157,7 +163,7 @@ const handleSubmit = async () => {
     if (status === 409) {
       toast.error('คุณได้ส่งแบบฟอร์มนี้ไปแล้ว')
     } else if (status === 403) {
-      // Pre-event form logic changes error handling slightly? 
+      // Pre-event form logic changes error handling slightly?
       // If we register first, 403 might mean something else.
       // But standard error handling is fine.
       toast.error('คุณไม่ได้เข้าร่วมอีเวนต์นี้ จึงไม่สามารถส่งแบบฟอร์มได้')
@@ -166,7 +172,7 @@ const handleSubmit = async () => {
     }
   } finally {
     if (!isSessionDialogOpen.value) {
-        isSubmitting.value = false
+      isSubmitting.value = false
     }
   }
 }
@@ -175,7 +181,7 @@ const onConfirmSessionSelection = async (sessionIds: string[]) => {
   sessionLoading.value = true
   try {
     const promises = sessionIds.map((sessionId) =>
-      EventService.registerForSession(eventId, sessionId)
+      EventService.registerForSession(eventId, sessionId),
     )
     await Promise.all(promises)
     toast.success('ลงทะเบียน Sub-session เรียบร้อยแล้ว')
@@ -190,9 +196,9 @@ const onConfirmSessionSelection = async (sessionIds: string[]) => {
 }
 
 const onBackFromSession = () => {
-    // User already registered for main event, just close dialog and go home
-    isSessionDialogOpen.value = false
-    router.push({ name: 'Home' })
+  // User already registered for main event, just close dialog and go home
+  isSessionDialogOpen.value = false
+  router.push({ name: 'Home' })
 }
 
 // ฟังก์ชันสำหรับสร้าง Writable Computed เพื่อจัดการ string โดยเฉพาะ
@@ -211,8 +217,8 @@ const getTextValue = (fieldId: string) => {
     <Card class="border-t-5 border-t-black shadow-sm">
       <CardHeader class="p-8 py-5">
         <CardTitle class="text-3xl font-bold">{{ form.title }}</CardTitle>
-        <p class="text-slate-600 mt-2 text-md">
-          {{ form.description || 'กรุณากรอกข้อมูลให้ครบถ้วน' }}
+        <p v-if="form.description" class="text-slate-600 mt-2 text-md">
+          {{ form.description }}
         </p>
       </CardHeader>
     </Card>
