@@ -55,9 +55,138 @@
     {
       "name": "Email",
       "description": "Endpoints for sending emails (notifications, certificates, form links)."
+    },
+    {
+      "name": "Dashboards",
+      "description": "Endpoints for viewing system and event statistics."
     }
   ],
   "paths": {
+    "/dashboards/events/{eventId}/stats": {
+      "get": {
+        "tags": [
+          "Dashboards"
+        ],
+        "summary": "Get specific event statistics",
+        "description": "Returns detailed statistics for a specific event including registrations, attendance, and capacity usage.",
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "description": "ID of the event to get stats for",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "event": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "dates": {
+                          "type": "object",
+                          "properties": {
+                            "start": {
+                              "type": "string",
+                              "format": "date-time"
+                            },
+                            "end": {
+                              "type": "string",
+                              "format": "date-time"
+                            }
+                          }
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "UPCOMING",
+                            "ONGOING",
+                            "PAST"
+                          ]
+                        }
+                      }
+                    },
+                    "stats": {
+                      "type": "object",
+                      "properties": {
+                        "totalRegistrations": {
+                          "type": "integer"
+                        },
+                        "totalStaff": {
+                          "type": "integer"
+                        },
+                        "attended": {
+                          "type": "integer"
+                        },
+                        "checkedInPercentage": {
+                          "type": "number"
+                        },
+                        "capacity": {
+                          "type": "object",
+                          "properties": {
+                            "total": {
+                              "type": "integer"
+                            },
+                            "used": {
+                              "type": "integer"
+                            },
+                            "remaining": {
+                              "type": "integer"
+                            },
+                            "percentage": {
+                              "type": "number"
+                            }
+                          }
+                        },
+                        "registrationStatus": {
+                          "type": "object",
+                          "properties": {
+                            "pending": {
+                              "type": "integer"
+                            },
+                            "approved": {
+                              "type": "integer"
+                            },
+                            "rejected": {
+                              "type": "integer"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - Admin or Organizer access required"
+          },
+          "404": {
+            "description": "Event not found"
+          }
+        }
+      }
+    },
     "/emails/send": {
       "post": {
         "tags": ["Email"],
