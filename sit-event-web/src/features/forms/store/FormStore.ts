@@ -219,7 +219,7 @@ export const useFormStore = defineStore('form', () => {
       }
 
       // หลังบันทึกเสร็จ ควร fetch ใหม่เพื่อให้ได้ ID จริงจาก DB มาแทนที่ ID ชั่วคราว (Date.now())
-      await fetchForm(eventId)
+      await loadForm(eventId, currentFormId.value!)
 
       return true
     } catch (error) {
@@ -271,7 +271,6 @@ export const useFormStore = defineStore('form', () => {
     addOption,
     removeOption,
     createInitialForm,
-    fetchForm,
     fetchForms,
     loadForm,
     saveFullForm,

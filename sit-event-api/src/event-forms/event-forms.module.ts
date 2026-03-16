@@ -4,11 +4,12 @@ import { EventFormsController } from './event-forms.controller';
 import { FormsController } from './forms.controller';
 import { PrismaModule } from 'src/prisma.module';
 import { UsersModule } from '../users/users.module';
+import { CertificatesModule } from '../certificates/certificates.module';
 
 @Module({
   controllers: [EventFormsController, FormsController],
   providers: [EventFormsService],
-  imports: [PrismaModule, UsersModule],
+  imports: [PrismaModule, UsersModule, CertificatesModule],
   exports: [EventFormsService],
 })
 export class EventFormsModule { }

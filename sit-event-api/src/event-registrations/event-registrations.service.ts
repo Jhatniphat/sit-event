@@ -12,14 +12,16 @@ import { RegistrationStatus } from '../../generated/prisma';
 import { FormType } from 'generated/prisma';
 import * as ExcelJS from 'exceljs';
 import type { Response } from 'express';
+import { CertificatesService } from '../certificates/certificates.service';
 
 @Injectable()
 export class EventRegistrationsService {
   constructor(
     private prisma: PrismaService,
     private usersService: UsersService,
-    private eventRegistrationsGateway: EventRegistrationsGateway, 
-  ) {}
+    private eventRegistrationsGateway: EventRegistrationsGateway,
+    private certificatesService: CertificatesService,
+  ) { }
 
   async registerUserToEvent(
     eventId: string,
@@ -84,32 +86,32 @@ export class EventRegistrationsService {
       // 3. Register user to auto-register sessions (bypass seats for now)
       for (const session of autoSessions) {
         // if (session.availableSeats > 0) {
-          // Check if already registered (shouldn't happen for new event reg, but good practice if logic changes)
-           const existingSessionReg = await tx.eventRegistration.findUnique({
-              where: {
-                userId_eventId_sessionId: {
-                  userId: user.id,
-                  eventId: eventId,
-                  sessionId: session.id
-                }
-              }
-           });
-           
-           if (!existingSessionReg) {
-              await tx.eventRegistration.create({
-                data: {
-                  event: { connect: { id: eventId } },
-                  user: { connect: { id: user.id } },
-                  session: { connect: { id: session.id } },
-                  status: initialStatus,
-                },
-              });
+        // Check if already registered (shouldn't happen for new event reg, but good practice if logic changes)
+        const existingSessionReg = await tx.eventRegistration.findUnique({
+          where: {
+            userId_eventId_sessionId: {
+              userId: user.id,
+              eventId: eventId,
+              sessionId: session.id
+            }
+          }
+        });
 
-              await tx.eventSession.update({
-                where: { id: session.id },
-                data: { availableSeats: { decrement: 1 } },
-              });
-           }
+        if (!existingSessionReg) {
+          await tx.eventRegistration.create({
+            data: {
+              event: { connect: { id: eventId } },
+              user: { connect: { id: user.id } },
+              session: { connect: { id: session.id } },
+              status: initialStatus,
+            },
+          });
+
+          await tx.eventSession.update({
+            where: { id: session.id },
+            data: { availableSeats: { decrement: 1 } },
+          });
+        }
         // }
       }
 
@@ -291,11 +293,11 @@ export class EventRegistrationsService {
 
     const formColumns = form
       ? form.fields.map((f) => ({
-          id: f.id,
-          label: f.question,
-          type: f.fieldType,
-          isSystem: false,
-        }))
+        id: f.id,
+        label: f.question,
+        type: f.fieldType,
+        isSystem: false,
+      }))
       : [];
 
     return [...systemColumns, ...formColumns];
@@ -405,12 +407,12 @@ export class EventRegistrationsService {
     const isActive = this.eventRegistrationsGateway.isUserActive(userId);
 
     const registration = await this.prisma.eventRegistration.findFirst({
-        where: { eventId, userId },
-        select: { id: true }
+      where: { eventId, userId },
+      select: { id: true }
     });
 
     if (!registration) {
-          throw new NotFoundException('User has not registered for this event');
+      throw new NotFoundException('User has not registered for this event');
     }
 
     return {
@@ -439,7 +441,7 @@ export class EventRegistrationsService {
         event: true,
       }
     });
-    
+
     if (!registration) {
       throw new NotFoundException('Main event registration not found for this user.');
     }
@@ -450,9 +452,9 @@ export class EventRegistrationsService {
     }
 
     if (registration.attended) {
-        // อาจจะ throw error หรือ return เดิมก็ได้ตาม Business logic ว่าจะให้แจ้งเตือนซ้ำไหม
-        // ในที่นี้ return ค่าเดิมไปเลย
-        return registration; 
+      // อาจจะ throw error หรือ return เดิมก็ได้ตาม Business logic ว่าจะให้แจ้งเตือนซ้ำไหม
+      // ในที่นี้ return ค่าเดิมไปเลย
+      return registration;
     }
 
     // 2. อัปเดต attended = true
@@ -466,10 +468,24 @@ export class EventRegistrationsService {
 
     // 3. ส่ง Socket Notification
     this.eventRegistrationsGateway.notifyCheckInSuccess(
-        userId, 
-        eventId, 
-        registration.event.name
+      userId,
+      eventId,
+      registration.event.name
     );
+
+    // 4. ส่ง Certificate หากไม่มี POST_EVENT form
+    const postEventFormCount = await this.prisma.eventForm.count({
+      where: {
+        eventId,
+        type: FormType.POST_EVENT,
+      },
+    });
+
+    if (postEventFormCount === 0) {
+      this.certificatesService.issueCertificate(eventId, userId).catch(err => {
+        console.error(`Failed to issue certificate for userId: ${userId} at check-in`, err);
+      });
+    }
 
     return updatedRegistration;
   }
@@ -527,14 +543,14 @@ export class EventRegistrationsService {
 
     // 4. ส่ง Socket Notification (ระบุว่าเป็น Session Check-in)
     // คุณอาจจะปรับ notifyCheckInSuccess ให้รับ parameter เพิ่ม หรือส่งเป็น format ชื่อ "Event - Session Name"
-    const notificationName = sessionRegistration.session 
-      ? `${sessionRegistration.event.name} - ${sessionRegistration.session.name}` 
+    const notificationName = sessionRegistration.session
+      ? `${sessionRegistration.event.name} - ${sessionRegistration.session.name}`
       : sessionRegistration.event.name;
 
     this.eventRegistrationsGateway.notifyCheckInSuccess(
-        userId, 
-        eventId, 
-        notificationName
+      userId,
+      eventId,
+      notificationName
     );
 
     return updatedSessionRegistration;
@@ -569,7 +585,7 @@ export class EventRegistrationsService {
     // 3. Fetch Data (Fetch ALL registrations for this event to export)
     // Reuse logic from getPendingRegistrations but remove 'PENDING' filter
     // and include 'questionIds' for all dynamic columns.
-    
+
     // Extract dynamic question IDs from columnsDef
     const questionIds = columnsDef
       .filter((c) => !c.isSystem)
@@ -618,22 +634,22 @@ export class EventRegistrationsService {
     // 4. Populate Rows
     registrations.forEach((reg) => {
       const row: any = {};
-      
+
       // Map System Fields
       columnsDef.forEach((col) => {
         if (col.isSystem) {
           if (col.id === 'registeredAt') {
-             row[col.id] = reg.registeredAt;
+            row[col.id] = reg.registeredAt;
           } else if (reg.user && (col.id in reg.user)) {
-             row[col.id] = (reg.user as any)[col.id];
+            row[col.id] = (reg.user as any)[col.id];
           }
         } else {
-             // Map Form Answers
-             const userAns = answersMap[reg.userId] || {};
-             row[col.id] = userAns[col.id] || '';
+          // Map Form Answers
+          const userAns = answersMap[reg.userId] || {};
+          row[col.id] = userAns[col.id] || '';
         }
       });
-      
+
       worksheet.addRow(row);
     });
 

@@ -67,6 +67,16 @@ const routes: Array<RouteRecordRaw> = [
     },
   },
   {
+    path: '/admin/events/:id/dashboard',
+    name: 'EventDashboard',
+    component: () => import('../features/event_management/views/EventDashboardView.vue'),
+    props: true,
+    meta: {
+      requiresAuth: true,
+      roles: adminRoles,
+    },
+  },
+  {
     path: '/admin/events/:id/forms/:formId',
     name: 'CreateForms',
     component: () => import('../features/forms/views/FormEditorView.vue'),

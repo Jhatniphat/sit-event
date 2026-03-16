@@ -8,5 +8,6 @@ import { MinioClientModule } from '../minio/minio.module';
   imports: [PrismaModule, MinioClientModule],
   controllers: [CertificatesController],
   providers: [CertificatesService],
+  exports: [CertificatesService],
 })
-export class CertificatesModule {}
+export class CertificatesModule { }

@@ -21,8 +21,11 @@ export class DashboardsService {
       throw new NotFoundException(`Event with ID ${eventId} not found`);
     }
 
-    const registrations = await this.prisma.eventRegistration.findMany({
-      where: { eventId },
+    const eventRegistrations = await this.prisma.eventRegistration.findMany({
+      where: { 
+        eventId,
+        sessionId: null // Only event registrations
+      },
       select: {
         status: true,
         attended: true,
@@ -30,7 +33,7 @@ export class DashboardsService {
       },
     });
 
-    const statusCounts = registrations.reduce(
+    const statusCounts = eventRegistrations.reduce(
       (acc, curr) => {
         const s = curr.status;
         acc[s] = (acc[s] || 0) + 1;
@@ -39,7 +42,7 @@ export class DashboardsService {
       {} as Record<string, number>,
     );
 
-    const attendedCount = registrations.filter((r) => r.attended).length;
+    const attendedCount = eventRegistrations.filter((r) => r.attended).length;
     const totalCapacity = event.sessions.reduce(
       (sum, s) => sum + s.maxSeats,
       0,
@@ -52,9 +55,10 @@ export class DashboardsService {
 
     const capacityPercentage =
       totalCapacity > 0 ? (totalUsedSeats / totalCapacity) * 100 : 0;
+    const totalEventRegistrations = eventRegistrations.length;
     const checkInPercentage =
-      event._count.registrations > 0
-        ? (attendedCount / event._count.registrations) * 100
+      totalEventRegistrations > 0
+        ? (attendedCount / totalEventRegistrations) * 100
         : 0;
 
     return {
@@ -68,7 +72,7 @@ export class DashboardsService {
         status: this.getEventStatus(event.eventStartDate, event.eventEndDate),
       },
       stats: {
-        totalRegistrations: event._count.registrations,
+        totalRegistrations: totalEventRegistrations,
         totalStaff: event._count.staff,
         attended: attendedCount,
         checkedInPercentage: parseFloat(checkInPercentage.toFixed(2)),
@@ -76,6 +80,64 @@ export class DashboardsService {
           total: totalCapacity,
           used: totalUsedSeats,
           remaining: currentAvailable,
+          percentage: parseFloat(capacityPercentage.toFixed(2)),
+        },
+        registrationStatus: {
+          pending: statusCounts[RegistrationStatus.PENDING] || 0,
+          approved: statusCounts[RegistrationStatus.APPROVED] || 0,
+          rejected: statusCounts[RegistrationStatus.REJECTED] || 0,
+        },
+      },
+    };
+  }
+
+  async getSessionStats(sessionId: string) {
+    const session = await this.prisma.eventSession.findUnique({
+      where: { id: sessionId },
+      include: {
+        registrations: true,
+      },
+    });
+
+    if (!session) {
+      throw new NotFoundException(`Session with ID ${sessionId} not found`);
+    }
+
+    const registrations = session.registrations;
+    const attendedCount = registrations.filter((r) => r.attended).length;
+    
+    // Status counts for session
+    const statusCounts = registrations.reduce(
+      (acc, curr) => {
+        const s = curr.status;
+        acc[s] = (acc[s] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
+
+    const checkInPercentage =
+      registrations.length > 0
+        ? (attendedCount / registrations.length) * 100
+        : 0;
+
+    const totalUsedSeats = session.maxSeats - session.availableSeats;
+    const capacityPercentage =
+      session.maxSeats > 0 ? (totalUsedSeats / session.maxSeats) * 100 : 0;
+
+    return {
+      session: {
+        id: session.id,
+        name: session.name,
+      },
+      stats: {
+        totalRegistrations: registrations.length,
+        attended: attendedCount,
+        checkedInPercentage: parseFloat(checkInPercentage.toFixed(2)),
+        capacity: {
+          total: session.maxSeats,
+          used: totalUsedSeats,
+          remaining: session.availableSeats,
           percentage: parseFloat(capacityPercentage.toFixed(2)),
         },
         registrationStatus: {

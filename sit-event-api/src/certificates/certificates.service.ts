@@ -8,12 +8,15 @@ import { UpdateCertificateElementDto } from './dto/update-certificate-element.dt
 import { FieldType } from 'generated/prisma';
 import { createCanvas, loadImage } from 'canvas';
 import { PreviewCertificateDto } from './dto/preview-certificate.dto';
+import { EmailService } from '../emails/email.service';
+
 @Injectable()
 export class CertificatesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly minioClient: MinioClientService,
-  ) {}
+    private readonly emailService: EmailService,
+  ) { }
 
   // ================= Template Methods =================
 
@@ -223,7 +226,7 @@ export class CertificatesService {
 
     // 2. โหลดรูป Background จาก MinIO มาเป็น Buffer
     const bgBuffer = await this.minioClient.getFile(template.templateFilepath);
-    
+
     // 3. สร้าง Canvas
     const image = await loadImage(bgBuffer);
     const canvas = createCanvas(image.width, image.height);
@@ -268,7 +271,7 @@ export class CertificatesService {
         ctx.strokeStyle = '#FF0000'; // สีแดง
         ctx.lineWidth = 2;
         ctx.strokeRect(el.x, el.y, el.width || 100, el.height || 50);
-        
+
         // เขียนบอกว่าเป็นรูป
         ctx.font = '16px Arial';
         ctx.fillStyle = '#FF0000';
@@ -280,7 +283,7 @@ export class CertificatesService {
         const fontSize = el.fontSize || 20;
         const fontFamily = el.fontFamily || 'Arial'; // หรือ 'Sarabun', 'Tahoma'
         const fontWeight = el.fontWeight || 'normal';
-        
+
         ctx.font = `${fontWeight} ${fontSize}px "${fontFamily}"`;
         ctx.fillStyle = el.color || '#000000';
         ctx.textAlign = (el.textAlign as CanvasTextAlign) || 'left';
@@ -292,5 +295,106 @@ export class CertificatesService {
 
     // Return เป็น Buffer (image/png)
     return canvas.toBuffer('image/png');
+  }
+
+  async issueCertificate(eventId: string, userId: string): Promise<void> {
+    try {
+      // 1. ดึงข้อมูล Template เพื่อเอา path รูป Background
+      const template = await this.prisma.certificateTemplate.findFirst({
+        where: { eventId },
+        include: { elements: true },
+      });
+
+      if (!template) {
+        return; // No template for this event, do nothing
+      }
+
+      const user = await this.prisma.user.findUnique({ where: { id: userId } });
+      const event = await this.prisma.event.findUnique({ where: { id: eventId } });
+
+      if (!user || !event) {
+        console.error(`issueCertificate: User or Event not found (userId: ${userId}, eventId: ${eventId})`);
+        return;
+      }
+
+      const registration = await this.prisma.eventRegistration.findFirst({
+        where: { eventId, userId, sessionId: null }
+      });
+
+      // 2. โหลดรูป Background จาก MinIO มาเป็น Buffer
+      const bgBuffer = await this.minioClient.getFile(template.templateFilepath);
+
+      // 3. สร้าง Canvas
+      const image = await loadImage(bgBuffer);
+      const canvas = createCanvas(image.width, image.height);
+      const ctx = canvas.getContext('2d');
+
+      // วาด Background
+      ctx.drawImage(image, 0, 0);
+
+      // 4. วาด Elements ตามที่ส่งมา
+      for (const el of template.elements) {
+        let text = '';
+        const isImage = el.fieldType === FieldType.Image;
+
+        switch (el.fieldType) {
+          case FieldType.ParticipantName:
+            text = `${user.firstName} ${user.lastName}`;
+            break;
+          case FieldType.EventName:
+            text = event.name;
+            break;
+          case FieldType.EventStartDate:
+            text = new Date(event.eventStartDate).toLocaleDateString('th-TH');
+            break;
+          case FieldType.EventEndDate:
+            text = new Date(event.eventEndDate).toLocaleDateString('th-TH');
+            break;
+          case FieldType.Date:
+            text = new Date().toLocaleDateString('th-TH');
+            break;
+          case FieldType.SerialNumber:
+            text = registration ? registration.id.substring(0, 8).toUpperCase() : `SIT-${new Date().getFullYear()}-0001`;
+            break;
+          case FieldType.Text:
+            text = el.placeHolder || '';
+            break;
+        }
+
+        if (isImage) {
+          if (el.sourceFilepath) {
+            try {
+              const elBuffer = await this.minioClient.getFile(el.sourceFilepath);
+              const elImage = await loadImage(elBuffer);
+              ctx.drawImage(elImage, el.x, el.y, el.width || elImage.width, el.height || elImage.height);
+            } catch (err) {
+              console.error('Failed to draw image element on certificate', err);
+            }
+          }
+        } else {
+          const fontSize = el.fontSize || 20;
+          const fontFamily = el.fontFamily || 'Arial';
+          const fontWeight = el.fontWeight || 'normal';
+
+          ctx.font = `${fontWeight} ${fontSize}px "${fontFamily}"`;
+          ctx.fillStyle = el.color || '#000000';
+          ctx.textAlign = (el.textAlign as CanvasTextAlign) || 'left';
+          ctx.textBaseline = 'top';
+
+          ctx.fillText(text, el.x, el.y);
+        }
+      }
+
+      const certBuffer = canvas.toBuffer('image/png');
+
+      await this.emailService.sendCertificate(
+        user.email,
+        `${user.firstName} ${user.lastName}`,
+        event.name,
+        certBuffer
+      );
+    } catch (error) {
+      console.error(`Failed to issue certificate for userId: ${userId}, eventId: ${eventId}`, error);
+    }
   }
 }

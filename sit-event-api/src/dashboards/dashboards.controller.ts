@@ -11,4 +11,10 @@ export class DashboardsController {
   getEventStats(@Param('eventId') eventId: string) {
     return this.dashboardsService.getEventStats(eventId);
   }
+
+  @Get('sessions/:sessionId/stats')
+  @AdminOnly()
+  getSessionStats(@Param('sessionId') sessionId: string) {
+    return this.dashboardsService.getSessionStats(sessionId);
+  }
 }

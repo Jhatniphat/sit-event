@@ -4,7 +4,7 @@ import { SendEmailDto, EmailTemplate } from './dto/send-email.dto';
 
 @Injectable()
 export class EmailService {
-  constructor(private readonly mailerService: MailerService) {}
+  constructor(private readonly mailerService: MailerService) { }
 
   async sendEmail(dto: SendEmailDto): Promise<{ success: boolean; message: string }> {
     const { to, subject, template, context, html, text, attachments } = dto;
@@ -69,7 +69,7 @@ export class EmailService {
     email: string,
     participantName: string,
     eventName: string,
-    certificatePath: string,
+    certificateBuffer: Buffer,
   ): Promise<void> {
     await this.mailerService.sendMail({
       to: email,
@@ -78,8 +78,8 @@ export class EmailService {
       context: { participantName, eventName },
       attachments: [
         {
-          filename: 'certificate.pdf',
-          path: certificatePath,
+          filename: 'certificate.png',
+          content: certificateBuffer,
         },
       ],
     });
