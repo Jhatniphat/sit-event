@@ -515,10 +515,10 @@ const onCancel = () => {
             </Button>
           </div>
           <div>
-            <Button type="button" v-if="currentStep < totalSteps" @click="nextStep" class="min-w-28 text-sm">
+            <Button type="button" v-if="currentStep < totalSteps" @click="nextStep" class="min-w-28 text-sm" id="next-btn">
                 Next
             </Button>
-            <Button type="button" v-if="currentStep === totalSteps" @click="nextStep" class="bg-green-600 hover:bg-green-700 min-w-28 text-sm flex items-center gap-2">
+            <Button type="button" v-if="currentStep === totalSteps" @click="nextStep" class="bg-green-600 hover:bg-green-700 min-w-28 text-sm flex items-center gap-2" id="confirm-btn">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
                 {{ isEditMode ? 'Confirm Update' : 'Confirm Create' }}
             </Button>

@@ -16,13 +16,14 @@ const route = useRoute()
 const router = useRouter()
 const formStore = useFormStore()
 const eventId = route.params.id as string
+const deleteCurrentFormId = ref<string>('')
 
-const hasForm = computed(() => !!formStore.currentFormId)
+const hasForm = computed(() => formStore.formsList.length > 0)
 const isDeleteForm = ref(false)
 
 onMounted(async () => {
   try {
-    await formStore.fetchForm(eventId)
+    await formStore.fetchForms(eventId)
   } catch (error) {
     console.error('เกิดข้อผิดพลาดในการดึงข้อมูล:', error)
   }
@@ -51,23 +52,25 @@ const handleCreateForm = async () => {
   }
 }
 
-const handleViewForm = () => {
+const handleViewForm = (formId: string) => {
   router.push({
     name: 'FormView',
-    params: { id: eventId },
+    params: { id: eventId, formId: formId },
     query: { preview: 'true' },
   })
 }
 
-const handleDeleteForm = () => {
+const handleDeleteForm = (formId: string) => {
+  deleteCurrentFormId.value = ''
   isDeleteForm.value = true
+  deleteCurrentFormId.value = formId
 }
 
 const confirmDeleteForm = async () => {
-  if (!formStore.currentFormId) return
+  if (!deleteCurrentFormId.value) return
 
   try {
-    const success = await formStore.deleteForm(eventId, String(formStore.currentFormId))
+    const success = await formStore.deleteForm(eventId, deleteCurrentFormId.value)
 
     if (success) {
       toast.success('ลบฟอร์มสำเร็จ', {
@@ -116,10 +119,14 @@ const handleEditForm = (formId: string) => {
           <span class="text-sm font-medium text-gray-700 text-center">Create New Form</span>
         </div>
 
-        <div v-if="hasForm" class="flex flex-col gap-3 group relative">
+        <div
+          v-for="form in formStore.formsList"
+          :key="form.id"
+          class="flex flex-col gap-3 group relative"
+        >
           <div class="relative aspect-[4/3]">
             <button
-              @click="handleEditForm(String(formStore.currentFormId))"
+              @click="handleEditForm(String(form.id))"
               class="w-full h-full bg-white border border-gray-200 rounded-md flex items-center justify-center transition-all shadow-sm group-hover:shadow-md hover:border-black transition-all"
             >
               <FileUser class="w-10 h-10 text-black group-hover:scale-110 transition-transform" />
@@ -133,12 +140,12 @@ const handleEditForm = (formId: string) => {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" class="w-40">
-                  <DropdownMenuItem @click="handleViewForm()" class="cursor-pointer">
+                  <DropdownMenuItem @click="handleViewForm(String(form.id))" class="cursor-pointer">
                     <Eye class="mr-2 h-4 w-4" />
                     <span>Preview Form</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem
-                    @click="handleDeleteForm()"
+                    @click="handleDeleteForm(String(form.id))"
                     class="cursor-pointer text-red-600 focus:text-red-600"
                   >
                     <Trash2 class="mr-2 h-4 w-4" />
@@ -150,7 +157,7 @@ const handleEditForm = (formId: string) => {
           </div>
 
           <span class="text-sm font-medium text-gray-700 truncate text-center px-1">
-            {{ formStore.formTitle || 'Untitled Form' }}
+            {{ form.title || 'Untitled Form' }}
           </span>
         </div>
       </div>

@@ -22,10 +22,14 @@ import {
   ReorderFieldsDto,
   BulkDeleteFieldsDto,
 } from './dto';
+import { CertificatesService } from '../certificates/certificates.service';
 
 @Injectable()
 export class EventFormsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly certificatesService: CertificatesService,
+  ) { }
 
   // ==================== FORM MANAGEMENT ====================
 
@@ -70,14 +74,14 @@ export class EventFormsService {
         isActive: dto.isActive ?? false,
         fields: dto.fields
           ? {
-              create: dto.fields.map((field, index) => ({
-                question: field.question,
-                fieldType: field.fieldType,
-                options: field.options ?? [],
-                isRequired: field.isRequired ?? false,
-                order: field.order ?? index,
-              })),
-            }
+            create: dto.fields.map((field, index) => ({
+              question: field.question,
+              fieldType: field.fieldType,
+              options: field.options ?? [],
+              isRequired: field.isRequired ?? false,
+              order: field.order ?? index,
+            })),
+          }
           : undefined,
       },
       include: {
@@ -117,7 +121,7 @@ export class EventFormsService {
     // Note: For PRE_EVENT forms, user might not have attended yet (registration phase)
     if (userId && !this.isAdminOrOrganizer(userRoles)) {
       if (type !== FormType.PRE_EVENT) {
-         await this.verifyUserAttended(eventId, userId);
+        await this.verifyUserAttended(eventId, userId);
       }
     }
 
@@ -136,18 +140,18 @@ export class EventFormsService {
           },
           submissions: includeSubmissions
             ? {
-                include: {
-                  user: {
-                    select: {
-                      id: true,
-                      email: true,
-                      firstName: true,
-                      lastName: true,
-                    },
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    email: true,
+                    firstName: true,
+                    lastName: true,
                   },
-                  answers: true,
                 },
-              }
+                answers: true,
+              },
+            }
             : false,
           _count: {
             select: {
@@ -172,18 +176,18 @@ export class EventFormsService {
           },
           submissions: includeSubmissions
             ? {
-                include: {
-                  user: {
-                    select: {
-                      id: true,
-                      email: true,
-                      firstName: true,
-                      lastName: true,
-                    },
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    email: true,
+                    firstName: true,
+                    lastName: true,
                   },
-                  answers: true,
                 },
-              }
+                answers: true,
+              },
+            }
             : false,
           _count: {
             select: {
@@ -530,7 +534,7 @@ export class EventFormsService {
     }
 
     // Create submission with answers
-    return this.prisma.eventFormSubmission.create({
+    const submission = await this.prisma.eventFormSubmission.create({
       data: {
         formId,
         userId,
@@ -557,6 +561,14 @@ export class EventFormsService {
         },
       },
     });
+
+    if (form.type === FormType.POST_EVENT) {
+      this.certificatesService.issueCertificate(eventId, userId).catch(err => {
+        console.error(`Failed to issue certificate for userId: ${userId} after POST_EVENT form submit`, err);
+      });
+    }
+
+    return submission;
   }
 
   /**

@@ -4,10 +4,11 @@ import { EventRegistrationsController } from './event-registrations.controller';
 import { UsersModule } from 'src/users/users.module';
 import { PrismaModule } from 'src/prisma.module';
 import { EventRegistrationsGateway } from './event-registrations.gateway';
+import { CertificatesModule } from '../certificates/certificates.module';
 
 @Module({
-  imports: [PrismaModule, UsersModule],
+  imports: [PrismaModule, UsersModule, CertificatesModule],
   controllers: [EventRegistrationsController],
   providers: [EventRegistrationsService, EventRegistrationsGateway],
 })
-export class EventRegistrationsModule {}
+export class EventRegistrationsModule { }

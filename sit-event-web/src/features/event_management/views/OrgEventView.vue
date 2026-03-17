@@ -190,6 +190,18 @@ const formatEnum = (value: string) => {
                 </td>
 
                 <td class="px-6 py-4 text-right space-x-2">
+                  <button @click="router.push({ name: 'EventDashboard', params: { id: event.id } })"
+                    class="p-2 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors"
+                    title="Dashboard">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                      stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <rect width="7" height="9" x="3" y="3" rx="1" />
+                      <rect width="7" height="5" x="14" y="3" rx="1" />
+                      <rect width="7" height="9" x="14" y="12" rx="1" />
+                      <rect width="7" height="5" x="3" y="16" rx="1" />
+                    </svg>
+                  </button>
+
                   <button @click="handleView(event.id)"
                     class="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
                     title="View Details">

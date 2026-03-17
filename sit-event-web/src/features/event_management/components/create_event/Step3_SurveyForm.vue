@@ -62,8 +62,8 @@ const getFormByType = (type: string) => {
         <p class="text-sm text-gray-500 text-center max-w-md mb-6">You can create pre-event forms for registration details or post-event forms for feedback. If you don't need any forms, you can skip this step.</p>
         
         <div class="flex items-center gap-4">
-            <Button type="button" variant="outline" class="w-32" @click="handleSkip">No, Skip</Button>
-            <Button type="button" class="w-32 bg-purple-600 hover:bg-purple-700 text-white" @click="toggleCreate">Yes, Add</Button>
+            <Button type="button" variant="outline" class="w-32" @click="handleSkip" id="skip-btn">No, Skip</Button>
+            <Button type="button" class="w-32 bg-purple-600 hover:bg-purple-700 text-white" @click="toggleCreate" id="add-btn">Yes, Add</Button>
         </div>
     </div>
 

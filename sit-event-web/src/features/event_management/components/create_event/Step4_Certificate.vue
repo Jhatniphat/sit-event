@@ -274,8 +274,8 @@ const handleSkip = () => {
         <p class="text-sm text-gray-500 text-center max-w-md mb-6">Certificates are a great way to reward attendees. You can configure a template now, or skip this if your event does not provide certificates.</p>
         
         <div class="flex items-center gap-4">
-            <Button type="button" variant="outline" class="w-32" @click="handleSkip">No, Skip</Button>
-            <Button type="button" class="w-32 bg-green-600 hover:bg-green-700 text-white" @click="toggleCreate">Yes, Configure</Button>
+            <Button type="button" variant="outline" class="w-32" @click="handleSkip" id="skip-btn">No, Skip</Button>
+            <Button type="button" class="w-32 bg-green-600 hover:bg-green-700 text-white" @click="toggleCreate" id="add-btn">Yes, Configure</Button>
         </div>
     </div>
 

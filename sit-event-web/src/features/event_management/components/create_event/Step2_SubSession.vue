@@ -127,8 +127,8 @@ const handleSkip = () => {
         <p class="text-sm text-gray-500 text-center max-w-md mb-6">Sub-sessions allow attendees to register for specific tracks or schedules within your main event. You can skip this if your event is just a single session.</p>
         
         <div class="flex items-center gap-4">
-            <Button type="button" variant="outline" class="w-32" @click="handleSkip">No, Skip</Button>
-            <Button type="button" class="w-32" @click="toggleCreate">Yes, Add</Button>
+            <Button type="button" variant="outline" class="w-32" @click="handleSkip" id="skip-btn">No, Skip</Button>
+            <Button type="button" class="w-32" @click="toggleCreate" id="add-btn">Yes, Add</Button>
         </div>
     </div>
 

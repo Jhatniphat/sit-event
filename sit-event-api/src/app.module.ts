@@ -26,6 +26,7 @@ import { EventSessionsModule } from './event-sessions/event-sessions.module';
 import { EventFormsModule } from './event-forms/event-forms.module';
 import { CertificatesModule } from './certificates/certificates.module';
 import { EmailModule } from './emails/email.module';
+import { DashboardsModule } from './dashboards/dashboards.module';
 
 @Module({
   imports: [
@@ -57,6 +58,7 @@ import { EmailModule } from './emails/email.module';
     EventFormsModule,
     CertificatesModule,
     EmailModule,
+    DashboardsModule,
   ],
   controllers: [AppController],
   providers: [

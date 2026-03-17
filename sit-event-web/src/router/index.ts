@@ -67,9 +67,19 @@ const routes: Array<RouteRecordRaw> = [
     },
   },
   {
+    path: '/admin/events/:id/dashboard',
+    name: 'EventDashboard',
+    component: () => import('../features/event_management/views/EventDashboardView.vue'),
+    props: true,
+    meta: {
+      requiresAuth: true,
+      roles: adminRoles,
+    },
+  },
+  {
     path: '/admin/events/:id/forms/:formId',
     name: 'CreateForms',
-    component: () => import('../features/forms/views/CreateFormsView.vue'),
+    component: () => import('../features/forms/views/FormEditorView.vue'),
     props: true,
     meta: {
       requiresAuth: true,
@@ -176,6 +186,7 @@ const routes: Array<RouteRecordRaw> = [
     component: () => import('../features/forms/views/FormView.vue'),
     props: (route) => ({
       id: route.params.id,
+      formId: route.query.formId,
       isPreviewMode: route.query.preview === 'true',
     }),
     meta: { requiresAuth: false },
