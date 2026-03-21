@@ -13,8 +13,8 @@ interface LoginCallbackResponse {
   message: string;
   user: AuthUser;
   sessionCreated: boolean;
-  accessToken: string;  // 👈 [เพิ่ม]
-  refreshToken: string; // 👈 [เพิ่ม]
+  accessToken: string;  
+  refreshToken: string; 
 }
 
 interface SessionData {

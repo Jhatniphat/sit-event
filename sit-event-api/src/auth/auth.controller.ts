@@ -1,4 +1,4 @@
-import { Controller, Get, Query, Res, HttpStatus, Logger, Req, UnauthorizedException } from '@nestjs/common';
+import { Controller, Get, Post, Body, Query, Res, HttpStatus, Logger, Req, UnauthorizedException } from '@nestjs/common';
 import type { Response, Request } from 'express';
 import { AuthService } from './auth.service';
 import { SessionService } from './session.service';
@@ -160,6 +160,35 @@ export class AuthController {
         valid: false,
         message: 'Session validation failed',
       };
+    }
+  }
+
+  @Public()
+  @Post('refresh')
+  async refreshAccessToken(@Body() body: { refreshToken: string }, @Req() req: Request, @Res() res: Response) {
+    try {
+      const rToken = body.refreshToken;
+      
+      if (!rToken) {
+        throw new UnauthorizedException('No refresh token provided');
+      }
+
+      this.logger.log('Receiving request to refresh access token');
+      
+      const newTokens = await this.authService.refreshAccessToken(rToken);
+
+      return res.status(HttpStatus.OK).json({
+        message: 'Token refreshed successfully',
+        accessToken: newTokens.access_token,
+        refreshToken: newTokens.refresh_token,
+        expiresIn: newTokens.expires_in,
+      });
+    } catch (error) {
+       this.logger.error('Failed to refresh token:', error);
+       return res.status(HttpStatus.UNAUTHORIZED).json({
+         message: 'Failed to refresh token',
+         error: error.message,
+       });
     }
   }
 
