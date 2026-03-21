@@ -29,6 +29,15 @@ const routes: Array<RouteRecordRaw> = [
     },
   },
   {
+    path: '/admin/suggestions',
+    name: 'SuggestionManagement',
+    component: () => import('@/features/suggestions/views/SuggestionManagementView.vue'),
+    meta: {
+      requiresAuth: true,
+      roles: adminRoles,
+    },
+  },
+  {
     path: '/admin/events',
     name: 'OrgEventView',
     component: () => import('../features/event_management/views/OrgEventView.vue'),

@@ -68,6 +68,18 @@ enum RegistrationStatus {
   REJECTED
 }
 
+enum BackgroundType {
+  PARTICLE
+  IMAGE
+}
+
+enum AnnouncementType {
+  PRE_EVENT
+  REGISTRATION
+  IN_EVENT
+  OTHERS
+}
+
 model User {
   id                      String    @id @default(uuid())
   email                   String    @unique
@@ -124,6 +136,7 @@ model Event {
   creator       User?                 @relation("EventCreator", fields: [creatorId], references: [id])
   creatorId     String?
   certificated  CertificateTemplate[]
+  suggestions   Suggestion[]
 
   @@map("events")
 }
@@ -323,4 +336,24 @@ model CertificateElement {
   dateFormat     String?       // เช่น "DD MMMM YYYY" หรือ "DD/MM/YYYY" สำหรับ FieldType.Date
 
   certificateTemplate CertificateTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+}
+
+model Suggestion {
+  id               String           @id @default(uuid())
+  title            String           @db.Text
+  description      String           @db.Text
+  link             String?          
+  eventId          String?          
+  event            Event?           @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  backgroundType   BackgroundType   @default(PARTICLE)
+  backgroundImage  String?
+  icons            String[]
+  announcementType AnnouncementType @default(OTHERS)
+  startDate        DateTime?        @db.Timestamptz
+  endDate          DateTime?        @db.Timestamptz
+  contentDate      DateTime?        @db.Timestamptz
+  createdAt        DateTime         @default(now()) @db.Timestamptz
+  updatedAt        DateTime         @updatedAt @db.Timestamptz
+
+  @@map("suggestions")
 }
