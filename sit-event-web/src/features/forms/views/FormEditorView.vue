@@ -31,11 +31,13 @@ onMounted(async () => {
     deletedIds: formStore.deletedFieldIds,
   })
 
-  if (formResponses.value.length > 0) return
-  isLoading.value = true
+  if (formResponses.value && formResponses.value.length > 0) {
+    isLoading.value = false
+    return
+  }
   const res = await formStore.getAllFormResponses(eventId, formId)
   console.log('Form responses:', res)
-  formResponses.value = res
+  formResponses.value = res ?? []
   isLoading.value = false
 })
 
