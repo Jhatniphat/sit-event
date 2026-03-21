@@ -4,9 +4,10 @@ import { EventStaffsController } from './event-staffs.controller';
 import { PrismaModule } from 'src/prisma.module';
 import { UsersModule } from 'src/users/users.module';
 import { EventsModule } from 'src/events/events.module';
+import { ScopesModule } from './scopes/scopes.module';
 
 @Module({
-  imports: [PrismaModule, UsersModule, EventsModule],
+  imports: [PrismaModule, UsersModule, EventsModule, ScopesModule],
   controllers: [EventStaffsController],
   providers: [EventStaffsService],
 })

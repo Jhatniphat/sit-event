@@ -80,6 +80,10 @@ enum AnnouncementType {
   OTHERS
 }
 
+enum StaffPermissionType {
+  CHECK_IN
+}
+
 model User {
   id                      String    @id @default(uuid())
   email                   String    @unique
@@ -159,6 +163,7 @@ model EventSession {
   // Relations
   event         Event               @relation(fields: [eventId], references: [id], onDelete: Cascade)
   registrations EventRegistration[]
+  staffScopes   EventStaffScope[]
 
   @@map("event_sessions")
 }
@@ -197,9 +202,26 @@ model EventStaff {
   // Relations
   event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
   user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scopes EventStaffScope[]
 
   @@unique([eventId, userId])
   @@map("event_staff")
+}
+
+model EventStaffScope {
+  id          String              @id @default(uuid())
+  staffId     String
+  sessionId   String?
+  permission  StaffPermissionType
+  createdAt   DateTime            @default(now()) @db.Timestamptz
+  updatedAt   DateTime            @updatedAt @db.Timestamptz
+
+  // Relations
+  staff       EventStaff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  session     EventSession? @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([staffId, sessionId, permission])
+  @@map("event_staff_scopes")
 }
 
 model EventFAQ {
