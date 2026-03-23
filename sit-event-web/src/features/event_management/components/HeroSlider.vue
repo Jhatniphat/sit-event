@@ -32,13 +32,31 @@ function setApi(val: CarouselApi) {
   api.value = val
 }
 
+let autoplayTimer: any = null
+
+const startAutoplay = () => {
+  if (autoplayTimer) clearInterval(autoplayTimer)
+  autoplayTimer = setInterval(() => {
+    if (api.value) {
+      api.value.scrollNext()
+    }
+  }, 20000) // 20 seconds
+}
+
+const stopAutoplay = () => {
+  if (autoplayTimer) clearInterval(autoplayTimer)
+}
+
 watch(api, (emblaApi: CarouselApi | undefined) => {
   if (!emblaApi) return
   count.value = emblaApi.scrollSnapList().length
   current.value = emblaApi.selectedScrollSnap()
 
+  startAutoplay()
+
   emblaApi.on('select', () => {
     current.value = emblaApi.selectedScrollSnap()
+    startAutoplay() // Reset timer when user manually interacts
   })
 })
 
@@ -61,6 +79,10 @@ const getBackgroundClass = (slide: HeroSlide) => {
   return 'bg-white' // default white background for particles
 }
 
+const hasAnyParticleSlide = computed(() => {
+  return props.slides.some(slide => !slide.bgImage)
+})
+
 // 2. ฟังก์ชันคำนวณ Style พื้นหลัง (แก้ไขให้รองรับ particles white bg)
 function getSlideStyle(slide: HeroSlide) {
   if (slide.bgImage) {
@@ -68,11 +90,12 @@ function getSlideStyle(slide: HeroSlide) {
       backgroundImage: `url(${slide.bgImage})`,
       backgroundSize: 'cover',
       backgroundPosition: 'center',
+      backgroundColor: '#000000',
     }
   }
 
   return {
-    backgroundColor: '#ffffff'
+    backgroundColor: 'transparent'
   }
 }
 
@@ -92,6 +115,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener('scroll', onScroll)
+  stopAutoplay()
 })
 
 const sliderStyle = computed(() => {
@@ -114,6 +138,7 @@ const sliderStyle = computed(() => {
 const typedTitle = ref('')
 const typedDescription = ref('')
 let typingTimeout: any = null
+const isFirstTypingDone = ref(false)
 
 const typeText = (fullTitle: string, fullDesc: string) => {
   if (typingTimeout) clearTimeout(typingTimeout)
@@ -132,6 +157,8 @@ const typeText = (fullTitle: string, fullDesc: string) => {
       typedDescription.value += fullDesc.charAt(j)
       j++
       typingTimeout = setTimeout(typeChar, 30) // slightly faster for desc
+    } else {
+      isFirstTypingDone.value = true
     }
   }
   
@@ -139,13 +166,7 @@ const typeText = (fullTitle: string, fullDesc: string) => {
   typeChar()
 }
 
-// Monitor slide changes to re-trigger typing
-watch(current, () => {
-  const currentSlide = props.slides[current.value]
-  if (currentSlide) {
-    typeText(currentSlide.title, currentSlide.description)
-  }
-})
+// Note: Removed watch(current, ...) to prevent typing effect on subsequent slides
 
 // Trigger typing on initial load
 onMounted(() => {
@@ -191,9 +212,18 @@ const particlesOptions = {
 </script>
 
 <template>
-  <div class="relative w-full overflow-hidden bg-black mb-8 pb-4" :style="sliderStyle">
+  <div class="relative w-full overflow-hidden mb-8 pb-4" :class="props.slides[current]?.bgImage ? 'bg-black' : 'bg-white'" :style="sliderStyle">
+    
+    <!-- Particles component (only ONE instance for entire slider) -->
+    <vue-particles
+      v-if="hasAnyParticleSlide"
+      id="tsparticles"
+      :options="particlesOptions"
+      class="absolute inset-0 z-0 pointer-events-none"
+    />
+
     <Carousel 
-      class="w-full" 
+      class="w-full relative z-10" 
       @init-api="setApi"
       :opts="{ loop: true }"
     >
@@ -204,13 +234,6 @@ const particlesOptions = {
             class="relative flex h-screen w-full flex-col items-center justify-center px-4 text-center transition-all duration-300"
             :class="slide.bgImage ? 'text-white' : 'text-gray-900'"
           >
-            <!-- Particles component (only render if no bgImage or if desired) -->
-            <vue-particles
-              v-if="!slide.bgImage"
-              id="tsparticles"
-              :options="particlesOptions"
-              class="absolute inset-0 z-0 pointer-events-none"
-            />
 
             <div v-if="slide.bgImage" class="absolute inset-0 bg-black/40 z-0"></div>
 
@@ -222,8 +245,8 @@ const particlesOptions = {
               </div>
 
               <h1 class="text-4xl font-bold tracking-tight md:text-6xl drop-shadow-sm min-h-[4rem] md:min-h-[8rem] flex items-center justify-center">
-                {{ current === index ? typedTitle : slide.title }}
-                <span v-if="current === index" class="animate-pulse">|</span>
+                {{ (current === index && !isFirstTypingDone) ? typedTitle : slide.title }}
+                <span v-if="current === index && !isFirstTypingDone" class="animate-pulse">|</span>
               </h1>
 
               <div :class="slide.bgImage ? 'bg-white/70' : 'bg-primary/70'" class="h-1 w-24 rounded shadow-sm"></div>
@@ -239,7 +262,7 @@ const particlesOptions = {
               </div>
 
               <p :class="slide.bgImage ? 'text-white/95' : 'text-gray-600'" class="text-lg font-medium md:text-xl max-w-2xl drop-shadow-sm min-h-[3rem] md:min-h-[4rem]">
-                {{ current === index ? typedDescription : slide.description }}
+                {{ (current === index && !isFirstTypingDone) ? typedDescription : slide.description }}
               </p>
 
               <Button 

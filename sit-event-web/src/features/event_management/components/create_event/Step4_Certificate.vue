@@ -113,7 +113,7 @@ const initFromStore = (eventId: string) => {
 // --- ELEMENT MANAGEMENT ---
 const addElement = (type: CertificateFieldType) => {
   const newId = crypto.randomUUID();
-  let baseProps: CertificateElement = {
+  const baseProps: CertificateElement = {
     id: newId, type, label: type, x: 50, y: 50, fontSize: 16, fontFamily: 'Sarabun',
     color: '#000000', fontWeight: 'normal', textAlign: 'left', width: 100, height: 100
   };

@@ -45,12 +45,99 @@ apiClient.interceptors.request.use(
   }
 );
 
+let isRefreshing = false;
+let failedQueue: any[] = [];
+
+const processQueue = (error: any, token: string | null = null) => {
+  failedQueue.forEach(prom => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+
+  failedQueue = [];
+};
+
 // ===== Response Interceptor =====
 apiClient.interceptors.response.use(
   (response: AxiosResponse) => {
     return response.data;
   },
-  (error: AxiosError<DefaultErrorResponse>) => {
+  async (error: AxiosError<DefaultErrorResponse>) => {
+    const originalRequest = error.config as any;
+
+    if (error.response && error.response.status === 401 && originalRequest && !originalRequest.url?.includes('/auth/refresh') && !originalRequest._retry) {
+      if (isRefreshing) {
+        return new Promise(function (resolve, reject) {
+          failedQueue.push({ resolve, reject });
+        })
+          .then((token) => {
+            if (token) {
+              originalRequest.headers.Authorization = 'Bearer ' + token;
+            }
+            return apiClient(originalRequest);
+          })
+          .catch((err) => {
+            return Promise.reject(err);
+          });
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      try {
+        const { useAuthStore } = await import('@/features/auth/stores/auth.store');
+        const authStore = useAuthStore();
+
+        let rToken = authStore.refreshToken;
+        if (!rToken) {
+          rToken = localStorage.getItem('refreshToken');
+        }
+
+        if (rToken) {
+          // ใช้ axios ตรง ๆ เพื่อไม่ให้ไปชนกับ interceptor ตัวเอง
+          const refreshRes = await axios.post(`${baseURL}/auth/refresh`, {
+            refreshToken: rToken
+          }, { withCredentials: true });
+
+          const newAccessToken = refreshRes.data.accessToken;
+          const newRefreshToken = refreshRes.data.refreshToken;
+
+          authStore.accessToken = newAccessToken;
+          authStore.refreshToken = newRefreshToken;
+
+          localStorage.setItem('authToken', newAccessToken);
+          localStorage.setItem('refreshToken', newRefreshToken);
+
+          processQueue(null, newAccessToken);
+
+          originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+          // เรียก request เดิมซ้ำและ return data อย่างเดียว (เพราะ interceptor ฝั่ง success จะแกะ response.data ให้)
+          // แต่อย่าลืมว่า apiClient(originalRequest) จะวิ่งไปผ่าน success interceptor ใหม่อีกรอบมั้ย?
+          // คำตอบคือใช่ มันจะผ่าน request & response interceptors ใหม่
+          return await apiClient(originalRequest);
+        } else {
+          throw new Error("No refresh token");
+        }
+      } catch (err) {
+        processQueue(err, null);
+        const { useAuthStore } = await import('@/features/auth/stores/auth.store');
+        const authStore = useAuthStore();
+        authStore.user = null;
+        authStore.accessToken = null;
+        authStore.refreshToken = null;
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('refreshToken');
+
+        console.error('Unauthorized! ไม่สามารถ refresh token ได้ กำลัง redirect ไปหน้า login...');
+        authStore.loginRedirect();
+      } finally {
+        isRefreshing = false;
+      }
+    }
+
     let parsedError: ParsedApiError;
 
     if (error.response) {

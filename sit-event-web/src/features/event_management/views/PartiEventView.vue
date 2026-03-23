@@ -26,6 +26,7 @@ import UnregistrationDialog from '@/features/registration/components/Unregistrat
 import SessionSelectionDialog from '@/features/registration/components/SessionSelectionDialog.vue'
 import { toast } from 'vue-sonner'
 import { FormType } from '@/features/forms/services/FormServices'
+import { suggestionService } from '@/features/suggestions/services/suggestion.service'
 
 const eventStore = useEventStore()
 const events = computed(() => eventStore.events)
@@ -56,9 +57,49 @@ const eventsForEventCards = computed<EventItem[]>(() => {
 
 const objectUrlMap = new Map<string, string>()
 
+const fetchHeroSlides = async () => {
+  console.log("fetchHeroSlides")
+  try {
+    const minioUrl = import.meta.env.VITE_MINIO_ENDPOINT_FRONTEND || 'http://localhost:9000';
+    const activeSuggestions = await suggestionService.getActiveSuggestions();
+    
+    if (activeSuggestions.length > 0) {
+      heroSlides.value = activeSuggestions.map(s => {
+        let buttonLink = undefined;
+        if (s.link) buttonLink = s.link;
+        else if (s.eventId) buttonLink = `/events/detail/${s.eventId}`;
+
+        return {
+          id: s.id,
+          title: s.title,
+          description: s.description,
+          buttonText: buttonLink ? 'ดูรายละเอียด' : undefined,
+          buttonLink: buttonLink,
+          logos: s.icons ? s.icons.map(icon => `${minioUrl}/sitevent/${icon}`) : [],
+          bgImage: s.backgroundType === 'IMAGE' && s.backgroundImage ? `${minioUrl}/sitevent/${s.backgroundImage}` : undefined,
+          eventStartDate: s.contentDate || s.startDate
+        }
+      });
+    } else {
+      heroSlides.value = [
+        {
+          id: 1,
+          title: 'ยินดีต้อนรับสู่ระบบกิจกรรม',
+          description: 'โปรดติดตามกิจกรรมต่างๆ ของเรา',
+          eventStartDate: new Date().toISOString()
+        }
+      ]
+    }
+    console.log("heroSlides", heroSlides.value)
+  } catch (error) {
+    console.error('Failed to fetch hero slides:', error)
+  }
+}
+
 onMounted(async () => {
   isLoading.value = true
   try {
+    await fetchHeroSlides()
     await eventStore.fetchAllEvents(currentPage.value, 100) // ดึงข้อมูลทั้งหมดมาเลย
     if (authStore.isAuthenticated) {
       await registerStore.fetchMyRegistrations()
@@ -75,16 +116,7 @@ onMounted(async () => {
 })
 
 // --- Hero Slider Data ---
-const heroSlides = ref<HeroSlide[]>([
-    {
-    id: 1,
-    title: 'แจ้งปิดปรับปรุงอุปกรณ์ Firewall',
-    description: 'อาจส่งผลกระทบต่อการเข้าถึงระบบบางส่วนในช่วงเวลาที่กำหนด',
-    buttonText: 'ดูรายละเอียด',
-    buttonLink: 'https://www.facebook.com/share/p/186e1sQipm/',
-    eventStartDate: '2026-02-07T19:00:00Z',
-  },
-])
+const heroSlides = ref<HeroSlide[]>([])
 
 // --- Navigation ---
 const handleCardClick = (id: string) => {
@@ -296,9 +328,9 @@ onUnmounted(() => {
 <template>
   <div class="min-h-screen">
     <div>
-      <HeroSlider :slides="heroSlides" />
+      <HeroSlider v-if="!isLoading && heroSlides.length > 0" :slides="heroSlides" />
 
-      <div class="container mx-auto p-6">
+      <div class="container mx-auto p-6" v-if="!isLoading">
         <div class="flex flex-wrap -mx-4">
           <div
             v-for="event in eventsForEventCards"

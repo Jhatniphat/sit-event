@@ -29,6 +29,15 @@ const routes: Array<RouteRecordRaw> = [
     },
   },
   {
+    path: '/admin/suggestions',
+    name: 'SuggestionManagement',
+    component: () => import('@/features/suggestions/views/SuggestionManagementView.vue'),
+    meta: {
+      requiresAuth: true,
+      roles: adminRoles,
+    },
+  },
+  {
     path: '/admin/events',
     name: 'OrgEventView',
     component: () => import('../features/event_management/views/OrgEventView.vue'),
@@ -95,7 +104,15 @@ const routes: Array<RouteRecordRaw> = [
       roles: adminRoles, // จำกัดสิทธิ์ให้เฉพาะ Admin/Organizer
     },
   },
-
+  {
+    path: '/event/:id/staff',
+    name: 'GrantStaffView',
+    component: () => import('../features/staff/views/GrantStaffView.vue'),
+    meta: {
+      requiresAuth: true,
+      roles: adminRoles,
+    },
+  },
   // --- Authenticated User Routes (Requires any login) ---
   {
     path: '/myactivities',

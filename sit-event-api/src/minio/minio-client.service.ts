@@ -2,6 +2,7 @@ import { Injectable, Logger, HttpException, HttpStatus } from '@nestjs/common';
 import { MinioService } from 'nestjs-minio-client';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
+import { createHmac } from 'crypto';
 
 @Injectable()
 export class MinioClientService {
@@ -101,15 +102,57 @@ export class MinioClientService {
   }
 
   public async getPresignedUrl(fileNameOrUrl: string): Promise<string> {
-    // กำหนดอายุของ Link (เช่น 1 วัน = 24*60*60 วินาที)
     const fileName = this.getFileNameFromUrl(fileNameOrUrl);
-    const expiry = 24 * 60 * 60; 
-    try {
-      return await this.minio.client.presignedGetObject(this.bucketName, fileName, expiry);
-    } catch (error) {
-      this.logger.error(`Could not generate presigned URL for: ${fileName}`, error);
-      return ''; // กรณีหาไม่เจอหรือ Error ให้ส่ง string ว่าง หรือ URL รูป placeholder แทน
+    const timestamp = Math.floor(Date.now() / 1000).toString();
+    const signature = this.generateSignature(fileName, timestamp);
+    
+    // Get API root URL from config
+    const apiRootUrl = this.configService.get('API_ROOT_URL') || 'http://localhost:3000/api';
+    
+    // Return full signed API endpoint URL
+    return `${apiRootUrl}/minio/files/${encodeURIComponent(fileName)}?signature=${signature}&timestamp=${timestamp}`;
+  }
+
+  /**
+   * Generate HMAC-SHA256 signature for file access
+   * Similar to MinIO presigned URL signature generation
+   */
+  private generateSignature(fileName: string, timestamp: string): string {
+    const secretKey = this.configService.get('MINIO_SECRET_KEY') || '';
+    const stringToSign = `GET\n${fileName}\n${timestamp}`;
+    
+    const signature = createHmac('sha256', secretKey)
+      .update(stringToSign)
+      .digest('base64')
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=/g, '');
+    
+    return signature;
+  }
+
+  /**
+   * Verify the signature for file access
+   * Returns true if signature is valid and timestamp is not expired
+   */
+  public verifySignature(fileName: string, timestamp: string, signature: string): boolean {
+    // Check if timestamp is not expired (24 hours)
+    const currentTime = Math.floor(Date.now() / 1000);
+    const expiry = 24 * 60 * 60; // 24 hours
+    
+    if (currentTime - parseInt(timestamp) > expiry) {
+      this.logger.warn(`Signature expired for file: ${fileName}`);
+      return false;
     }
+    
+    // Verify signature
+    const expectedSignature = this.generateSignature(fileName, timestamp);
+    if (signature !== expectedSignature) {
+      this.logger.warn(`Invalid signature for file: ${fileName}`);
+      return false;
+    }
+    
+    return true;
   }
 
   public async deleteFile(fileNameOrUrl: string) {
@@ -147,6 +190,33 @@ export class MinioClientService {
     } catch (err) {
       this.logger.error(`Could not get file: ${fileName}`, err);
       throw new HttpException('Could not retrieve file for preview', HttpStatus.NOT_FOUND);
+    }
+  }
+
+  /**
+   * Get file stream from MinIO (for streaming response)
+   */
+  public async getFileStream(fileNameOrUrl: string): Promise<NodeJS.ReadableStream> {
+    const fileName = this.getFileNameFromUrl(fileNameOrUrl);
+    try {
+      this.logger.log(`Getting file stream for: ${fileName}`);
+      return await this.minio.client.getObject(this.bucketName, fileName);
+    } catch (err) {
+      this.logger.error(`Could not get file stream: ${fileName}`, err);
+      throw new HttpException('Could not retrieve file', HttpStatus.NOT_FOUND);
+    }
+  }
+
+  /**
+   * Get file metadata (size, content-type, etc.)
+   */
+  public async getFileMetadata(fileNameOrUrl: string): Promise<any> {
+    const fileName = this.getFileNameFromUrl(fileNameOrUrl);
+    try {
+      return await this.minio.client.statObject(this.bucketName, fileName);
+    } catch (err) {
+      this.logger.error(`Could not get file metadata: ${fileName}`, err);
+      throw new HttpException('Could not retrieve file metadata', HttpStatus.NOT_FOUND);
     }
   }
 }

@@ -24,6 +24,7 @@ import {
   X,
   MessageSquareWarning,
   Server,
+  Megaphone,
 } from 'lucide-vue-next'
 
 const authStore = useAuthStore()
@@ -100,6 +101,10 @@ const isAuthenticated = computed(() => authStore.isAuthenticated)
                 <DropdownMenuItem @click="navigateTo('/admin/events')">
                   <Calendar class="mr-2 h-4 w-4" />
                   <span>Events</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem @click="navigateTo('/admin/suggestions')">
+                  <Megaphone class="mr-2 h-4 w-4" />
+                  <span>Suggestions</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -231,6 +236,14 @@ const isAuthenticated = computed(() => authStore.isAuthenticated)
           >
             <Calendar class="mr-2 h-4 w-4" />
             Events
+          </Button>
+          <Button
+            variant="ghost"
+            class="w-full justify-start pl-8"
+            @click="navigateTo('/admin/suggestions')"
+          >
+            <Megaphone class="mr-2 h-4 w-4" />
+            Suggestions
           </Button>
         </div>
       </div>

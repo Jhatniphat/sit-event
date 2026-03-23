@@ -555,7 +555,6 @@ export class EventRegistrationsService {
 
     return updatedSessionRegistration;
   }
-
   // =============================================
   // Export Registrations to Excel
   // =============================================
