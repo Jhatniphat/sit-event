@@ -1,4 +1,4 @@
-import { Controller, Post, Param, Body, Get, Delete, Patch } from '@nestjs/common';
+import { Controller, Post, Param, Body, Get, Delete, Patch, ParseUUIDPipe } from '@nestjs/common';
 import { EventStaffsService } from './event-staffs.service';
 import { 
   AdminOnly, 
@@ -51,8 +51,8 @@ export class EventStaffsController {
   @Post(':eventId/staffs/:userId/add')
   @EventOrganizerAccess()
   async addStaffToEvent(
-    @Param('eventId') eventId: string,
-    @Param('userId') userId: string,
+    @Param('eventId', new ParseUUIDPipe()) eventId: string,
+    @Param('userId', new ParseUUIDPipe()) userId: string,
     @Body() dto: AddStaffDto,
   ) {
     return this.eventStaffsService.createStaffEntry(eventId, userId, dto);
@@ -61,8 +61,8 @@ export class EventStaffsController {
   @Patch(':eventId/staffs/:staffId')
   @EventOrganizerAccess()
   async updateStaffRole(
-    @Param('eventId') eventId: string,
-    @Param('staffId') staffId: string,
+    @Param('eventId', new ParseUUIDPipe()) eventId: string,
+    @Param('staffId', new ParseUUIDPipe()) staffId: string,
     @Body() body: { status: "ACCEPTED" | "REFUSED" },
   ) {
     return this.eventStaffsService.updateStaffStatus(eventId, staffId, body.status);
@@ -71,8 +71,8 @@ export class EventStaffsController {
   @Delete(':eventId/staffs/:staffId')
   @EventOrganizerAccess()
   async removeStaffFromEvent(
-    @Param('eventId') eventId: string,
-    @Param('staffId') staffId: string,
+    @Param('eventId', new ParseUUIDPipe()) eventId: string,
+    @Param('staffId', new ParseUUIDPipe()) staffId: string,
   ) {
     return this.eventStaffsService.removeStaffEntry(eventId, staffId);
   }

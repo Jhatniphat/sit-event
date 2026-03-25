@@ -1,11 +1,14 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, HttpCode, HttpStatus, NotFoundException, All } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, HttpCode, HttpStatus, NotFoundException, All, Query, ParseIntPipe, UseGuards } from '@nestjs/common';
 import { EventSessionsService } from './event-sessions.service';
 import { CreateEventSessionDto } from './dto/create-event-session.dto';
 import { UpdateEventSessionDto } from './dto/update-event-session.dto';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery } from '@nestjs/swagger';
 import { AllRoleAccess, CurrentUser, type AuthenticatedUser, AdminOnly, EventOrganizerAccess } from '../common';
 import { UsersService } from '../users/users.service';
 import { Public } from 'nest-keycloak-connect';
+import { RequirePermission } from '../common/guards/staff-scopes.guard';
+import { StaffPermissionType } from 'generated/prisma';
+import { StaffScopesGuard } from '../common/guards/staff-scopes.guard';
 
 
 @ApiTags('Event Sessions')
@@ -119,6 +122,43 @@ export class EventSessionsController {
     @Param('sessionId') sessionId: string,
   ) {
     return this.eventSessionsService.findOne(eventId, sessionId);
+  }
+
+  @Get(':sessionId/participants')
+  @UseGuards(StaffScopesGuard)
+  @RequirePermission(StaffPermissionType.VIEW_PARTICIPANTS)
+  @ApiOperation({ summary: 'Get participants registered for a specific session (requires VIEW_PARTICIPANTS permission)' })
+  @ApiParam({ name: 'eventId', description: 'Event ID' })
+  @ApiParam({ name: 'sessionId', description: 'Session ID' })
+  @ApiQuery({ name: 'limit', description: 'Number of records to return', required: false, type: Number, example: 20 })
+  @ApiQuery({ name: 'offset', description: 'Number of records to skip', required: false, type: Number, example: 0 })
+  @ApiQuery({ name: 'search', description: 'Search by firstName, lastName, or email', required: false, type: String })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Return paginated list of session participants.',
+  })
+  @ApiResponse({ 
+    status: 404, 
+    description: 'Session or Event not found.',
+  })
+  @ApiResponse({ 
+    status: 403, 
+    description: 'Insufficient permissions.',
+  })
+  getSessionParticipants(
+    @Param('eventId') eventId: string,
+    @Param('sessionId') sessionId: string,
+    @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
+    @Query('offset', new ParseIntPipe({ optional: true })) offset?: number,
+    @Query('search') search?: string,
+  ) {
+    return this.eventSessionsService.getSessionParticipants(
+      eventId,
+      sessionId,
+      limit ?? 20,
+      offset ?? 0,
+      search,
+    );
   }
 
   @Post(':sessionId/register')

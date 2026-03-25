@@ -82,6 +82,7 @@ enum AnnouncementType {
 
 enum StaffPermissionType {
   CHECK_IN
+  VIEW_PARTICIPANTS
 }
 
 model User {
