@@ -160,8 +160,16 @@ export class ScopesService {
     });
 
     if (!hasPermission) {
+      // Provide helpful hint if staff has session-specific scopes only
+      const hasSessionScope = staff.scopes.some(
+        (s) => s.permission === permission && s.sessionId,
+      );
+      const hint = !sessionId && hasSessionScope
+        ? ` (Staff has session-specific permissions only - use /sessions/{sessionId}/participants endpoint instead)`
+        : '';
+
       this.logger.debug(
-        `Permission denied for userId: ${userId}, eventId: ${eventId}, permission: ${permission}${sessionId ? `, sessionId: ${sessionId}` : ''}`,
+        `Permission denied for userId: ${userId}, eventId: ${eventId}, permission: ${permission}${sessionId ? `, sessionId: ${sessionId}` : ''}${hint}`,
       );
     }
 

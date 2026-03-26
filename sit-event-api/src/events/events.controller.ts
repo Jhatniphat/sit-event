@@ -10,6 +10,7 @@ import {
   ParseIntPipe,
   UseInterceptors,
   UploadedFiles,
+  UseGuards,
 } from '@nestjs/common';
 import { EventsService } from './events.service';
 import { CreateEventDto } from './dto/create-event.dto';
@@ -25,12 +26,16 @@ import {
   UserRole,
 } from '../common';
 import { MinioClientService } from '../minio/minio-client.service';
+import { StaffScopesGuard, RequirePermission } from '../common/guards/staff-scopes.guard';
+import { EventSessionsService } from '../event-sessions/event-sessions.service';
+import { StaffPermissionType } from 'generated/prisma';
 
 @Controller('events')
 export class EventsController {
   constructor(
     private readonly eventService: EventsService,
     private readonly minioClientService: MinioClientService,
+    private readonly eventSessionsService: EventSessionsService,
   ) {}
 
   @Post()
@@ -78,8 +83,24 @@ export class EventsController {
     return this.eventService.findAll({ page, limit });
   }
 
-  
-  @Get('/:id')
+  @Get(':eventId/participants')
+  @UseGuards(StaffScopesGuard)
+  @RequirePermission(StaffPermissionType.VIEW_PARTICIPANTS)
+  async getEventParticipants(
+    @Param('eventId') eventId: string,
+    @Query('page', new ParseIntPipe({ optional: true })) page?: number,
+    @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
+    @Query('search') search?: string,
+  ) {
+    return this.eventSessionsService.getEventParticipants(
+      eventId,
+      page ?? 1,
+      limit ?? 20,
+      search,
+    );
+  }
+
+  @Get(':id')
   @Public()
   async getEventById(@Param('id') id: string) {
     return this.eventService.findOne(id);

@@ -5,7 +5,15 @@ import { PrismaService } from '../prisma.service';
 import { EventSession, EventRegistration, FormType, RegistrationStatus } from 'generated/prisma';
 import { UsersService } from '../users/users.service';
 import { AuthenticatedUser } from '../common/decorators/current-user.decorator';
-import { SessionParticipantDto, PaginatedParticipantsDto } from './dto/session-participant.dto';
+import {
+  SessionParticipantDto,
+  EventParticipantDto,
+  PaginatedParticipantsDto,
+  PaginatedEventParticipantsDto,
+  PaginatedSessionParticipantsDto,
+  EventSummaryStats,
+  SessionSummaryStats,
+} from './dto/session-participant.dto';
 
 @Injectable()
 export class EventSessionsService {
@@ -445,21 +453,21 @@ export class EventSessionsService {
   }
 
   /**
-   * Get participants registered for a specific session
+   * Get participants registered for a specific session with summary stats
    * Supports pagination and search by firstName, lastName, or email
    * @param eventId - Event ID
    * @param sessionId - Session ID
-   * @param limit - Number of records to return (default: 20)
-   * @param offset - Number of records to skip (default: 0)
+   * @param page - Page number (1-indexed, default: 1)
+   * @param limit - Number of records per page (default: 20)
    * @param search - Search keyword for firstName, lastName, or email
    */
   async getSessionParticipants(
     eventId: string,
     sessionId: string,
+    page: number = 1,
     limit: number = 20,
-    offset: number = 0,
     search?: string,
-  ): Promise<PaginatedParticipantsDto> {
+  ): Promise<PaginatedSessionParticipantsDto> {
     // ✅ Validate event exists
     const event = await this.prisma.event.findUnique({
       where: { id: eventId },
@@ -529,10 +537,34 @@ export class EventSessionsService {
 
     const total = filteredRegistrations.length;
 
+    // ✅ Calculate summary stats
+    const totalAttended = filteredRegistrations.filter((reg) => reg.attended).length;
+    const totalApproved = filteredRegistrations.filter((reg) => reg.status === RegistrationStatus.APPROVED).length;
+    const totalPending = filteredRegistrations.filter((reg) => reg.status === RegistrationStatus.PENDING).length;
+    const totalRejected = filteredRegistrations.filter((reg) => reg.status === RegistrationStatus.REJECTED).length;
+    const attendanceRate = total > 0 ? Math.round((totalAttended / total) * 100) : 0;
+
+    const summary: SessionSummaryStats = {
+      sessionId,
+      sessionName: session.name,
+      maxSeats: session.maxSeats,
+      availableSeats: session.availableSeats,
+      totalRegistered: total,
+      totalAttended,
+      totalApproved,
+      totalPending,
+      totalRejected,
+      attendanceRate: `${attendanceRate}%`,
+    };
+
+    // ✅ Calculate pagination
+    const skip = (page - 1) * limit;
+    const totalPages = Math.ceil(total / limit);
+
     // ✅ Apply pagination
     const paginatedRegistrations = filteredRegistrations.slice(
-      offset,
-      offset + limit,
+      skip,
+      skip + limit,
     );
 
     // ✅ Map to response DTOs
@@ -554,10 +586,140 @@ export class EventSessionsService {
     );
 
     return {
+      summary,
       data: participants,
-      total,
-      limit,
-      offset,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrev: page > 1,
+      },
+    };
+  }
+
+  /**
+   * Get all participants registered for an event (across all sessions and general event)
+   * Supports pagination and search by firstName, lastName, or email
+   * @param eventId - Event ID
+   * @param page - Page number (1-indexed, default: 1)
+   * @param limit - Number of records per page (default: 20)
+   * @param search - Search keyword for firstName, lastName, or email
+   */
+  async getEventParticipants(
+    eventId: string,
+    page: number = 1,
+    limit: number = 20,
+    search?: string,
+  ): Promise<PaginatedEventParticipantsDto> {
+    // ✅ Validate event exists
+    const event = await this.prisma.event.findUnique({
+      where: { id: eventId },
+    });
+
+    if (!event) {
+      this.logger.error(`Event not found: ${eventId}`);
+      throw new NotFoundException(`Event with ID '${eventId}' not found`);
+    }
+
+    // ✅ Get all registrations for this event (both session-specific and general)
+    const allRegistrations = await this.prisma.eventRegistration.findMany({
+      where: { eventId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+        session: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    });
+
+    // ✅ Filter by search term if provided
+    let filteredRegistrations = allRegistrations;
+    if (search) {
+      const searchLower = search.toLowerCase();
+      filteredRegistrations = allRegistrations.filter((reg) => {
+        const firstName = reg.user.firstName.toLowerCase();
+        const lastName = reg.user.lastName.toLowerCase();
+        const email = reg.user.email.toLowerCase();
+
+        return (
+          firstName.includes(searchLower) ||
+          lastName.includes(searchLower) ||
+          email.includes(searchLower)
+        );
+      });
+    }
+
+    const total = filteredRegistrations.length;
+
+    // ✅ Calculate summary stats
+    const totalAttended = filteredRegistrations.filter((reg) => reg.attended).length;
+    const totalApproved = filteredRegistrations.filter((reg) => reg.status === RegistrationStatus.APPROVED).length;
+    const totalPending = filteredRegistrations.filter((reg) => reg.status === RegistrationStatus.PENDING).length;
+    const totalRejected = filteredRegistrations.filter((reg) => reg.status === RegistrationStatus.REJECTED).length;
+    const attendanceRate = total > 0 ? Math.round((totalAttended / total) * 100) : 0;
+
+    const summary: EventSummaryStats = {
+      totalRegistered: total,
+      totalAttended,
+      totalApproved,
+      totalPending,
+      totalRejected,
+      attendanceRate: `${attendanceRate}%`,
+    };
+
+    // ✅ Calculate pagination
+    const skip = (page - 1) * limit;
+    const totalPages = Math.ceil(total / limit);
+
+    // ✅ Apply pagination
+    const paginatedRegistrations = filteredRegistrations.slice(
+      skip,
+      skip + limit,
+    );
+
+    // ✅ Map to response DTOs
+    const participants: EventParticipantDto[] = paginatedRegistrations.map(
+      (reg) => ({
+        userId: reg.user.id,
+        firstName: reg.user.firstName,
+        lastName: reg.user.lastName,
+        email: reg.user.email,
+        status: reg.status as 'PENDING' | 'APPROVED' | 'REJECTED',
+        attended: reg.attended,
+        sessionId: reg.sessionId,
+        sessionName: reg.session?.name ?? null,
+        checkedInAt: reg.checkedInAt,
+        registeredAt: reg.registeredAt,
+      }),
+    );
+
+    this.logger.log(
+      `Fetched ${participants.length}/${total} participants for event ${eventId}${search ? ` (search: "${search}")` : ''}`,
+    );
+
+    return {
+      summary,
+      data: participants,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrev: page > 1,
+      },
     };
   }
 }

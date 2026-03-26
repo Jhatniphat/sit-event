@@ -31,7 +31,6 @@ export class StaffScopesGuard implements CanActivate {
     const request = context.switchToHttp().getRequest();
     const user = request.user;
     
-    // ✅ Improved: Validate user
     if (!user) {
       this.logger.error('No user information found in request');
       throw new BadRequestException('Authentication required');
@@ -42,7 +41,7 @@ export class StaffScopesGuard implements CanActivate {
       throw new BadRequestException('Invalid user identity');
     }
 
-    // ✅ KEY FIX: Lookup database user by email to get correct userId
+    // KEY FIX: Lookup database user by email to get correct userId
     // JWT has Keycloak sub, but database stores our own UUID
     const dbUser = await this.usersService.findByEmail(user.email);
     
@@ -53,7 +52,7 @@ export class StaffScopesGuard implements CanActivate {
 
     const userId = dbUser.id;  // ✅ Use database UUID, not Keycloak sub
     
-    // ✅ Improved: Better eventId extraction from multiple possible locations
+    //  Better eventId extraction from multiple possible locations
     const eventId = 
       request.params.eventId || 
       request.params.id || 
@@ -76,7 +75,7 @@ export class StaffScopesGuard implements CanActivate {
 
     // Verify permission using the scopes service
     const hasPermission = await this.scopesService.checkPermission(
-      userId,  // ✅ Now using database UUID
+      userId,  // Using database UUID
       eventId,
       requiredPermission,
       sessionId,
@@ -86,8 +85,11 @@ export class StaffScopesGuard implements CanActivate {
       this.logger.warn(
         `Permission denied - userId: ${userId}, eventId: ${eventId}, permission: ${requiredPermission}${sessionId ? `, sessionId: ${sessionId}` : ''}`,
       );
+      
+      //Provide helpful error message when accessing event-level endpoint without permission
+      const sessionHint = !sessionId ? ' (Try using /sessions/{sessionId}/participants endpoint instead)' : '';
       throw new ForbiddenException(
-        `Insufficient permissions. Required: ${requiredPermission}${sessionId ? ` for session ${sessionId}` : ''}`,
+        `Insufficient permissions. Required: ${requiredPermission}${sessionHint}`,
       );
     }
 
