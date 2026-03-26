@@ -9,7 +9,10 @@ import {
   type PaginationMeta,
   type EventSession,
   type CreateSessionDto,
-  type UpdateSessionDto
+  type UpdateSessionDto,
+  type ParticipantPaginationResponse,
+  type GetParticipantsParams,
+  type ParticipantInfo,
 } from '@/features/event_management/services/EventServices'
 import { type ParsedApiError } from '@/shared/utils/FetchUtils'
 
@@ -23,7 +26,10 @@ interface IEventState {
   isLoadingList: boolean
   isLoadingDetail: boolean
   isLoadingRegistration: boolean
+  isLoadingPartiList: boolean
   error: string | null
+  participantsData: ParticipantPaginationResponse | null
+  allParticipants: ParticipantInfo[]
 }
 
 // 2. Error Helper
@@ -50,7 +56,10 @@ export const useEventStore = defineStore('events', {
     isLoadingList: false,
     isLoadingDetail: false,
     isLoadingRegistration: false,
+    isLoadingPartiList: false,
     error: null,
+    participantsData: null as ParticipantPaginationResponse | null,
+    allParticipants: [] as ParticipantInfo[], // สำหรับเก็บรายชื่อผู้เข้าร่วมทั้งหมดใน Session (สำหรับ Staff)
   }),
 
   getters: {
@@ -96,7 +105,7 @@ export const useEventStore = defineStore('events', {
         const data = await EventService.getEventById(id)
         this.currentEvent = data
         // Update list if exists
-        const index = this.events.findIndex(e => e.id === id)
+        const index = this.events.findIndex((e) => e.id === id)
         if (index === -1) {
           this.events.push(data)
         } else {
@@ -198,7 +207,7 @@ export const useEventStore = defineStore('events', {
     async updateSession(eventId: string, sessionId: string, sessionData: UpdateSessionDto) {
       try {
         const updatedSession = await EventService.updateSession(eventId, sessionId, sessionData)
-        const index = this.currentEventSessions.findIndex(s => s.id === sessionId)
+        const index = this.currentEventSessions.findIndex((s) => s.id === sessionId)
         if (index !== -1) {
           this.currentEventSessions[index] = updatedSession
         }
@@ -210,12 +219,11 @@ export const useEventStore = defineStore('events', {
     async deleteSession(eventId: string, sessionId: string) {
       try {
         await EventService.deleteSession(eventId, sessionId)
-        this.currentEventSessions = this.currentEventSessions.filter(s => s.id !== sessionId)
+        this.currentEventSessions = this.currentEventSessions.filter((s) => s.id !== sessionId)
       } catch (error) {
         throw error
       }
     },
-
 
     // * ===== Registration Actions =====
 
@@ -269,6 +277,26 @@ export const useEventStore = defineStore('events', {
         throw error
       } finally {
         this.isLoadingRegistration = false
+      }
+    },
+    // Get All Participants For Staff
+    async participantsListForSession(
+      eventId: string,
+      sessionId: string,
+      params?: GetParticipantsParams,
+    ) {
+      this.isLoadingPartiList = true
+      this.error = null
+      try {
+        const participants = await EventService.participantsForSession(eventId, sessionId, params)
+        this.participantsData = participants
+        this.allParticipants = participants.data
+      } catch (error) {
+        this.error = handleError(error, 'Failed to fetch participants.')
+        console.error(this.error)
+        throw error
+      } finally {
+        this.isLoadingPartiList = false
       }
     },
   },

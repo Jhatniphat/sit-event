@@ -74,7 +74,7 @@ export interface CreateEventDto {
  */
 export type UpdateEventDto = CreateEventDto
 
-/** 
+/**
  * Interface สำหรับ sub-session ของ Event (components.schemas.EventSession)
  *
  */
@@ -83,7 +83,7 @@ export interface EventSession {
   name: string
   description: string
   startTime: string // ISO String from API
-  endTime: string   // ISO String from API
+  endTime: string // ISO String from API
   location: string
   maxSeats: number
   pointsAwarded: number
@@ -95,7 +95,7 @@ export interface CreateSessionDto {
   name: string
   description: string
   startTime: string // ISO String
-  endTime: string   // ISO String
+  endTime: string // ISO String
   location: string
   maxSeats: number
   pointsAwarded: number
@@ -125,6 +125,30 @@ export interface RegisterForEventDto {
   sessionId?: string // Optional [cite: 44]
 }
 
+export interface ParticipantPaginationResponse {
+  total: number
+  limit: number
+  offset: number
+  data: ParticipantInfo[]
+}
+export interface ParticipantInfo {
+  userId: string
+  firstName: string
+  lastName: string
+  email: string
+  status: ParticipantStatus
+  attended: boolean
+  checkedInAt: string | null // date-time
+  registeredAt: string | Date // date-time
+}
+
+export type ParticipantStatus = 'APPROVED' | 'REJECTED' | 'REGISTERED'
+
+export interface GetParticipantsParams {
+  limit?: number
+  offset?: number
+  search?: string
+}
 // ===== 2. Type Guard for Error Handling =====
 //
 function isApiError(error: unknown): error is ParsedApiError {
@@ -208,9 +232,10 @@ export const EventService = {
   async updateEvent(id: string, eventData: FormData | UpdateEventDto): Promise<Event> {
     try {
       // [!] แก้ไข: ตรวจสอบว่าเป็น FormData หรือไม่ เพื่อกำหนด Header
-      const config = eventData instanceof FormData
-        ? { headers: { 'Content-Type': 'multipart/form-data' } }
-        : undefined;
+      const config =
+        eventData instanceof FormData
+          ? { headers: { 'Content-Type': 'multipart/form-data' } }
+          : undefined
 
       // ส่ง config ไปกับ request
       const updatedEvent = await apiClient.patch<Event, Event>(`/events/${id}`, eventData, config)
@@ -308,9 +333,16 @@ export const EventService = {
     }
   },
 
-  async updateSession(eventId: string, sessionId: string, data: UpdateSessionDto): Promise<EventSession> {
+  async updateSession(
+    eventId: string,
+    sessionId: string,
+    data: UpdateSessionDto,
+  ): Promise<EventSession> {
     try {
-      return await apiClient.patch<EventSession, EventSession>(`/events/${eventId}/sessions/${sessionId}`, data)
+      return await apiClient.patch<EventSession, EventSession>(
+        `/events/${eventId}/sessions/${sessionId}`,
+        data,
+      )
     } catch (error: unknown) {
       if (isApiError(error)) throw error
       throw new Error('Failed to update session.')
@@ -334,16 +366,42 @@ export const EventService = {
     try {
       const registration = await apiClient.post<EventRegistration, EventRegistration>(
         `/events/${eventId}/sessions/${sessionId}/register`,
-        {} // Body ว่างตาม Spec ที่มักจะเป็นสำหรับการ POST action ที่ parameter อยู่ใน URL
+        {}, // Body ว่างตาม Spec ที่มักจะเป็นสำหรับการ POST action ที่ parameter อยู่ใน URL
       )
       return registration
     } catch (error: unknown) {
       if (isApiError(error)) {
-        console.error(`[EventService.registerForSession] API Error ${error.status}: ${error.message}`)
+        console.error(
+          `[EventService.registerForSession] API Error ${error.status}: ${error.message}`,
+        )
         throw error
       }
       console.error('[EventService.registerForSession] Unexpected Error:', error)
       throw new Error('An unexpected error occurred during session registration.')
+    }
+  },
+
+  // Participant List For Staff
+  async participantsForSession(
+    eventId: string,
+    sessionId: string,
+    params?: GetParticipantsParams,
+  ): Promise<ParticipantPaginationResponse> {
+    try {
+      const participantsList = await apiClient.get<ParticipantPaginationResponse>(
+        `/events/${eventId}/sessions/${sessionId}/participants`,
+        { params },
+      )
+      return participantsList.data
+    } catch (error: unknown) {
+      if (isApiError(error)) {
+        console.error(
+          `[EventService.participantsForSession] API Error ${error.status}: ${error.message}`,
+        )
+        throw error
+      }
+      console.error('[EventService.participantsForSession] Unexpected Error:', error)
+      throw new Error('An unexpected error occurred during get all participants.')
     }
   },
 }

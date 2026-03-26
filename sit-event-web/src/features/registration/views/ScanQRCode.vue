@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { QrcodeStream } from 'vue-qrcode-reader'
 import { useRegistrationStore } from '@/features/registration/store/RegistrationStore'
 import { useEventStore } from '@/features/event_management/store/EventStore' // [NEW] เรียก EventStore
@@ -42,6 +42,7 @@ interface DetectedBarcode {
 
 // --- State ---
 const route = useRoute()
+const router = useRouter()
 const registrationStore = useRegistrationStore()
 const eventStore = useEventStore() // [NEW]
 const eventIdFromRoute = route.params.id as string
@@ -72,6 +73,7 @@ onMounted(async () => {
     // ดึงข้อมูล Event และ Session เพื่อมาใส่ใน Dropdown List
     await eventStore.fetchEventById(eventIdFromRoute)
     await eventStore.fetchEventSessions(eventIdFromRoute)
+    await eventStore.participantsListForSession(eventIdFromRoute, selectedTargetId.value, { limit: 50}) // ดึงรายชื่อผู้เข้าร่วมของ Session แรกมาแสดง (ถ้ามี)
 })
 
 // --- Functions ---
@@ -231,6 +233,11 @@ const onError = (error: Error) => {
   else if (error.name === 'NotFoundError') errorMsg.value = 'ไม่พบอุปกรณ์กล้อง'
   else errorMsg.value = `Error: ${error.message}`
 }
+
+const handleCheckList = () => {
+  router.push({ name: 'ParticipantsList', params: { id: eventIdFromRoute, sessionId: selectedTargetId.value } })
+  router.push({ name: 'ParticipantsList', params: { id: eventIdFromRoute} })
+}
 </script>
 
 <template>
@@ -238,27 +245,40 @@ const onError = (error: Error) => {
     <h2 class="text-2xl font-bold mb-4">Scan Check-in</h2>
     <div class="text-sm text-slate-500 mb-2">{{ currentEventName }}</div>
 
-    <div class="mb-6 flex justify-center">
-        <div class="w-full max-w-xs">
-            <label class="block text-sm font-medium text-slate-700 mb-1 text-left">เลือกสิ่งที่ต้องการ Check-in</label>
-            <select 
-                v-model="selectedTargetId"
-                class="w-full p-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-                <option value="main">Event หลัก (Main Event)</option>
-                <optgroup v-if="sessions.length > 0" label="Sub-Sessions">
-                    <option v-for="session in sessions" :key="session.id" :value="session.id">
-                        Session: {{ session.name }}
-                    </option>
-                </optgroup>
-            </select>
-            </div>
+    <div class="mb-6 w-full max-w-xs mx-auto">
+    <label class="block text-sm font-medium text-slate-700 mb-1 text-left">
+        เลือกสิ่งที่ต้องการ Check-in
+    </label>
+
+    <div class="flex items-center gap-2">
+        <select 
+            v-model="selectedTargetId"
+            class="flex-1 p-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+        >
+            <option value="main">Event หลัก (Main Event)</option>
+            <optgroup v-if="sessions.length > 0" label="Sub-Sessions">
+                <option v-for="session in sessions" :key="session.id" :value="session.id">
+                    Session: {{ session.name }}
+                </option>
+            </optgroup>
+        </select>
+
+        <button 
+            type="button"
+            @click="handleCheckList()"
+            class="flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-md w-10 h-10 transition-colors shadow-sm border border-slate-200"
+            title="ดูรายชื่อ"
+        >
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-list-checks">
+                <path d="M13 5h8"/><path d="M13 12h8"/><path d="M13 19h8"/><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/>
+            </svg>
+        </button>
     </div>
+</div>
     
     <div v-if="errorMsg" class="mb-4 p-3 bg-red-100 text-red-600 rounded-md border border-red-200">
         {{ errorMsg }}
     </div>
-
     <div class="relative w-full aspect-square max-w-[400px] mx-auto overflow-hidden rounded-xl border-2 border-slate-200 bg-black shadow-md">
       <QrcodeStream 
         @detect="onDetect" 
@@ -280,7 +300,6 @@ const onError = (error: Error) => {
     <p class="mt-4 text-slate-500 text-sm">
         กำลัง Scan เพื่อ: <span class="font-bold text-blue-600">{{ selectedTargetName }}</span>
     </p>
-
     <Dialog :open="showDialog" @update:open="(val) => !val && closeDialog()">
       <DialogContent class="sm:max-w-md">
         <DialogHeader>

@@ -176,6 +176,16 @@ const routes: Array<RouteRecordRaw> = [
       roles: allAuthenticated,
     },
   },
+  {
+    path: '/events/:id/sessions/:sessionId/participants',
+    name: 'ParticipantsList',
+    props: true,
+    component: () => import('../features/event_management/views/ParticipantsList.vue'),
+    meta: {
+      requiresAuth: true,
+      roles: allAuthenticated,
+    },
+  },
 
   // * --- Public Routes (No Auth Required) ---
   {
