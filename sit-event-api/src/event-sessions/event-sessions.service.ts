@@ -1,13 +1,16 @@
-import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ConflictException, Logger } from '@nestjs/common';
 import { CreateEventSessionDto } from './dto/create-event-session.dto';
 import { UpdateEventSessionDto } from './dto/update-event-session.dto';
 import { PrismaService } from '../prisma.service';
 import { EventSession, EventRegistration, FormType, RegistrationStatus } from 'generated/prisma';
 import { UsersService } from '../users/users.service';
 import { AuthenticatedUser } from '../common/decorators/current-user.decorator';
+import { SessionParticipantDto, PaginatedParticipantsDto } from './dto/session-participant.dto';
 
 @Injectable()
 export class EventSessionsService {
+  private readonly logger = new Logger(EventSessionsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly usersService: UsersService,
@@ -438,6 +441,123 @@ export class EventSessionsService {
         checkedInAt: reg.checkedInAt,
         session: reg.session,
       })),
+    };
+  }
+
+  /**
+   * Get participants registered for a specific session
+   * Supports pagination and search by firstName, lastName, or email
+   * @param eventId - Event ID
+   * @param sessionId - Session ID
+   * @param limit - Number of records to return (default: 20)
+   * @param offset - Number of records to skip (default: 0)
+   * @param search - Search keyword for firstName, lastName, or email
+   */
+  async getSessionParticipants(
+    eventId: string,
+    sessionId: string,
+    limit: number = 20,
+    offset: number = 0,
+    search?: string,
+  ): Promise<PaginatedParticipantsDto> {
+    // ✅ Validate event exists
+    const event = await this.prisma.event.findUnique({
+      where: { id: eventId },
+    });
+
+    if (!event) {
+      this.logger.error(`Event not found: ${eventId}`);
+      throw new NotFoundException(`Event with ID '${eventId}' not found`);
+    }
+
+    // ✅ Validate session exists and belongs to event
+    const session = await this.prisma.eventSession.findUnique({
+      where: { id: sessionId },
+    });
+
+    if (!session) {
+      this.logger.error(`Session not found: ${sessionId}`);
+      throw new NotFoundException(`Session with ID '${sessionId}' not found`);
+    }
+
+    if (session.eventId !== eventId) {
+      this.logger.error(
+        `Session ${sessionId} does not belong to event ${eventId}`,
+      );
+      throw new NotFoundException(
+        `Session with ID '${sessionId}' does not belong to event '${eventId}'`,
+      );
+    }
+
+    // ✅ Build base where clause
+    const baseWhere = {
+      eventId,
+      sessionId,
+    };
+
+    // ✅ Get all registrations with user data (for search filtering)
+    const allRegistrations = await this.prisma.eventRegistration.findMany({
+      where: baseWhere,
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    // ✅ Filter by search term if provided
+    let filteredRegistrations = allRegistrations;
+    if (search) {
+      const searchLower = search.toLowerCase();
+      filteredRegistrations = allRegistrations.filter((reg) => {
+        const firstName = reg.user.firstName.toLowerCase();
+        const lastName = reg.user.lastName.toLowerCase();
+        const email = reg.user.email.toLowerCase();
+
+        return (
+          firstName.includes(searchLower) ||
+          lastName.includes(searchLower) ||
+          email.includes(searchLower)
+        );
+      });
+    }
+
+    const total = filteredRegistrations.length;
+
+    // ✅ Apply pagination
+    const paginatedRegistrations = filteredRegistrations.slice(
+      offset,
+      offset + limit,
+    );
+
+    // ✅ Map to response DTOs
+    const participants: SessionParticipantDto[] = paginatedRegistrations.map(
+      (reg) => ({
+        userId: reg.user.id,
+        firstName: reg.user.firstName,
+        lastName: reg.user.lastName,
+        email: reg.user.email,
+        status: reg.status as 'PENDING' | 'APPROVED' | 'REJECTED',
+        attended: reg.attended,
+        checkedInAt: reg.checkedInAt,
+        registeredAt: reg.registeredAt,
+      }),
+    );
+
+    this.logger.log(
+      `Fetched ${participants.length}/${total} participants for session ${sessionId}, event ${eventId}${search ? ` (search: "${search}")` : ''}`,
+    );
+
+    return {
+      data: participants,
+      total,
+      limit,
+      offset,
     };
   }
 }

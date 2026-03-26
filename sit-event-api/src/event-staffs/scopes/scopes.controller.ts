@@ -8,6 +8,11 @@ import { Roles, UserRole } from '../../common';
 export class ScopesController {
   constructor(private readonly scopesService: ScopesService) {}
 
+  @Get('scopes')
+  async getAllScopes() {
+    return this.scopesService.getAllScopes();
+  }
+
   @Get(':staffId/scopes')
   async getStaffScopes(@Param('staffId') staffId: string) {
     return this.scopesService.getStaffScopes(staffId);

@@ -1,11 +1,31 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma.service';
 import { UpdateStaffScopeDto } from '../../event-staffs/dto/update-staff-scope.dto';
 import { StaffPermissionType } from 'generated/prisma/wasm';
 
 @Injectable()
 export class ScopesService {
+  private readonly logger = new Logger(ScopesService.name);
+
   constructor(private prisma: PrismaService) {}
+
+  async getAllScopes() {
+    return this.prisma.eventStaffScope.findMany({
+      include: {
+        staff: {
+          include: {
+            event: true,
+            user: true,
+          },
+        },
+        session: true,
+      },
+      orderBy: [
+        { staff: { eventId: 'asc' } },
+        { permission: 'asc' },
+      ],
+    });
+  }
 
   async getStaffScopes(staffId: string) {
     const staff = await this.prisma.eventStaff.findUnique({
@@ -57,7 +77,7 @@ export class ScopesService {
       where: {
         staffId: staffId,
         sessionId: dto.sessionId || null,
-        permission: dto.permission as unknown as any, // Cast to any if type mismatch persists, but standard enum should work
+        permission: dto.permission,
       },
     });
 
@@ -69,7 +89,7 @@ export class ScopesService {
       data: {
         staffId,
         sessionId: dto.sessionId,
-        permission: dto.permission as unknown as any,
+        permission: dto.permission,
       },
       include: {
         session: true,
@@ -95,6 +115,7 @@ export class ScopesService {
    * Helper method for guards checking.
    * Checks if a user has a specific permission for a given event, optionally scoped to a session.
    * If sessionId is provided, checking if the staff has permission for that SPECIFIC session OR event-wide permission.
+   * Staff must have status 'ACCEPTED' to have any permissions.
    */
   async checkPermission(userId: string, eventId: string, permission: StaffPermissionType, sessionId?: string): Promise<boolean> {
     const staff = await this.prisma.eventStaff.findUnique({
@@ -109,10 +130,23 @@ export class ScopesService {
       },
     });
 
-    if (!staff) return false;
+    if (!staff) {
+      this.logger.warn(
+        `No staff record found for userId: ${userId}, eventId: ${eventId}`,
+      );
+      return false;
+    }
+
+    // ✅ Check if staff has ACCEPTED status - only ACCEPTED staff members can have permissions
+    if (staff.status !== 'ACCEPTED') {
+      this.logger.warn(
+        `Staff userId: ${userId}, eventId: ${eventId} has status ${staff.status}, not ACCEPTED. Required permission: ${permission}`,
+      );
+      return false;
+    }
 
     // Check if any scope matches the requirement
-    return staff.scopes.some((scope) => {
+    const hasPermission = staff.scopes.some((scope) => {
       // Must match the permission type
       if (scope.permission !== permission) return false;
 
@@ -124,6 +158,14 @@ export class ScopesService {
 
       return false;
     });
+
+    if (!hasPermission) {
+      this.logger.debug(
+        `Permission denied for userId: ${userId}, eventId: ${eventId}, permission: ${permission}${sessionId ? `, sessionId: ${sessionId}` : ''}`,
+      );
+    }
+
+    return hasPermission;
   }
 }
 
