@@ -79,8 +79,8 @@ export class EventSummaryStats {
 export class SessionSummaryStats {
   sessionId!: string;
   sessionName!: string;
-  maxSeats!: number;
-  availableSeats!: number;
+  maxSeats!: number | null;
+  availableSeats!: number | null;
   totalRegistered!: number;
   totalAttended!: number;
   totalApproved!: number;

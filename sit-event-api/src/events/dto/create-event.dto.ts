@@ -6,6 +6,7 @@ import {
   IsOptional,
   IsBoolean,
   IsInt,
+  Min,
   IsEnum,
   IsUrl,
   IsUUID
@@ -95,6 +96,12 @@ export class CreateEventDto {
   @IsString()
   @IsOptional()
   certificateCriteria?: string;
+
+  @IsInt()
+  @IsOptional()
+  @Min(1)
+  @Type(() => Number)
+  maxSeats?: number;
 
   @IsOptional()
   @IsArray()

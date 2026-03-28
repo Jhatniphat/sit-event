@@ -43,6 +43,7 @@ export class EventRegistrationsService {
     );
 
     // Determine registration status
+    // If no PRE_EVENT form required -> APPROVED immediately
     const initialStatus = hasActivePreEventForm
       ? RegistrationStatus.PENDING
       : RegistrationStatus.APPROVED;
@@ -75,6 +76,9 @@ export class EventRegistrationsService {
         },
       });
 
+      // If approved immediately and event has maxSeats, decrement available seats
+      // (Event-level seat tracking if desired; for now we track at session level only)
+
       // 2. Check for auto-register sessions
       const autoSessions = await tx.eventSession.findMany({
         where: {
@@ -83,10 +87,8 @@ export class EventRegistrationsService {
         },
       });
 
-      // 3. Register user to auto-register sessions (bypass seats for now)
+      // 3. Register user to auto-register sessions
       for (const session of autoSessions) {
-        // if (session.availableSeats > 0) {
-        // Check if already registered (shouldn't happen for new event reg, but good practice if logic changes)
         const existingSessionReg = await tx.eventRegistration.findUnique({
           where: {
             userId_eventId_sessionId: {
@@ -107,12 +109,14 @@ export class EventRegistrationsService {
             },
           });
 
-          await tx.eventSession.update({
-            where: { id: session.id },
-            data: { availableSeats: { decrement: 1 } },
-          });
+          // Decrement availableSeats only when immediately approved and session has a seat limit
+          if (initialStatus === RegistrationStatus.APPROVED && session.maxSeats !== null) {
+            await tx.eventSession.update({
+              where: { id: session.id },
+              data: { availableSeats: { decrement: 1 } },
+            });
+          }
         }
-        // }
       }
 
       return mainRegistration;
@@ -144,6 +148,26 @@ export class EventRegistrationsService {
           formId: { in: formIds },
         },
       });
+    }
+
+    // Restore available seats for sessions where user was APPROVED
+    const approvedSessionRegs = await this.prisma.eventRegistration.findMany({
+      where: {
+        eventId,
+        userId: user.id,
+        sessionId: { not: null },
+        status: RegistrationStatus.APPROVED,
+      },
+      include: { session: true },
+    });
+
+    for (const reg of approvedSessionRegs) {
+      if (reg.session && reg.session.maxSeats !== null) {
+        await this.prisma.eventSession.update({
+          where: { id: reg.session.id },
+          data: { availableSeats: { increment: 1 } },
+        });
+      }
     }
 
     const deleteResult = await this.prisma.eventRegistration.deleteMany({
@@ -219,6 +243,7 @@ export class EventRegistrationsService {
   async approveRegistration(eventId: string, registrationId: string) {
     const registration = await this.prisma.eventRegistration.findFirst({
       where: { id: registrationId, eventId: eventId },
+      include: { session: true },
     });
 
     if (!registration) {
@@ -229,7 +254,7 @@ export class EventRegistrationsService {
       throw new BadRequestException('Registration is already approved.');
     }
 
-    return this.prisma.eventRegistration.update({
+    const updated = await this.prisma.eventRegistration.update({
       where: { id: registrationId },
       data: {
         status: RegistrationStatus.APPROVED,
@@ -237,6 +262,16 @@ export class EventRegistrationsService {
       },
       include: { user: true, event: true },
     });
+
+    // Decrement session available seats upon approval (if session has maxSeats)
+    if (registration.sessionId && registration.session?.maxSeats !== null && registration.session?.maxSeats !== undefined) {
+      await this.prisma.eventSession.update({
+        where: { id: registration.sessionId },
+        data: { availableSeats: { decrement: 1 } },
+      });
+    }
+
+    return updated;
   }
 
   // =============================================

@@ -37,7 +37,7 @@ interface LocalSubSession {
   start: Date
   end: Date
   location: string
-  maxSeats: number
+  maxSeats: number | null
   pointsAwarded: number
   autoRegister: boolean
   isExpanded: boolean
@@ -89,6 +89,7 @@ const formSchema = z.object({
   registrationEndDate: z.coerce.date({ required_error: 'กรุณาระบุวันปิดรับสมัคร' }),
   targetAudience: z.array(z.string()).min(1, 'กรุณาเลือกกลุ่มเป้าหมายอย่างน้อย 1 กลุ่ม'),
   tags: z.array(z.string()).min(1, 'กรุณาเลือก Tag อย่างน้อย 1 รายการ'),
+  maxSeats: z.coerce.number().int().min(1, 'จำนวนที่นั่งต้องมีอย่างน้อย 1').nullable().optional(),
   thumbnail: z.custom<File>((val) => val instanceof File, 'กรุณาอัปโหลดรูปปก').nullable().optional(),
   images: z.array(z.custom<File>()).optional(),
 }).superRefine((data, ctx) => {
@@ -101,13 +102,13 @@ const formSchema = z.object({
   if (data.registrationEndDate > data.eventEndDate) addIssue('registrationEndDate', 'วันปิดรับสมัครต้องไม่เกินวันจบกิจกรรม');
 });
 
-const getSubSessionSchema = (eventStart?: Date, eventEnd?: Date) => z.object({
+const getSubSessionSchema = (eventStart?: Date, eventEnd?: Date, eventMaxSeats?: number | null) => z.object({
   name: z.string().min(1, 'กรุณาระบุชื่อ Session'),
   description: z.string().optional(),
   start: z.coerce.date(),
   end: z.coerce.date(),
   location: z.string().min(1, 'กรุณาระบุสถานที่'),
-  maxSeats: z.coerce.number().min(1, 'จำนวนที่นั่งต้องมีอย่างน้อย 1 ที่นั่ง'),
+  maxSeats: z.coerce.number().int().min(1, 'จำนวนที่นั่งต้องมีอย่างน้อย 1').nullable().optional(),
   pointsAwarded: z.coerce.number().min(0, 'คะแนนต้องไม่ติดลบ'),
   autoRegister: z.boolean().optional(),
 }).superRefine((data, ctx) => {
@@ -119,6 +120,10 @@ const getSubSessionSchema = (eventStart?: Date, eventEnd?: Date) => z.object({
   }
   if (eventEnd && data.end > eventEnd) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: "เวลาจบ Session ต้องไม่หลังเวลาจบกิจกรรม", path: ["end"] });
+  }
+  // Validate session maxSeats does not exceed event maxSeats (for non-autoRegister)
+  if (!data.autoRegister && data.maxSeats && eventMaxSeats && data.maxSeats > eventMaxSeats) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: `จำนวนที่นั่ง Session ต้องไม่เกิน ${eventMaxSeats} (max ของ Event)`, path: ["maxSeats"] });
   }
 });
 
@@ -133,6 +138,7 @@ const form = useForm({
     registrationEndDate: new Date(),
     targetAudience: [],
     tags: [],
+    maxSeats: null,
     thumbnail: null,
     images: [],
   },
@@ -173,6 +179,7 @@ onMounted(async () => {
           registrationEndDate: new Date(eventToEdit.registrationEndDate),
           targetAudience: eventToEdit.targetAudience ?? [],
           tags: eventToEdit.tags ?? [],
+          maxSeats: (eventToEdit as any).maxSeats ?? null,
         })
 
         if (eventToEdit.thumbnail && typeof eventToEdit.thumbnail === 'string') {
@@ -258,7 +265,7 @@ const nextStep = async () => {
 
     if (currentStep.value === 2) {
         if (subSessions.value.length > 0) {
-            const sessionArraySchema = z.array(getSubSessionSchema(form.values.eventStartDate, form.values.eventEndDate));
+            const sessionArraySchema = z.array(getSubSessionSchema(form.values.eventStartDate, form.values.eventEndDate, form.values.maxSeats));
             const sessionValidation = sessionArraySchema.safeParse(subSessions.value);
 
             if (!sessionValidation.success) {
@@ -309,6 +316,9 @@ const submitEvent = async () => {
     formData.append('registrationEndDate', values.registrationEndDate!.toISOString())
     formData.append('eventStartDate', values.eventStartDate!.toISOString())
     formData.append('eventEndDate', values.eventEndDate!.toISOString())
+    if (values.maxSeats != null) {
+      formData.append('maxSeats', String(values.maxSeats))
+    }
     
     values.targetAudience?.forEach((t) => formData.append('targetAudience', t))
     values.tags?.forEach((tag) => formData.append('tags', tag))
@@ -361,7 +371,7 @@ const submitEvent = async () => {
             startTime: session.start.toISOString(),
             endTime: session.end.toISOString(),
             location: session.location,
-            maxSeats: Number(session.maxSeats),
+            maxSeats: session.maxSeats !== null ? Number(session.maxSeats) : undefined,
             pointsAwarded: Number(session.pointsAwarded),
             autoRegister: session.autoRegister
         }
@@ -474,6 +484,7 @@ const onCancel = () => {
             v-if="currentStep === 2"
             v-model="subSessions"
             :isSessionLoading="isSessionLoading"
+            :eventMaxSeats="form.values.maxSeats ?? null"
             @removeSubSession="handleRemoveSubSession"
             @skip="handleSkip"
         />

@@ -42,6 +42,23 @@ export class EventSessionsService {
       throw new BadRequestException('Start time must be before end time');
     }
 
+    // Determine session maxSeats
+    // autoRegister sessions inherit the event's maxSeats (or null if event has none)
+    const isAutoRegister = createEventSessionDto.autoRegister ?? false;
+    let sessionMaxSeats: number | null = null;
+
+    if (isAutoRegister) {
+      sessionMaxSeats = event.maxSeats ?? null;
+    } else if (createEventSessionDto.maxSeats !== undefined) {
+      sessionMaxSeats = createEventSessionDto.maxSeats;
+      // Validate session maxSeats does not exceed event maxSeats
+      if (event.maxSeats !== null && event.maxSeats !== undefined && sessionMaxSeats > event.maxSeats) {
+        throw new BadRequestException(
+          `Session maxSeats (${sessionMaxSeats}) cannot exceed event maxSeats (${event.maxSeats})`,
+        );
+      }
+    }
+
     // สร้าง session โดยกำหนด availableSeats เท่ากับ maxSeats
     return this.prisma.eventSession.create({
       data: {
@@ -51,8 +68,9 @@ export class EventSessionsService {
         startTime,
         endTime,
         location: createEventSessionDto.location,
-        maxSeats: createEventSessionDto.maxSeats,
-        availableSeats: createEventSessionDto.maxSeats,
+        maxSeats: sessionMaxSeats,
+        availableSeats: sessionMaxSeats,
+        autoRegister: isAutoRegister,
         pointsAwarded: createEventSessionDto.pointsAwarded,
       },
       include: {
@@ -249,15 +267,17 @@ export class EventSessionsService {
       },
     });
 
-    // ลดจำนวน availableSeats
-    await this.prisma.eventSession.update({
-      where: { id: sessionId },
-      data: {
-        availableSeats: {
-          decrement: 1,
+    // ลดจำนวน availableSeats เฉพาะเมื่อ APPROVED ทันที (ไม่ต้อง approve) และมี maxSeats กำหนดไว้
+    if (initialStatus === RegistrationStatus.APPROVED && session.maxSeats !== null) {
+      await this.prisma.eventSession.update({
+        where: { id: sessionId },
+        data: {
+          availableSeats: {
+            decrement: 1,
+          },
         },
-      },
-    });
+      });
+    }
 
     return registration;
   }
@@ -299,11 +319,23 @@ export class EventSessionsService {
 
     // ตรวจสอบ maxSeats ถ้ามีการเปลี่ยน
     if (updateEventSessionDto.maxSeats !== undefined) {
-      const registeredCount = session.maxSeats - session.availableSeats;
-      if (updateEventSessionDto.maxSeats < registeredCount) {
-        throw new BadRequestException(
-          `Cannot reduce maxSeats to ${updateEventSessionDto.maxSeats}. Already have ${registeredCount} registrations.`,
-        );
+      // Fetch event to validate against event maxSeats
+      const event = await this.prisma.event.findUnique({ where: { id: eventId } });
+      if (event?.maxSeats !== null && event?.maxSeats !== undefined) {
+        if (updateEventSessionDto.maxSeats > event.maxSeats) {
+          throw new BadRequestException(
+            `Session maxSeats (${updateEventSessionDto.maxSeats}) cannot exceed event maxSeats (${event.maxSeats})`,
+          );
+        }
+      }
+
+      if (session.maxSeats !== null) {
+        const registeredCount = session.maxSeats - (session.availableSeats ?? 0);
+        if (updateEventSessionDto.maxSeats < registeredCount) {
+          throw new BadRequestException(
+            `Cannot reduce maxSeats to ${updateEventSessionDto.maxSeats}. Already have ${registeredCount} registrations.`,
+          );
+        }
       }
     }
 
@@ -326,9 +358,14 @@ export class EventSessionsService {
       updateData.location = updateEventSessionDto.location;
     }
     if (updateEventSessionDto.maxSeats !== undefined) {
-      const registeredCount = session.maxSeats - session.availableSeats;
-      updateData.maxSeats = updateEventSessionDto.maxSeats;
-      updateData.availableSeats = updateEventSessionDto.maxSeats - registeredCount;
+      if (session.maxSeats !== null) {
+        const registeredCount = session.maxSeats - (session.availableSeats ?? 0);
+        updateData.maxSeats = updateEventSessionDto.maxSeats;
+        updateData.availableSeats = updateEventSessionDto.maxSeats - registeredCount;
+      } else {
+        updateData.maxSeats = updateEventSessionDto.maxSeats;
+        updateData.availableSeats = updateEventSessionDto.maxSeats;
+      }
     }
     if (updateEventSessionDto.pointsAwarded !== undefined) {
       updateData.pointsAwarded = updateEventSessionDto.pointsAwarded;
@@ -547,8 +584,8 @@ export class EventSessionsService {
     const summary: SessionSummaryStats = {
       sessionId,
       sessionName: session.name,
-      maxSeats: session.maxSeats,
-      availableSeats: session.availableSeats,
+      maxSeats: session.maxSeats ?? null,
+      availableSeats: session.availableSeats ?? null,
       totalRegistered: total,
       totalAttended,
       totalApproved,

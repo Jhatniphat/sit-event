@@ -124,6 +124,7 @@ model Event {
   allowOnSiteRegister  Boolean          @default(false)
   targetAudience       TargetAudience[]
   tags                 EventTag[]
+  maxSeats             Int?             // Optional max participants for the entire event
   activityHours        Int?
   invitation           String?          @db.Text
   website              String?
@@ -155,8 +156,8 @@ model EventSession {
   startTime      DateTime @db.Timestamptz
   endTime        DateTime @db.Timestamptz
   location       String?
-  maxSeats       Int
-  availableSeats Int
+  maxSeats       Int?     // Optional: null means unlimited
+  availableSeats Int?     // Optional: null means unlimited
   pointsAwarded  Int?
   autoRegister   Boolean  @default(false)
   createdAt      DateTime @default(now()) @db.Timestamptz

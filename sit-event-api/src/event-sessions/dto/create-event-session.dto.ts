@@ -42,14 +42,14 @@ export class CreateEventSessionDto {
   @IsOptional()
   location?: string;
 
-  @ApiProperty({
-    description: 'Maximum number of seats available',
+  @ApiPropertyOptional({
+    description: 'Maximum number of seats available (null = unlimited)',
     example: 100,
   })
   @IsInt()
   @Min(1)
-  @IsNotEmpty()
-  maxSeats: number;
+  @IsOptional()
+  maxSeats?: number;
 
   @ApiPropertyOptional({
     description: 'Whether to automatically register participants for this session when they register for the event',

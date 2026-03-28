@@ -113,6 +113,16 @@ const handleDrop = (e: DragEvent) => {
             <FormMessage />
           </FormItem>
         </FormField>
+
+        <FormField v-slot="{ componentField }" name="maxSeats">
+          <FormItem>
+            <FormLabel>Max Seats <span class="text-xs text-gray-400 font-normal">(optional – leave blank for unlimited)</span></FormLabel>
+            <FormControl>
+              <Input type="number" placeholder="e.g. 100" min="1" v-bind="componentField" id="input-max-seats" />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        </FormField>
       </div>
     </div>
 

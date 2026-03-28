@@ -45,6 +45,7 @@ export interface Event {
   eventEndDate: Date // date-time [cite: 10]
   targetAudience: TargetAudience[]
   tags: EventTag[]
+  maxSeats?: number | null // Optional: null means unlimited
   creatorId: string // uuid, readOnly [cite: 11, 12]
   createdAt: Date // date-time, readOnly [cite: 12]
   images: File[]
@@ -85,10 +86,10 @@ export interface EventSession {
   startTime: string // ISO String from API
   endTime: string // ISO String from API
   location: string
-  maxSeats: number
+  maxSeats: number | null    // null = unlimited
+  availableSeats: number | null  // null = unlimited
   pointsAwarded: number
   autoRegister: boolean
-  // thumbnail?: string // API Example ไม่ได้ระบุ field นี้ แต่ถ้ามีก็เพิ่มได้
 }
 
 export interface CreateSessionDto {
@@ -97,12 +98,12 @@ export interface CreateSessionDto {
   startTime: string // ISO String
   endTime: string // ISO String
   location: string
-  maxSeats: number
+  maxSeats?: number    // Optional: omit for unlimited
   pointsAwarded: number
   autoRegister?: boolean
 }
 
-export type UpdateSessionDto = CreateSessionDto
+export type UpdateSessionDto = Partial<CreateSessionDto>
 
 /**
  * Interface สำหรับการลงทะเบียน (components.schemas.EventRegistration)

@@ -16,7 +16,7 @@ interface SubSession {
   start: Date
   end: Date
   location: string
-  maxSeats: number
+  maxSeats: number | null
   pointsAwarded: number
   autoRegister: boolean
   isExpanded: boolean
@@ -27,6 +27,7 @@ interface SubSession {
 const props = defineProps<{
   modelValue: SubSession[]
   isSessionLoading: boolean
+  eventMaxSeats?: number | null
 }>()
 
 const emit = defineEmits<{
@@ -53,7 +54,7 @@ const addSubSession = () => {
     start: new Date(),
     end: new Date(),
     location: '',
-    maxSeats: 1, 
+    maxSeats: null,  // optional – null means unlimited
     autoRegister: false,
     pointsAwarded: 0,
     thumbnail: null,
@@ -228,9 +229,27 @@ const handleSkip = () => {
                         <Label>Location <span class="text-destructive">*</span></Label>
                         <Input v-model="session.location" placeholder="Ex. Room 101" class="mt-1.5"/>
                       </div>
-                      <div>
-                        <Label>Max Seats <span class="text-destructive">*</span></Label>
-                        <Input type="number" v-model="session.maxSeats" min="1" class="mt-1.5"/>
+                      <!-- Max Seats: hidden for autoRegister (inherits event maxSeats) -->
+                      <div v-if="!session.autoRegister">
+                        <Label>Max Seats <span class="text-xs text-gray-400 font-normal">(optional)</span></Label>
+                        <Input 
+                          type="number" 
+                          :value="session.maxSeats ?? ''"
+                          @input="(e: Event) => session.maxSeats = (e.target as HTMLInputElement).value ? Number((e.target as HTMLInputElement).value) : null"
+                          :placeholder="props.eventMaxSeats ? `Max: ${props.eventMaxSeats}` : 'Unlimited'"
+                          min="1" 
+                          :max="props.eventMaxSeats ?? undefined"
+                          class="mt-1.5"
+                        />
+                        <p v-if="props.eventMaxSeats" class="text-xs text-gray-400 mt-1">
+                          Cannot exceed event max: {{ props.eventMaxSeats }}
+                        </p>
+                      </div>
+                      <div v-else class="flex flex-col justify-end">
+                        <p class="text-xs text-blue-600 bg-blue-50 rounded px-2 py-1 mt-6">
+                          <span v-if="props.eventMaxSeats">Inherits event max: <strong>{{ props.eventMaxSeats }}</strong> seats</span>
+                          <span v-else>No seat limit (event has no max)</span>
+                        </p>
                       </div>
                       <div>
                         <Label>Points</Label>
