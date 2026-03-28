@@ -90,6 +90,9 @@ export const useAuthStore = defineStore('auth', () => {
 
         accessToken.value = response.session.accessToken ?? null;
         refreshToken.value = response.session.refreshToken ?? null;
+        localStorage.setItem('accessToken', response.session.accessToken ?? '');
+        localStorage.setItem('refreshToken', response.session.refreshToken ?? '');
+        localStorage.setItem('authToken', response.session.accessToken ?? '');
 
       } else {
         user.value = null;
