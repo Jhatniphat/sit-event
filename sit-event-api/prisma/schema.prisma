@@ -60,6 +60,7 @@ enum StaffStatus {
 enum FormType {
   PRE_EVENT
   POST_EVENT
+  OTHER
 }
 
 enum RegistrationStatus {
@@ -255,7 +256,6 @@ model EventForm {
   fields      EventFormField[]
   submissions EventFormSubmission[]
 
-  @@unique([eventId, type]) // 1 Event มีได้ 1 Form type
   @@map("event_forms")
 }
 

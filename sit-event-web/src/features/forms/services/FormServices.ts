@@ -12,6 +12,7 @@ export interface FormFieldPayload {
 export enum FormType {
   PRE_EVENT = 'PRE_EVENT',
   POST_EVENT = 'POST_EVENT',
+  OTHER = 'OTHER',
 }
 
 export interface CreateEventFormDto {
@@ -43,6 +44,9 @@ export interface EventFormResponse {
   description?: string
   isActive: boolean
   fields: FormFieldResponse[]
+  _count?: {
+    submissions: number
+  }
 }
 
 export interface SubmissionSummary {

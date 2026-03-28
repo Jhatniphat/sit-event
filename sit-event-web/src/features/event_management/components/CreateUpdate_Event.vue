@@ -101,7 +101,7 @@ const formSchema = z.object({
   if (data.registrationEndDate > data.eventEndDate) addIssue('registrationEndDate', 'วันปิดรับสมัครต้องไม่เกินวันจบกิจกรรม');
 });
 
-const subSessionSchema = z.object({
+const getSubSessionSchema = (eventStart?: Date, eventEnd?: Date) => z.object({
   name: z.string().min(1, 'กรุณาระบุชื่อ Session'),
   description: z.string().optional(),
   start: z.coerce.date(),
@@ -110,9 +110,16 @@ const subSessionSchema = z.object({
   maxSeats: z.coerce.number().min(1, 'จำนวนที่นั่งต้องมีอย่างน้อย 1 ที่นั่ง'),
   pointsAwarded: z.coerce.number().min(0, 'คะแนนต้องไม่ติดลบ'),
   autoRegister: z.boolean().optional(),
-}).refine((data) => data.end > data.start, {
-  message: "เวลาจบ Session ต้องหลังจากเวลาเริ่ม",
-  path: ["end"],
+}).superRefine((data, ctx) => {
+  if (data.end <= data.start) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "เวลาจบ Session ต้องหลังจากเวลาเริ่มกิจกรรม", path: ["end"] });
+  }
+  if (eventStart && data.start < eventStart) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "เวลาเริ่ม Session ต้องไม่ก่อนเวลาเริ่มกิจกรรม", path: ["start"] });
+  }
+  if (eventEnd && data.end > eventEnd) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "เวลาจบ Session ต้องไม่หลังเวลาจบกิจกรรม", path: ["end"] });
+  }
 });
 
 const form = useForm({
@@ -251,7 +258,7 @@ const nextStep = async () => {
 
     if (currentStep.value === 2) {
         if (subSessions.value.length > 0) {
-            const sessionArraySchema = z.array(subSessionSchema);
+            const sessionArraySchema = z.array(getSubSessionSchema(form.values.eventStartDate, form.values.eventEndDate));
             const sessionValidation = sessionArraySchema.safeParse(subSessions.value);
 
             if (!sessionValidation.success) {
