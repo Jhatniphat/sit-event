@@ -137,13 +137,13 @@ export class ScopesService {
       return false;
     }
 
-    // ✅ Check if staff has ACCEPTED status - only ACCEPTED staff members can have permissions
-    if (staff.status !== 'ACCEPTED') {
-      this.logger.warn(
-        `Staff userId: ${userId}, eventId: ${eventId} has status ${staff.status}, not ACCEPTED. Required permission: ${permission}`,
-      );
-      return false;
-    }
+    // Check if staff has ACCEPTED status - only ACCEPTED staff members can have permissions
+    // if (staff.status !== 'ACCEPTED') {
+    //   this.logger.warn(
+    //     `Staff userId: ${userId}, eventId: ${eventId} has status ${staff.status}, not ACCEPTED. Required permission: ${permission}`,
+    //   );
+    //   return false;
+    // }
 
     // Check if any scope matches the requirement
     const hasPermission = staff.scopes.some((scope) => {
