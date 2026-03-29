@@ -383,6 +383,29 @@ export const EventService = {
   },
 
   // Participant List For Staff
+  // เดี๋ยวมาแก้ให้ไม่ใช้ any นะครับบ
+  async participantsForEvent(
+    eventId: string,
+    params?: GetParticipantsParams,
+  ): Promise<any> {
+    try {
+      const participantsList = await apiClient.get<any>(
+        `/events/${eventId}/participants`,
+        { params },
+      )
+      console.log('Participants List:', participantsList.data)
+      return participantsList.data
+    } catch (error: unknown) {
+      if (isApiError(error)) {
+        console.error(
+          `[EventService] ParticipantsForEvent API Error ${error.status}: ${error.message}`,
+        )
+        throw error
+      }
+      console.error('[EventService] ParticipantsForEvent Unexpected Error:', error)
+      throw new Error('An unexpected error occurred during get all participants.')
+    }
+  },
   async participantsForSession(
     eventId: string,
     sessionId: string,
