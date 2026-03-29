@@ -4,11 +4,13 @@ import { useRoute } from 'vue-router'
 import { Search, UserMinus, Clock, User, ChevronDown } from 'lucide-vue-next'
 import { useEventStore } from '../store/EventStore'
 import { useDebounceFn } from '@vueuse/core' // แนะนำให้ลง npm i @vueuse/core เพื่อใช้ debounce
+import { useAuthStore } from '@/features/auth/stores/auth.store'
 
 const route = useRoute()
 const eventStore = useEventStore()
+const authStore = useAuthStore()
 
-const eventId = route.params.eventId as string
+const eventId = route.params.id as string
 const sessionId = route.params.sessionId as string
 
 const isLoading = computed(() => eventStore.isLoadingRegistration)
@@ -17,11 +19,16 @@ const limit = ref(20) // ค่าเริ่มต้นของ Limit
 
 // ฟังก์ชันหลักในการดึงข้อมูลจาก Backend
 const fetchParticipants = async () => {
-  await eventStore.participantsListForSession(eventId, sessionId, {
+  await eventStore.participantsListForEvent(eventId,{
     search: searchQuery.value,
     limit: limit.value,
     offset: 0
   })
+  // await eventStore.participantsListForSession(eventId, sessionId, {
+  //   search: searchQuery.value,
+  //   limit: limit.value,
+  //   offset: 0
+  // })
 }
 
 // ใช้ Debounce เพื่อลดภาระ Backend เวลาพิมพ์ Search (ยิงหลังจากหยุดพิมพ์ 500ms)
@@ -41,6 +48,7 @@ watch(limit, () => {
 
 onMounted(() => {
   fetchParticipants()
+  console.log('Current User:', authStore.user) // ตรวจสอบข้อมูลผู้ใช้ปัจจุบัน
 })
 
 const getStatusColor = (status: string) => {

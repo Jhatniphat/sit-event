@@ -280,6 +280,24 @@ export const useEventStore = defineStore('events', {
       }
     },
     // Get All Participants For Staff
+    async participantsListForEvent(
+      eventId: string,
+      params?: GetParticipantsParams,
+    ) {
+      this.isLoadingPartiList = true
+      this.error = null
+      try {
+        const participants = await EventService.participantsForEvent(eventId, params)
+        this.participantsData = participants
+        this.allParticipants = participants.data
+      } catch (error) {
+        this.error = handleError(error, 'Failed to fetch participants.')
+        console.error(this.error)
+        throw error
+      } finally {
+        this.isLoadingPartiList = false
+      }
+    },
     async participantsListForSession(
       eventId: string,
       sessionId: string,
@@ -288,6 +306,7 @@ export const useEventStore = defineStore('events', {
       this.isLoadingPartiList = true
       this.error = null
       try {
+        console.log('Fetching participants for session:', { eventId, sessionId, params })
         const participants = await EventService.participantsForSession(eventId, sessionId, params)
         this.participantsData = participants
         this.allParticipants = participants.data
