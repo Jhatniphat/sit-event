@@ -139,6 +139,9 @@ export const useAuthStore = defineStore('auth', () => {
       user.value = null;
       accessToken.value = null;
       refreshToken.value = null;
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('authToken');
 
       router.push({ name: 'Home' });
     } catch (error) {

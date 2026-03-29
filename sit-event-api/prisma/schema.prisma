@@ -130,6 +130,7 @@ model Event {
   website              String?
   needWifi             Boolean          @default(false)
   certificateCriteria  String?          @db.Text
+  postEventEmailSent   Boolean          @default(false)
   createdAt            DateTime         @default(now()) @db.Timestamptz
   updatedAt            DateTime         @updatedAt @db.Timestamptz
 

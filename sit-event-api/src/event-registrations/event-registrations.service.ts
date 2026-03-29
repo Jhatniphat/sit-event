@@ -191,11 +191,21 @@ export class EventRegistrationsService {
         `User with email '${authenticatedUser.email}' not found in database.`,
       );
     }
+    
+    // Explicitly log to verify the user identity
+    console.log(`[EventRegistrationsService.findMyRegistration] Fetching for user: ${user.email} (ID: ${user.id})`);
+
     return this.prisma.eventRegistration.findMany({
       where: {
         userId: user.id,
       },
-      include: { event: true, session: true }, // Include session detail if needed
+      include: { 
+        event: true, 
+        session: true 
+      },
+      orderBy: {
+        registeredAt: 'desc'
+      }
     });
   }
 
