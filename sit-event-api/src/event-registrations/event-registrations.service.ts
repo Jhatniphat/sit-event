@@ -12,6 +12,7 @@ import { FormType } from 'generated/prisma';
 import * as ExcelJS from 'exceljs';
 import type { Response } from 'express';
 import { CertificatesService } from '../certificates/certificates.service';
+import { EmailService } from '../emails/email.service';
 
 @Injectable()
 export class EventRegistrationsService {
@@ -19,6 +20,7 @@ export class EventRegistrationsService {
     private prisma: PrismaService,
     private usersService: UsersService,
     private certificatesService: CertificatesService,
+    private emailService: EmailService,
   ) { }
 
   async registerUserToEvent(
@@ -268,7 +270,7 @@ export class EventRegistrationsService {
         status: RegistrationStatus.APPROVED,
         approvedAt: new Date(),
       },
-      include: { user: true, event: true },
+      include: { user: true, event: true, session: true },
     });
 
     // Decrement session available seats upon approval (if session has maxSeats)
@@ -277,6 +279,28 @@ export class EventRegistrationsService {
         where: { id: registration.sessionId },
         data: { availableSeats: { decrement: 1 } },
       });
+    }
+
+    // --- Send Approval Email ---
+    try {
+      const participantName = `${updated.user.firstName} ${updated.user.lastName}`;
+      const eventName = updated.event.name;
+      const eventDate = updated.event.eventStartDate.toLocaleDateString('th-TH', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      });
+      const eventLocation = updated.session?.location || 'See event details';
+
+      this.emailService.sendApprovalNotification(
+        updated.user.email,
+        participantName,
+        eventName,
+        eventDate,
+        eventLocation
+      ).catch(err => console.error('Failed to send approval email:', err));
+    } catch (emailError) {
+      console.error('Error preparing approval email:', emailError);
     }
 
     return updated;
@@ -298,13 +322,27 @@ export class EventRegistrationsService {
       throw new BadRequestException('Registration is already rejected.');
     }
 
-    return this.prisma.eventRegistration.update({
+    const updated = await this.prisma.eventRegistration.update({
       where: { id: registrationId },
       data: {
         status: RegistrationStatus.REJECTED,
       },
-      include: { user: true, event: true },
+      include: { user: true, event: true, session: true },
     });
+
+    // --- Send Rejection Email ---
+    try {
+      const participantName = `${updated.user.firstName} ${updated.user.lastName}`;
+      this.emailService.sendRejectionNotification(
+        updated.user.email,
+        participantName,
+        updated.event.name,
+      ).catch(err => console.error('Failed to send rejection email:', err));
+    } catch (emailError) {
+      console.error('Error preparing rejection email:', emailError);
+    }
+
+    return updated;
   }
 
 

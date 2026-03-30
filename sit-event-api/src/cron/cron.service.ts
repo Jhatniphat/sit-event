@@ -13,7 +13,7 @@ export class CronService {
     private readonly prisma: PrismaService,
     private readonly emailService: EmailService,
     private readonly certificatesService: CertificatesService,
-  ) {}
+  ) { }
 
   @Cron(CronExpression.EVERY_MINUTE)
   async handlePostEventLogic() {
@@ -58,18 +58,18 @@ export class CronService {
           } else if (hasCertificate && !hasPostEventForm) {
             // เมื่อ event จบ หากมี certificate แต่ไม่มีฟอร์ม ให้ export certificate และส่งไปทางอีเมล
             this.logger.log(`Has certificate but no form for event ${event.name}. Issuing certificates to attendees.`);
-            
+
             for (const registration of event.registrations) {
               await this.certificatesService.issueCertificate(event.id, registration.userId);
             }
           } else if (hasCertificate && hasPostEventForm) {
             // เมื่อ event จบ หากมี certificate และมีฟอร์ม ให้ส่งฟอร์มไปทางอีเมล
             this.logger.log(`Has certificate and form for event ${event.name}. Sending form link to attendees.`);
-            
+
             this.sendFormsToParticipants(event);
           } else if (!hasCertificate && hasPostEventForm) {
             this.logger.log(`Has no certificate but has form for event ${event.name}. Sending form link to attendees.`);
-            
+
             this.sendFormsToParticipants(event);
           }
         }
@@ -87,16 +87,16 @@ export class CronService {
   }
 
   private async sendFormsToParticipants(event: any) {
-    const frontendUrl = process.env.CORS_ALLOWED_ORIGINS 
-      ? process.env.CORS_ALLOWED_ORIGINS.split(',')[0] 
-      : 'http://localhost:5173';
-      
+    const frontendUrl = process.env.CORS_ALLOWED_ORIGINS
+      ? process.env.CORS_ALLOWED_ORIGINS.split(',')[0]
+      : 'https://bscit.sit.kmutt.ac.th/capstone25/cp25tt1';
+
     // URL สำหรับให้ผู้ใช้เข้าไปกรอกฟอร์มหลังจบงาน
     const formUrl = `${frontendUrl}/events/${event.id}/forms`;
 
     for (const registration of event.registrations) {
       if (!registration.user?.email) continue;
-      
+
       try {
         await this.emailService.sendFormLink(
           registration.user.email,
