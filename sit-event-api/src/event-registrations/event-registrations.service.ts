@@ -7,7 +7,6 @@ import {
 import { PrismaService } from 'src/prisma.service';
 import { UsersService } from '../users/users.service';
 import { AuthenticatedUser } from '../common/decorators/current-user.decorator';
-import { EventRegistrationsGateway } from './event-registrations.gateway';
 import { RegistrationStatus } from '../../generated/prisma';
 import { FormType } from 'generated/prisma';
 import * as ExcelJS from 'exceljs';
@@ -19,7 +18,6 @@ export class EventRegistrationsService {
   constructor(
     private prisma: PrismaService,
     private usersService: UsersService,
-    private eventRegistrationsGateway: EventRegistrationsGateway,
     private certificatesService: CertificatesService,
   ) { }
 
@@ -449,8 +447,6 @@ export class EventRegistrationsService {
   }
 
   async checkUserQrStatus(eventId: string, userId: string) {
-    const isActive = this.eventRegistrationsGateway.isUserActive(userId);
-
     const registration = await this.prisma.eventRegistration.findFirst({
       where: { eventId, userId },
       select: { id: true }
@@ -461,7 +457,6 @@ export class EventRegistrationsService {
     }
 
     return {
-      isActive: isActive,
       userId: userId,
       eventId: eventId
     };
@@ -469,12 +464,6 @@ export class EventRegistrationsService {
 
   // --- Check In Logic (Updated for Main Event Only) ---
   async checkInUser(eventId: string, userId: string) {
-    const isActive = this.eventRegistrationsGateway.isUserActive(userId);
-
-    if (!isActive) {
-      throw new BadRequestException('User is not active on QR Code page.');
-    }
-
     // 1. ค้นหาใบสมัคร Event หลัก (sessionId ต้องเป็น null)
     const registration = await this.prisma.eventRegistration.findFirst({
       where: {
@@ -511,13 +500,6 @@ export class EventRegistrationsService {
       },
     });
 
-    // 3. ส่ง Socket Notification
-    this.eventRegistrationsGateway.notifyCheckInSuccess(
-      userId,
-      eventId,
-      registration.event.name
-    );
-
     // 4. ส่ง Certificate หากไม่มี POST_EVENT form
     const postEventFormCount = await this.prisma.eventForm.count({
       where: {
@@ -537,12 +519,6 @@ export class EventRegistrationsService {
 
   // --- Check In Logic (New for Sub-Session) ---
   async checkInUserSession(eventId: string, userId: string, sessionId: string) {
-    const isActive = this.eventRegistrationsGateway.isUserActive(userId);
-
-    if (!isActive) {
-      throw new BadRequestException('User is not active on QR Code page.');
-    }
-
     // 1. ตรวจสอบก่อนว่า Check-in Event หลักหรือยัง
     const mainRegistration = await this.prisma.eventRegistration.findFirst({
       where: {
@@ -585,18 +561,6 @@ export class EventRegistrationsService {
         checkedInAt: new Date(),
       },
     });
-
-    // 4. ส่ง Socket Notification (ระบุว่าเป็น Session Check-in)
-    // คุณอาจจะปรับ notifyCheckInSuccess ให้รับ parameter เพิ่ม หรือส่งเป็น format ชื่อ "Event - Session Name"
-    const notificationName = sessionRegistration.session
-      ? `${sessionRegistration.event.name} - ${sessionRegistration.session.name}`
-      : sessionRegistration.event.name;
-
-    this.eventRegistrationsGateway.notifyCheckInSuccess(
-      userId,
-      eventId,
-      notificationName
-    );
 
     return updatedSessionRegistration;
   }
