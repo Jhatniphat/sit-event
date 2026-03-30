@@ -1,11 +1,8 @@
 <script setup lang="ts">
+import type { StaffMember } from '../services/StaffService';
+
 const props = defineProps<{
-  allStaff: {
-    id: string
-    firstName: string
-    lastName: string
-    email: string
-  }[]
+  allStaff: StaffMember[]
   selectedIds: string[]
 }>()
 
@@ -91,10 +88,10 @@ const toggleAll = () => {
                 class="px-6 py-4 font-medium border-r"
                 :class="isSelected(staff.id) ? 'text-blue-700' : 'text-gray-900'"
               >
-                {{ staff.firstName }} {{ staff.lastName }}
+                {{ staff.user.firstName }} {{ staff.user.lastName }}
               </td>
               <td class="px-6 py-4 text-gray-600">
-                {{ staff.email }}
+                {{ staff.user.email }}
               </td>
             </tr>
           </tbody>

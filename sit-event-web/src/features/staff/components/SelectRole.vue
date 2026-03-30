@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import TagInput from '@/components/ui/commons/TagInput.vue'
+import { XCircle } from 'lucide-vue-next'
 import {
   Select,
   SelectContent,
@@ -8,12 +9,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import type { EventSession } from '@/features/event_management/services/EventServices';
 
 const props = defineProps<{
   allRole: string[]
-  allSession: string[]
+  allSession: EventSession[]
   selectedStaffNames: string[]
-  // เพิ่มการรับค่า v-model ถ้าต้องการส่งกลับไปไฟล์หลัก
   selectedRoles?: string[]
   selectedSession?: string
 }>()
@@ -23,6 +24,10 @@ const emit = defineEmits(['update:selectedRoles', 'update:selectedSession'])
 // สร้าง Local State สำหรับเก็บค่าที่เลือก
 const internalRoles = ref<string[]>(props.selectedRoles || [])
 const internalSession = ref<string>(props.selectedSession || '')
+
+const clearSession = () => {
+  internalSession.value = ''
+}
 
 // คอยส่งค่ากลับเมื่อมีการเปลี่ยนแปลง
 watch(internalRoles, (newVal) => emit('update:selectedRoles', newVal))
@@ -74,9 +79,16 @@ const displayStaffText = (names: string[]) => {
       </div>
 
       <div class="flex flex-col w-1/2 gap-3">
-        <div class="flex flex-row gap-1 items-center h-[20px]">
+        <div class="flex flex-row justify-between items-center h-[20px]">
           <label class="text-gray-800 text-sm font-bold">Assign Session</label>
-          <span class="text-red-500 font-bold">*</span>
+          <button 
+            v-if="internalSession" 
+            @click="clearSession" 
+            class="flex items-center gap-1 text-[10px] font-bold text-red-500 hover:text-red-700 transition-colors"
+          >
+            <XCircle class="w-3 h-3" />
+            CLEAR TO EVENT-WIDE
+          </button>
         </div>
         <Select v-model="internalSession">
           <SelectTrigger
@@ -85,12 +97,22 @@ const displayStaffText = (names: string[]) => {
             <SelectValue placeholder="Pick a session" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem v-for="session in allSession" :key="session" :value="session">
-              {{ session }}
+            <SelectItem v-for="session in allSession" :key="session.id" :value="session.id">
+              {{ session.name }}
             </SelectItem>
           </SelectContent>
         </Select>
-        <p class="text-[11px] text-gray-400 italic">Each batch update requires one session.</p>
+        <p
+          class="text-[11px] leading-relaxed"
+          :class="internalSession ? 'text-gray-400 italic' : 'text-blue-600 font-semibold'"
+        >
+          <span v-if="!internalSession">
+            * No session selected: Roles will apply to the entire event.
+          </span>
+          <span v-else class="italic">
+            Roles will only apply to the "{{ internalSession }}" session.
+          </span>
+        </p>
       </div>
     </div>
   </div>

@@ -1,54 +1,60 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, ref, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { useStaffStore } from '../store/StaffStore'
+import type { StaffPermission } from '../services/StaffService'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, Loader2 } from 'lucide-vue-next'
+import { ArrowLeft, Loader2, ShieldCheck, UserCircle } from 'lucide-vue-next'
 import SelectStaff from '../components/SelectStaff.vue'
 import SelectRole from '../components/SelectRole.vue'
 import ConfirmationStaff from '../components/ConfirmationStaff.vue'
+import { toast } from 'vue-sonner'
+import { useEventStore } from '@/features/event_management/store/EventStore'
 
-const isLoading = ref(false)
 const router = useRouter()
-const addModal = ref(false)
-const step = ref(1)
+const route = useRoute()
+const staffStore = useStaffStore()
+const eventStore = useEventStore()
 
 // --- State Management ---
+const addModal = ref(false)
+const step = ref(1)
+const eventId = route.params.id as string
 const selectedStaffIds = ref<string[]>([])
 const selectedRoles = ref<string[]>([])
 const selectedSession = ref('')
+const availableRoles = ['CHECK_IN', 'VIEW_PARTICIPANTS']
 
-const staffList = ref([
-  {
-    id: '1',
-    firstName: 'John',
-    lastName: 'Doe',
-    email: 'john.doe@example.com',
-    roles: ['CHECKIN-MORNING', 'CHECKOUT-AFTERNOON'],
-    session: 'AI with Prof.Siam',
-  },
-])
+onMounted(async () => {
+  await staffStore.fetchAllScopes()
+  await staffStore.fetchAllStaff(eventId)
+  await eventStore.fetchEventSessions(eventId)
+  console.log('GrantStaffView Mounted - Event ID:', eventId)
+  console.log('Fetched Staff Scopes:', staffStore.allScopes)
+  console.log('Fetched Staff List:', staffStore.allStaff)
+})
 
-const allStaff = ref(
-  Array.from({ length: 20 }, (_, i) => ({
-    id: (i + 1).toString(),
-    firstName: ['Somsak', 'Jane', 'John', 'Wichai', 'Ananda', 'Priya', 'Kevin'][i % 7],
-    lastName: ['Sae-lee', 'Doe', 'Smith', 'Rattanapan', 'Everingham', 'Sharma', 'Lee'][i % 7],
-    email: `staff${i + 1}@example.com`,
-  })),
-)
+const staffScopesList = computed(() => staffStore.allScopes || [])
+const staffList = computed(() => staffStore.allStaff || []) 
+const sessionsList = computed(() => eventStore.currentEventSessions || [])
+const isLoading = computed(() => staffStore.isLoading)
 
 const selectedStaffNames = computed(() => {
-  return allStaff.value
+  if (!staffList.value) return []
+  return staffList.value
     .filter((s) => selectedStaffIds.value.includes(s.id))
-    .map((s) => `${s.firstName} ${s.lastName}`)
+    .map((s) => `${s.user?.firstName || ''} ${s.user?.lastName || ''}`)
+})
+
+const selectedSessionName = computed(() => {
+  if (!selectedSession.value) return 'Event-wide'
+  const found = sessionsList.value.find(s => s.id === selectedSession.value)
+  return found ? found.name : selectedSession.value
 })
 
 const formatEnum = (value: string) => {
   if (!value) return '-'
-  return value
-    .replace(/_/g, ' ')
-    .toLowerCase()
-    .replace(/\b\w/g, (c) => c.toUpperCase())
+  return value.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
 // --- Logic Actions ---
@@ -60,28 +66,32 @@ const AddNewPermission = () => {
   addModal.value = true
 }
 
-const handleConfirmFinal = () => {
-  isLoading.value = true
-  // จำลองการยิง API
-  console.log('Final Payload:', {
-    ids: selectedStaffIds.value,
-    roles: selectedRoles.value,
-    session: selectedSession.value,
-  })
+const handleConfirmFinal = async () => {
+  const scopePayload = selectedRoles.value.map(role => ({
+    permission: role as StaffPermission,
+    sessionId: selectedSession.value || null
+  }))
 
-  setTimeout(() => {
-    isLoading.value = false
+  const success = await staffStore.bulkAddStaffScopes(
+    selectedStaffIds.value,
+    scopePayload
+  )
+
+  if (success) {
     addModal.value = false
     step.value = 1
-    // ตรงนี้อาจจะเพิ่มการดึงข้อมูล staffList ใหม่จาก API
-  }, 1500)
+    await staffStore.fetchAllScopes()
+    toast.success('Permissions updated successfully') 
+  } else {
+    toast.error(staffStore.error || 'Failed to update permissions')
+  }
 }
 
 const nextProcess = () => {
   if (step.value < 3) {
     step.value += 1
   } else {
-    handleConfirmFinal() // กดปุ่ม Confirm ใน Step 3 ให้เรียกฟังก์ชัน API
+    handleConfirmFinal()
   }
 }
 
@@ -95,7 +105,7 @@ const cancelAdd = () => {
 
 const isNextDisabled = computed(() => {
   if (step.value === 1) return selectedStaffIds.value.length === 0
-  if (step.value === 2) return selectedRoles.value.length === 0 || !selectedSession.value
+  if (step.value === 2) return selectedRoles.value.length === 0
   return false
 })
 </script>
@@ -129,20 +139,28 @@ const isNextDisabled = computed(() => {
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
-              <tr
-                v-for="(staff, index) in staffList"
+              <tr v-if="staffScopesList.length === 0">
+                <td colspan="5" class="px-6 py-4 text-center text-gray-500">
+                  <div class="flex flex-col items-center gap-2">
+                    <UserCircle class="w-8 h-8 text-gray-400" />
+                    No staff permissions found.
+                  </div>
+                </td>
+              </tr>
+              <tr v-else
+                v-for="(staff, index) in staffScopesList"
                 :key="staff.id"
                 class="hover:bg-gray-50/80 transition-colors"
               >
                 <td class="px-6 py-4 text-gray-500">{{ index + 1 }}</td>
                 <td class="px-6 py-4 font-medium text-gray-900">
-                  {{ staff.firstName }} {{ staff.lastName }}
+                  {{ staff.staff?.user.firstName }} {{ staff.staff?.user.lastName }}
                 </td>
-                <td class="px-6 py-4 text-gray-500">{{ staff.email }}</td>
+                <td class="px-6 py-4 text-gray-500">{{ staff.staff?.user.email }}</td>
                 <td class="px-6 py-4 text-gray-600">
                   <div class="flex flex-wrap gap-1">
                     <span
-                      v-for="role in staff.roles"
+                      v-for="role in staff.permission"
                       :key="role"
                       class="px-2 py-0.5 rounded text-xs bg-blue-50 text-blue-700 border border-blue-100"
                     >
@@ -173,14 +191,14 @@ const isNextDisabled = computed(() => {
         <div class="p-6 overflow-y-auto flex-1">
           <SelectStaff
             v-if="step === 1"
-            :all-staff="allStaff"
+            :all-staff="staffList"
             v-model:selectedIds="selectedStaffIds"
           />
 
           <SelectRole
             v-if="step === 2"
-            :all-role="['CHECKIN-MORNING', 'CHECKOUT-AFTERNOON', 'GENERAL']"
-            :all-session="['AI with Prof.Siam', 'Cloud Computing with Dr.Chen']"
+            :all-role="availableRoles"
+            :all-session="sessionsList"
             v-model:selectedRoles="selectedRoles"
             v-model:selectedSession="selectedSession"
             :selected-staff-names="selectedStaffNames"
@@ -190,7 +208,7 @@ const isNextDisabled = computed(() => {
             v-if="step === 3"
             :selected-staff-names="selectedStaffNames"
             :selected-roles="selectedRoles"
-            :selected-session="selectedSession"
+            :selected-session="selectedSessionName"
           />
         </div>
 

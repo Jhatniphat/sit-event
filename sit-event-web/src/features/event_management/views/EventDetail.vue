@@ -339,7 +339,17 @@ const onConfirmUnregister = async () => {
                   <div class="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-2 min-w-[100px]">
                     <Badge variant="outline" class="flex items-center gap-1 px-3 py-1">
                       <Users class="w-3 h-3" />
-                      {{ session.maxSeats }} ที่นั่ง
+                      <span v-if="session.maxSeats !== null && session.maxSeats !== undefined">
+                        {{ session.availableSeats }}/{{ session.maxSeats }} seats
+                      </span>
+                      <span v-else>ไม่จำกัดที่นั่ง</span>
+                    </Badge>
+                    <Badge 
+                      v-if="session.maxSeats !== null && session.maxSeats !== undefined && session.availableSeats !== null && session.availableSeats <= 0" 
+                      variant="destructive" 
+                      class="text-xs px-2 py-0.5"
+                    >
+                      เต็มแล้ว
                     </Badge>
                   </div>
                 </div>
@@ -397,6 +407,14 @@ const onConfirmUnregister = async () => {
                   <p class="text-gray-600">
                     สิ้นสุด: {{ formatDate(eventItem.registrationEndDate) }}
                   </p>
+                </div>
+              </div>
+
+              <div v-if="(eventStore.currentEvent as any)?.maxSeats" class="flex items-start gap-3">
+                <Users class="w-5 h-5 text-primary mt-0.5" />
+                <div>
+                  <p class="font-semibold">จำนวนที่นั่ง (Event)</p>
+                  <p class="text-gray-600">{{ (eventStore.currentEvent as any).maxSeats }} ที่นั่ง</p>
                 </div>
               </div>
             </div>

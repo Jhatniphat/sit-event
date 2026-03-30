@@ -49,14 +49,16 @@ export class EventFormsService {
     const type = dto.type || FormType.POST_EVENT;
 
     // Check if event already has a form of this type
-    const existingForm = await this.prisma.eventForm.findFirst({
-      where: { eventId, type },
-    });
+    if (type !== FormType.OTHER) {
+      const existingForm = await this.prisma.eventForm.findFirst({
+        where: { eventId, type },
+      });
 
-    if (existingForm) {
-      throw new ConflictException(
-        `Event with ID '${eventId}' already has a ${type} form.`,
-      );
+      if (existingForm) {
+        throw new ConflictException(
+          `Event with ID '${eventId}' already has a ${type} form.`,
+        );
+      }
     }
 
     // Validate fields if provided

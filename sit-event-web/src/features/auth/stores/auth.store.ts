@@ -90,6 +90,9 @@ export const useAuthStore = defineStore('auth', () => {
 
         accessToken.value = response.session.accessToken ?? null;
         refreshToken.value = response.session.refreshToken ?? null;
+        localStorage.setItem('accessToken', response.session.accessToken ?? '');
+        localStorage.setItem('refreshToken', response.session.refreshToken ?? '');
+        localStorage.setItem('authToken', response.session.accessToken ?? '');
 
       } else {
         user.value = null;
@@ -136,6 +139,9 @@ export const useAuthStore = defineStore('auth', () => {
       user.value = null;
       accessToken.value = null;
       refreshToken.value = null;
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('authToken');
 
       router.push({ name: 'Home' });
     } catch (error) {

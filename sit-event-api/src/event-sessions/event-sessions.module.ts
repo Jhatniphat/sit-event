@@ -9,5 +9,6 @@ import { ScopesModule } from '../event-staffs/scopes/scopes.module';
   controllers: [EventSessionsController],
   providers: [EventSessionsService],
   imports: [PrismaModule, UsersModule, ScopesModule],
+  exports: [EventSessionsService],
 })
 export class EventSessionsModule { }

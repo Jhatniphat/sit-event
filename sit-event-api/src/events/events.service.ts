@@ -51,17 +51,24 @@ export class EventsService {
           },
         },
         sessions: sessions && sessions.length > 0 ? {
-          create: sessions.map((s: any) => ({
-            name: s.name,
-            description: s.description,
-            startTime: s.startTime,
-            endTime: s.endTime,
-            location: s.location,
-            maxSeats: Number(s.maxSeats),
-            availableSeats: Number(s.maxSeats),
-            autoRegister: s.autoRegister || false,
-            pointsAwarded: s.pointsAwarded ? Number(s.pointsAwarded) : 0,
-          }))
+          create: sessions.map((s: any) => {
+            // autoRegister sessions inherit event maxSeats; otherwise use session-level maxSeats
+            const sessionMaxSeats = s.autoRegister
+              ? (eventData.maxSeats ?? null)
+              : (s.maxSeats ? Number(s.maxSeats) : null);
+
+            return {
+              name: s.name,
+              description: s.description,
+              startTime: s.startTime,
+              endTime: s.endTime,
+              location: s.location,
+              maxSeats: sessionMaxSeats,
+              availableSeats: sessionMaxSeats, // mirrors maxSeats initially
+              autoRegister: s.autoRegister || false,
+              pointsAwarded: s.pointsAwarded ? Number(s.pointsAwarded) : 0,
+            };
+          })
         } : undefined,
         forms: forms && forms.length > 0 ? {
           create: forms.map((f: any) => ({

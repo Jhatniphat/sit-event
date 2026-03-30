@@ -44,11 +44,11 @@ export class DashboardsService {
 
     const attendedCount = eventRegistrations.filter((r) => r.attended).length;
     const totalCapacity = event.sessions.reduce(
-      (sum, s) => sum + s.maxSeats,
+      (sum, s) => sum + (s.maxSeats || 0), // todo : fix this bug from max seat bug later now im bypass by add || 0
       0,
     );
     const currentAvailable = event.sessions.reduce(
-      (sum, s) => sum + s.availableSeats,
+      (sum, s) => sum + (s.availableSeats || 0), // todo : fix this bug from max seat bug later now im bypass by add || 0
       0,
     );
     const totalUsedSeats = totalCapacity - currentAvailable;
@@ -121,9 +121,9 @@ export class DashboardsService {
         ? (attendedCount / registrations.length) * 100
         : 0;
 
-    const totalUsedSeats = session.maxSeats - session.availableSeats;
+    const totalUsedSeats = (session.maxSeats || 0) - (session.availableSeats || 0);  // todo : fix this bug from max seat bug later now im bypass by add || 0
     const capacityPercentage =
-      session.maxSeats > 0 ? (totalUsedSeats / session.maxSeats) * 100 : 0;
+      (session.maxSeats || 0) > 0 ? (totalUsedSeats / (session.maxSeats || 0)) * 100 : 0;  // todo : fix this bug from max seat bug later now im bypass by add || 0
 
     return {
       session: {

@@ -28,6 +28,7 @@ import { CertificatesModule } from './certificates/certificates.module';
 import { EmailModule } from './emails/email.module';
 import { DashboardsModule } from './dashboards/dashboards.module';
 import { SuggestionsModule } from './suggestions/suggestions.module';
+import { CronModule } from './cron/cron.module';
 
 @Module({
   imports: [
@@ -61,6 +62,7 @@ import { SuggestionsModule } from './suggestions/suggestions.module';
     EmailModule,
     DashboardsModule,
     SuggestionsModule,
+    CronModule,
   ],
   controllers: [AppController],
   providers: [

@@ -60,6 +60,7 @@ enum StaffStatus {
 enum FormType {
   PRE_EVENT
   POST_EVENT
+  OTHER
 }
 
 enum RegistrationStatus {
@@ -123,11 +124,13 @@ model Event {
   allowOnSiteRegister  Boolean          @default(false)
   targetAudience       TargetAudience[]
   tags                 EventTag[]
+  maxSeats             Int?             // Optional max participants for the entire event
   activityHours        Int?
   invitation           String?          @db.Text
   website              String?
   needWifi             Boolean          @default(false)
   certificateCriteria  String?          @db.Text
+  postEventEmailSent   Boolean          @default(false)
   createdAt            DateTime         @default(now()) @db.Timestamptz
   updatedAt            DateTime         @updatedAt @db.Timestamptz
 
@@ -154,8 +157,8 @@ model EventSession {
   startTime      DateTime @db.Timestamptz
   endTime        DateTime @db.Timestamptz
   location       String?
-  maxSeats       Int
-  availableSeats Int
+  maxSeats       Int?     // Optional: null means unlimited
+  availableSeats Int?     // Optional: null means unlimited
   pointsAwarded  Int?
   autoRegister   Boolean  @default(false)
   createdAt      DateTime @default(now()) @db.Timestamptz
@@ -255,7 +258,6 @@ model EventForm {
   fields      EventFormField[]
   submissions EventFormSubmission[]
 
-  @@unique([eventId, type]) // 1 Event มีได้ 1 Form type
   @@map("event_forms")
 }
 
