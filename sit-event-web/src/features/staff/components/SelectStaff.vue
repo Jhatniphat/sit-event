@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { StaffMember } from '../services/StaffService';
+import type { StaffMember } from '../services/StaffService'
 
 const props = defineProps<{
   allStaff: StaffMember[]
@@ -66,7 +66,29 @@ const toggleAll = () => {
           </thead>
 
           <tbody class="divide-y divide-gray-100">
+            <tr v-if="allStaff.length === 0">
+              <td colspan="3" class="px-6 py-12 text-center text-gray-500 italic">
+                <div class="flex flex-col items-center justify-center gap-2">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-8 w-8 text-gray-300"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
+                    />
+                  </svg>
+                  <span>No staff members found.</span>
+                </div>
+              </td>
+            </tr>
             <tr
+              v-else
               v-for="staff in allStaff"
               :key="staff.id"
               @click="toggleStaff(staff.id)"
