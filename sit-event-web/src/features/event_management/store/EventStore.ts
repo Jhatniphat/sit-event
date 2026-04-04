@@ -306,7 +306,6 @@ export const useEventStore = defineStore('events', {
       this.isLoadingPartiList = true
       this.error = null
       try {
-        console.log('Fetching participants for session:', { eventId, sessionId, params })
         const participants = await EventService.participantsForSession(eventId, sessionId, params)
         this.participantsData = participants
         this.allParticipants = participants.data

@@ -73,7 +73,6 @@ onMounted(async () => {
     // ดึงข้อมูล Event และ Session เพื่อมาใส่ใน Dropdown List
     await eventStore.fetchEventById(eventIdFromRoute)
     await eventStore.fetchEventSessions(eventIdFromRoute)
-    await eventStore.participantsListForSession(eventIdFromRoute, selectedTargetId.value, { limit: 50}) // ดึงรายชื่อผู้เข้าร่วมของ Session แรกมาแสดง (ถ้ามี)
 })
 
 // --- Functions ---
@@ -235,8 +234,11 @@ const onError = (error: Error) => {
 }
 
 const handleCheckList = () => {
-  router.push({ name: 'ParticipantsList', params: { id: eventIdFromRoute, sessionId: selectedTargetId.value } })
-  router.push({ name: 'ParticipantsList', params: { id: eventIdFromRoute} })
+  if (selectedTargetId.value === 'main') {
+    router.push({ name: 'ParticipantsListForEvent', params: { id: eventIdFromRoute } })
+  } else {
+    router.push({ name: 'ParticipantsListForSession', params: { id: eventIdFromRoute, sessionId: selectedTargetId.value } })
+  }
 }
 </script>
 

@@ -177,8 +177,18 @@ const routes: Array<RouteRecordRaw> = [
     },
   },
   {
+    path: '/events/:id/participants',
+    name: 'ParticipantsListForEvent',
+    props: true,
+    component: () => import('../features/event_management/views/ParticipantsList.vue'),
+    meta: {
+      requiresAuth: true,
+      roles: allAuthenticated,
+    },
+  },
+  {
     path: '/events/:id/sessions/:sessionId/participants',
-    name: 'ParticipantsList',
+    name: 'ParticipantsListForSession',
     props: true,
     component: () => import('../features/event_management/views/ParticipantsList.vue'),
     meta: {
