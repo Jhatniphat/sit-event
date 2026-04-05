@@ -148,15 +148,15 @@ export class EventSessionsController {
   getSessionParticipants(
     @Param('eventId') eventId: string,
     @Param('sessionId') sessionId: string,
+    @Query('page', new ParseIntPipe({ optional: true })) page?: number,
     @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
-    @Query('offset', new ParseIntPipe({ optional: true })) offset?: number,
     @Query('search') search?: string,
   ) {
     return this.eventSessionsService.getSessionParticipants(
       eventId,
       sessionId,
+      page ?? 1,
       limit ?? 20,
-      offset ?? 0,
       search,
     );
   }

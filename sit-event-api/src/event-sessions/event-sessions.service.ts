@@ -505,7 +505,15 @@ export class EventSessionsService {
     limit: number = 20,
     search?: string,
   ): Promise<PaginatedSessionParticipantsDto> {
-    // ✅ Validate event exists
+    // Validate pagination parameters
+    if (page < 1) {
+      throw new BadRequestException('Page must be >= 1');
+    }
+    if (limit < 1) {
+      throw new BadRequestException('Limit must be >= 1');
+    }
+
+    // Validate event exists
     const event = await this.prisma.event.findUnique({
       where: { id: eventId },
     });
@@ -515,7 +523,7 @@ export class EventSessionsService {
       throw new NotFoundException(`Event with ID '${eventId}' not found`);
     }
 
-    // ✅ Validate session exists and belongs to event
+    // Validate session exists and belongs to event
     const session = await this.prisma.eventSession.findUnique({
       where: { id: sessionId },
     });
@@ -534,13 +542,13 @@ export class EventSessionsService {
       );
     }
 
-    // ✅ Build base where clause
+    // Build base where clause
     const baseWhere = {
       eventId,
       sessionId,
     };
 
-    // ✅ Get all registrations with user data (for search filtering)
+    // Get all registrations with user data (for search filtering)
     const allRegistrations = await this.prisma.eventRegistration.findMany({
       where: baseWhere,
       include: {
@@ -650,6 +658,14 @@ export class EventSessionsService {
     limit: number = 20,
     search?: string,
   ): Promise<PaginatedEventParticipantsDto> {
+    // ✅ Validate pagination parameters
+    if (page < 1) {
+      throw new BadRequestException('Page must be >= 1');
+    }
+    if (limit < 1) {
+      throw new BadRequestException('Limit must be >= 1');
+    }
+
     // ✅ Validate event exists
     const event = await this.prisma.event.findUnique({
       where: { id: eventId },
