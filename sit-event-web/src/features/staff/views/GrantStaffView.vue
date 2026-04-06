@@ -43,12 +43,31 @@ const isLoading = computed(() => staffStore.isLoading)
 
 const filteredStaffList = computed(() => {
   if (!rawStaffList.value) return []
+  if (sessionsList.value.length === 0) return rawStaffList.value // ถ้าไม่มี session เลย ก็เลือกได้ทุกคน
 
-  // 1. ดึง staffId ทั้งหมดที่มีอยู่ในตารางสิทธิ์ปัจจุบันออกมาเป็น Set (เพื่อความเร็วในการค้นหา)
-  const existingStaffIds = new Set(staffScopesList.value.map((scope) => scope.staffId))
+  // 1. สร้าง Map เพื่อเก็บว่า Staff แต่ละคน มีสิทธิ์ที่ Session ไหนไปบ้างแล้ว
+  // โครงสร้าง: { staffId: Set([sessionId1, sessionId2, null]) }  *null คือ Event-Wide
+  const staffAssignments = new Map<string, Set<string | null>>()
 
-  // 2. กรองรายชื่อพนักงานทั้งหมด โดยเอาเฉพาะคนที่ ID ไม่อยู่ใน Set ข้อ 1
-  return rawStaffList.value.filter((staff) => !existingStaffIds.has(staff.id))
+  staffScopesList.value.forEach((scope) => {
+    if (!staffAssignments.has(scope.staffId)) {
+      staffAssignments.set(scope.staffId, new Set())
+    }
+    staffAssignments.get(scope.staffId)?.add(scope.sessionId || null)
+  })
+
+  // 2. คำนวณจำนวน Session ทั้งหมดที่มี (+1 สำหรับ Event-Wide)
+  const totalPossibleSlots = sessionsList.value.length + 1
+
+  // 3. กรองรายชื่อพนักงาน
+  return rawStaffList.value.filter((staff) => {
+    const assignedSlots = staffAssignments.get(staff.id)
+
+    // ถ้ายังไม่เคยมีสิทธิ์เลย หรือ จำนวนสิทธิ์ที่มีน้อยกว่าจำนวน Session ทั้งหมดที่มี
+    // แสดงว่าเขายัง "ว่าง" ในบาง Session ให้เลือกได้
+    if (!assignedSlots) return true
+    return assignedSlots.size < totalPossibleSlots
+  })
 })
 
 const selectedStaffNames = computed(() => {
@@ -132,7 +151,6 @@ const handleConfirmFinal = async () => {
 const handleUpdateFinal = async () => {
   if (!editingScopeId.value) return
   try {
-    // 1. หาข้อมูล Backup ไว้ก่อนเลย (ห้ามสลับบรรทัด!)
     const scopeToUpdate = staffStore.allScopes.find((s) => s.id === editingScopeId.value)
 
     if (!scopeToUpdate?.staffId) {
@@ -140,25 +158,20 @@ const handleUpdateFinal = async () => {
       return
     }
 
-    // 2. ลบ Permission เก่าออก
     await staffStore.removeScope(editingScopeId.value)
 
-    // 3. เตรียม Payload ใหม่
     const scopePayload = selectedRoles.value.map((role) => ({
       permission: role as StaffPermission,
       sessionId: selectedSession.value || null,
     }))
 
-    // 4. เพิ่ม Permission ใหม่ โดยใช้ staffId ที่เรา Backup ไว้ในข้อ 1
-    // หมายเหตุ: ใช้ scopeToUpdate.staffId (จากข้อมูลดิบ)
-    // หรือ scopeToUpdate.staff.id ตามโครงสร้างที่ API คืนมา
     const staffId = scopeToUpdate.staffId
 
     await staffStore.bulkAddStaffScopes([staffId], scopePayload)
 
     toast.success('Permission updated successfully')
     editModal.value = false
-    await staffStore.fetchAllScopes() // รีโหลดตารางใหม่
+    await staffStore.fetchAllScopes()
   } catch (error) {
     console.error(error)
     toast.error('Failed to update permission')
@@ -301,6 +314,8 @@ const isNextDisabled = computed(() => {
             v-if="step === 2"
             :all-role="availableRoles"
             :all-session="sessionsList"
+            :all-scopes="staffScopesList"      
+            :selected-staff-ids="selectedStaffIds"
             v-model:selectedRoles="selectedRoles"
             v-model:selectedSession="selectedSession"
             :selected-staff-names="selectedStaffNames"
@@ -355,6 +370,8 @@ const isNextDisabled = computed(() => {
           <SelectRole
             :all-role="availableRoles"
             :all-session="sessionsList"
+            :all-scopes="staffScopesList"      
+            :selected-staff-ids="selectedStaffIds"
             v-model:selectedRoles="selectedRoles"
             v-model:selectedSession="selectedSession"
             :selected-staff-names="[editingStaffName]"
