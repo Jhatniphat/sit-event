@@ -13,6 +13,7 @@ import {
   type ParticipantPaginationResponse,
   type GetParticipantsParams,
   type ParticipantInfo,
+  type ParticipantSummary,
 } from '@/features/event_management/services/EventServices'
 import { type ParsedApiError } from '@/shared/utils/FetchUtils'
 
@@ -30,6 +31,8 @@ interface IEventState {
   error: string | null
   participantsData: ParticipantPaginationResponse | null
   allParticipants: ParticipantInfo[]
+  summaryAttendance: ParticipantSummary
+  paginationParticipant: PaginationMeta
 }
 
 // 2. Error Helper
@@ -59,7 +62,9 @@ export const useEventStore = defineStore('events', {
     isLoadingPartiList: false,
     error: null,
     participantsData: null as ParticipantPaginationResponse | null,
-    allParticipants: [] as ParticipantInfo[], // สำหรับเก็บรายชื่อผู้เข้าร่วมทั้งหมดใน Session (สำหรับ Staff)
+    allParticipants: [] as ParticipantInfo[],
+    summaryAttendance: {} as ParticipantSummary,
+    paginationParticipant: {} as PaginationMeta,
   }),
 
   getters: {
@@ -290,6 +295,8 @@ export const useEventStore = defineStore('events', {
         const participants = await EventService.participantsForEvent(eventId, params)
         this.participantsData = participants
         this.allParticipants = participants.data
+        this.summaryAttendance = participants.summary
+        this.pagination = participants.pagination
       } catch (error) {
         this.error = handleError(error, 'Failed to fetch participants.')
         console.error(this.error)
@@ -309,6 +316,8 @@ export const useEventStore = defineStore('events', {
         const participants = await EventService.participantsForSession(eventId, sessionId, params)
         this.participantsData = participants
         this.allParticipants = participants.data
+        this.summaryAttendance = participants.summary
+        this.pagination = participants.pagination
       } catch (error) {
         this.error = handleError(error, 'Failed to fetch participants.')
         console.error(this.error)
