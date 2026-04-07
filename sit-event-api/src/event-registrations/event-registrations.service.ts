@@ -1,8 +1,10 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma.service';
 import { UsersService } from '../users/users.service';
@@ -602,6 +604,119 @@ export class EventRegistrationsService {
 
     return updatedSessionRegistration;
   }
+
+  async staffCheckIn(
+    eventId: string,
+    userId: string,
+    sessionId: string | null | undefined,
+  ) {
+    try {
+      // Validate event exists
+      const event = await this.prisma.event.findUnique({
+        where: { id: eventId },
+      });
+
+      if (!event) {
+        throw new NotFoundException(`Event with ID '${eventId}' not found.`);
+      }
+
+      // Normalize sessionId: treat undefined as null for consistency
+      const normalizedSessionId = sessionId || null;
+
+      // Find the registration
+      let registration: any;
+
+      if (normalizedSessionId) {
+        // Session-specific check-in
+        registration = await this.prisma.eventRegistration.findFirst({
+          where: {
+            eventId: eventId,
+            userId: userId,
+            sessionId: normalizedSessionId,
+          },
+          include: {
+            event: true,
+            user: true,
+            session: true,
+          },
+        });
+
+        if (!registration) {
+          throw new NotFoundException(
+            `Registration for user '${userId}' in session '${normalizedSessionId}' not found.`,
+          );
+        }
+      } else {
+        // Main event check-in
+        registration = await this.prisma.eventRegistration.findFirst({
+          where: {
+            eventId: eventId,
+            userId: userId,
+            sessionId: null,
+          },
+          include: {
+            event: true,
+            user: true,
+          },
+        });
+
+        if (!registration) {
+          throw new NotFoundException(
+            `Main event registration for user '${userId}' not found.`,
+          );
+        }
+      }
+
+      // Check registration status is APPROVED
+      if (registration.status !== RegistrationStatus.APPROVED) {
+        throw new BadRequestException(
+          `Registration status is '${registration.status}', must be 'APPROVED' to check-in.`,
+        );
+      }
+
+      // Check for duplicate check-in
+      if (registration.attended) {
+        throw new ConflictException(
+          `User '${userId}' has already been checked-in.`,
+        );
+      }
+
+      // Update the registration with check-in details
+      const updatedRegistration = await this.prisma.eventRegistration.update({
+        where: { id: registration.id },
+        data: {
+          attended: true,
+          checkedInAt: new Date(),
+        },
+        include: {
+          event: true,
+          user: true,
+          session: true,
+        },
+      });
+
+      return updatedRegistration;
+    } catch (error) {
+      // Re-throw known exceptions (caught in GlobalExceptionFilter)
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException ||
+        error instanceof ConflictException
+      ) {
+        throw error;
+      }
+
+      // Log unexpected errors
+      console.error(
+        `Unexpected error in staffCheckIn - eventId: ${eventId}, userId: ${userId}, sessionId: ${sessionId}`,
+        error,
+      );
+
+      // Re-throw as-is to let GlobalExceptionFilter handle it
+      throw error;
+    }
+  }
+
   // =============================================
   // Export Registrations to Excel
   // =============================================
