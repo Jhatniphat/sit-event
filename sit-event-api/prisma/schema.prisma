@@ -340,6 +340,7 @@ model CertificateTemplate {
   event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
   elements CertificateElement[] // เชื่อมกับ Element ย่อยๆ
+  @@map("certificate_templates")
 }
 
 model CertificateElement {
@@ -361,6 +362,7 @@ model CertificateElement {
   dateFormat     String?       // เช่น "DD MMMM YYYY" หรือ "DD/MM/YYYY" สำหรับ FieldType.Date
 
   certificateTemplate CertificateTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  @@map("certificate_elements")
 }
 
 model Suggestion {
