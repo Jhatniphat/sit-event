@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, HttpCode, HttpStatus, NotFoundException, All, Query, ParseIntPipe, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, HttpCode, HttpStatus, NotFoundException, All, Query, ParseIntPipe, UseGuards, UseInterceptors, UploadedFiles } from '@nestjs/common';
 import { EventSessionsService } from './event-sessions.service';
 import { CreateEventSessionDto } from './dto/create-event-session.dto';
 import { UpdateEventSessionDto } from './dto/update-event-session.dto';
@@ -9,6 +9,7 @@ import { Public } from 'nest-keycloak-connect';
 import { RequirePermission } from '../common/guards/staff-scopes.guard';
 import { StaffPermissionType } from 'generated/prisma';
 import { StaffScopesGuard } from '../common/guards/staff-scopes.guard';
+import { FileFieldsInterceptor } from '@nestjs/platform-express';
 
 
 @ApiTags('Event Sessions')
@@ -22,6 +23,11 @@ export class EventSessionsController {
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @EventOrganizerAccess()
+  @UseInterceptors(
+    FileFieldsInterceptor([
+      { name: 'thumbnail', maxCount: 1 },
+    ]),
+  )
   @ApiOperation({ summary: 'Create a new session for an event' })
   @ApiParam({ name: 'eventId', description: 'Event ID' })
   @ApiResponse({ 
@@ -38,9 +44,10 @@ export class EventSessionsController {
   })
   create(
     @Param('eventId') eventId: string,
+    @UploadedFiles() files: { thumbnail?: any[] },
     @Body() createEventSessionDto: CreateEventSessionDto,
   ) {
-    return this.eventSessionsService.create(eventId, createEventSessionDto);
+    return this.eventSessionsService.create(eventId, createEventSessionDto, files.thumbnail?.[0]);
   }
 
   @Get()
@@ -194,6 +201,11 @@ export class EventSessionsController {
 
   @Patch(':sessionId')
   @EventOrganizerAccess()
+  @UseInterceptors(
+    FileFieldsInterceptor([
+      { name: 'thumbnail', maxCount: 1 },
+    ]),
+  )
   @ApiOperation({ summary: 'Update a session' })
   @ApiParam({ name: 'eventId', description: 'Event ID' })
   @ApiParam({ name: 'sessionId', description: 'Session ID' })
@@ -212,9 +224,15 @@ export class EventSessionsController {
   update(
     @Param('eventId') eventId: string,
     @Param('sessionId') sessionId: string,
+    @UploadedFiles() files: { thumbnail?: any[] },
     @Body() updateEventSessionDto: UpdateEventSessionDto,
   ) {
-    return this.eventSessionsService.update(eventId, sessionId, updateEventSessionDto);
+    return this.eventSessionsService.update(
+      eventId,
+      sessionId,
+      updateEventSessionDto,
+      files.thumbnail?.[0],
+    );
   }
 
   @Delete(':sessionId')

@@ -5,6 +5,7 @@ import { PrismaService } from '../prisma.service';
 import { EventSession, EventRegistration, FormType, RegistrationStatus } from 'generated/prisma';
 import { UsersService } from '../users/users.service';
 import { AuthenticatedUser } from '../common/decorators/current-user.decorator';
+import { MinioClientService } from '../minio/minio-client.service';
 import {
   SessionParticipantDto,
   EventParticipantDto,
@@ -22,9 +23,14 @@ export class EventSessionsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly usersService: UsersService,
+    private readonly minioClientService: MinioClientService,
   ) {}
 
-  async create(eventId: string, createEventSessionDto: CreateEventSessionDto): Promise<EventSession> {
+  async create(
+    eventId: string,
+    createEventSessionDto: CreateEventSessionDto,
+    thumbnailFile?: any,
+  ): Promise<EventSession> {
     // ตรวจสอบว่า event มีอยู่จริง
     const event = await this.prisma.event.findUnique({
       where: { id: eventId },
@@ -59,12 +65,19 @@ export class EventSessionsService {
       }
     }
 
+    let thumbnailFileName: string | undefined;
+    if (thumbnailFile) {
+      const uploadResult = await this.minioClientService.uploadFile(thumbnailFile);
+      thumbnailFileName = uploadResult.fileName;
+    }
+
     // สร้าง session โดยกำหนด availableSeats เท่ากับ maxSeats
-    return this.prisma.eventSession.create({
+    const createdSession = await this.prisma.eventSession.create({
       data: {
         eventId,
         name: createEventSessionDto.name,
         description: createEventSessionDto.description,
+        thumbnail: thumbnailFileName,
         startTime,
         endTime,
         location: createEventSessionDto.location,
@@ -82,6 +95,8 @@ export class EventSessionsService {
         },
       },
     });
+
+    return this.transformSessionWithUrls(createdSession);
   }
 
   async findAllByEvent(eventId: string): Promise<EventSession[]> {
@@ -94,7 +109,7 @@ export class EventSessionsService {
       throw new NotFoundException(`Event with ID '${eventId}' not found`);
     }
 
-    return this.prisma.eventSession.findMany({
+    const sessions = await this.prisma.eventSession.findMany({
       where: { eventId },
       include: {
         event: {
@@ -108,6 +123,8 @@ export class EventSessionsService {
         startTime: 'asc',
       },
     });
+
+    return Promise.all(sessions.map((session) => this.transformSessionWithUrls(session)));
   }
 
   async findOne(eventId: string, sessionId: string): Promise<EventSession> {
@@ -150,7 +167,7 @@ export class EventSessionsService {
       );
     }
 
-    return session;
+    return this.transformSessionWithUrls(session);
   }
 
   async registerToSession(
@@ -251,6 +268,7 @@ export class EventSessionsService {
           select: {
             id: true,
             name: true,
+            thumbnail: true,
             startTime: true,
             endTime: true,
             location: true,
@@ -279,6 +297,10 @@ export class EventSessionsService {
       });
     }
 
+    if (registration.session) {
+      registration.session = await this.transformSessionWithUrls(registration.session as EventSession);
+    }
+
     return registration;
   }
 
@@ -286,6 +308,7 @@ export class EventSessionsService {
     eventId: string,
     sessionId: string,
     updateEventSessionDto: UpdateEventSessionDto,
+    thumbnailFile?: any,
   ): Promise<EventSession> {
     // ตรวจสอบว่า session มีอยู่จริง
     const session = await this.prisma.eventSession.findUnique({
@@ -371,7 +394,18 @@ export class EventSessionsService {
       updateData.pointsAwarded = updateEventSessionDto.pointsAwarded;
     }
 
-    return this.prisma.eventSession.update({
+    if (thumbnailFile) {
+      if (session.thumbnail) {
+        this.logger.log(`Deleting old session thumbnail: ${session.thumbnail}`);
+        await this.minioClientService.deleteFile(session.thumbnail);
+      }
+
+      this.logger.log(`Uploading new session thumbnail: ${thumbnailFile.originalname}`);
+      const uploadResult = await this.minioClientService.uploadFile(thumbnailFile);
+      updateData.thumbnail = uploadResult.fileName;
+    }
+
+    const updatedSession = await this.prisma.eventSession.update({
       where: { id: sessionId },
       data: updateData,
       include: {
@@ -383,6 +417,8 @@ export class EventSessionsService {
         },
       },
     });
+
+    return this.transformSessionWithUrls(updatedSession);
   }
 
   async remove(eventId: string, sessionId: string): Promise<void> {
@@ -411,6 +447,16 @@ export class EventSessionsService {
       // throw new BadRequestException(
       //   `Cannot delete session. Already have ${session.registrations.length} registrations.`,
       // );
+    }
+
+    if (session.thumbnail) {
+      this.logger.log(`Deleting session thumbnail: ${session.thumbnail}`);
+      try {
+        await this.minioClientService.deleteFile(session.thumbnail);
+      } catch (error) {
+        const err = error instanceof Error ? error : new Error(String(error));
+        this.logger.error(`Failed to delete session thumbnail: ${err.message}`, err.stack);
+      }
     }
 
     // ลบ session (registrations จะถูกลบอัตโนมัติเพราะมี onDelete: Cascade ใน schema)
@@ -453,6 +499,7 @@ export class EventSessionsService {
             id: true,
             name: true,
             description: true,
+            thumbnail: true,
             startTime: true,
             endTime: true,
             location: true,
@@ -469,6 +516,19 @@ export class EventSessionsService {
       },
     });
 
+    const sessionsWithUrls = await Promise.all(
+      registrations.map(async (reg) => ({
+        registrationId: reg.id,
+        sessionId: reg.sessionId,
+        registeredAt: reg.registeredAt,
+        attended: reg.attended,
+        checkedInAt: reg.checkedInAt,
+        session: reg.session
+          ? await this.transformSessionWithUrls(reg.session as EventSession)
+          : reg.session,
+      })),
+    );
+
     return {
       eventId,
       userId,
@@ -478,14 +538,7 @@ export class EventSessionsService {
         firstName: user.firstName,
         lastName: user.lastName,
       },
-      sessions: registrations.map((reg) => ({
-        registrationId: reg.id,
-        sessionId: reg.sessionId,
-        registeredAt: reg.registeredAt,
-        attended: reg.attended,
-        checkedInAt: reg.checkedInAt,
-        session: reg.session,
-      })),
+      sessions: sessionsWithUrls,
     };
   }
 
@@ -774,5 +827,15 @@ export class EventSessionsService {
         hasPrev: page > 1,
       },
     };
+  }
+
+  private async transformSessionWithUrls<T extends { thumbnail?: string | null }>(session: T): Promise<T> {
+    const transformedSession = { ...session };
+
+    if (session.thumbnail) {
+      transformedSession.thumbnail = await this.minioClientService.getPresignedUrl(session.thumbnail);
+    }
+
+    return transformedSession;
   }
 }
