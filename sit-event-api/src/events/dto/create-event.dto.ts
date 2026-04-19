@@ -132,4 +132,15 @@ export class CreateEventDto {
     return value;
   })
   forms?: any[];
+
+  @IsBoolean()
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  enableReserve?: boolean;
+
+  @IsInt()
+  @IsOptional()
+  @Min(1)
+  @Type(() => Number)
+  maxReserveSeats?: number;
 }

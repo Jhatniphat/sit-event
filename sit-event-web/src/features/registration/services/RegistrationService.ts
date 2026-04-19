@@ -27,20 +27,35 @@ export interface EventDetail {
   creatorId: string | null
 }
 
+export interface EventSession {
+  id: string
+  eventId: string
+  name: string
+  description: string | null
+  thumbnail: string | null
+  startTime: string | Date
+  endTime: string | Date
+  location: string | null
+  maxSeats: number | null
+  availableSeats: number | null
+  pointsAwarded: number | null
+  autoRegister: boolean
+}
+
 export interface EventRegistration {
   id: string
   userId: string
   eventId: string
   sessionId: string | null
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'RESERVE'
   registeredAt: string | Date
   attended: boolean
   checkedInAt: string | Date | null
   certificateIssued: boolean
   pointsEarned: number | null
   notes: string | null
-
-  // 👇 เพิ่มตรงนี้!
   event: EventDetail
+  session?: EventSession
 }
 
 export interface AttendedStatusDto {

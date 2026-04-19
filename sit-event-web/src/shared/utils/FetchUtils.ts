@@ -38,7 +38,7 @@ apiClient.interceptors.request.use(
     const accessToken = authStore.accessToken;
     if (accessToken) {
       config.headers.Authorization = `Bearer ${accessToken}`;
-      config.headers['x-csrf-token'] = accessToken;
+      // config.headers['x-csrf-token'] = accessToken;
     }
     return config;
   },

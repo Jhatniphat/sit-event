@@ -17,6 +17,8 @@ interface SubSession {
   end: Date
   location: string
   maxSeats: number | null
+  enableReserve: boolean
+  maxReserveSeats: number | null
   pointsAwarded: number
   autoRegister: boolean
   isExpanded: boolean
@@ -55,6 +57,8 @@ const addSubSession = () => {
     end: new Date(),
     location: '',
     maxSeats: null,  // optional – null means unlimited
+    enableReserve: false,
+    maxReserveSeats: null,
     autoRegister: false,
     pointsAwarded: 0,
     thumbnail: null,
@@ -258,8 +262,28 @@ const handleSkip = () => {
                   </div>
                     
                   <div class="flex items-center space-x-2 pt-2">
-                      <Checkbox :id="'auto-reg-'+index" :checked="session.autoRegister" @update:checked="(v) => session.autoRegister = v" />
+                      <Checkbox :id="'auto-reg-'+index" :checked="session.autoRegister" @update:checked="(v: any) => session.autoRegister = v" />
                       <Label :for="'auto-reg-'+index" class="cursor-pointer text-sm">Auto Register (Automatically register participants for this session)</Label>
+                  </div>
+
+                  <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 bg-slate-50 p-4 rounded-lg border border-slate-200">
+                    <div class="flex flex-row items-center space-x-3">
+                      <Checkbox :id="'enable-reserve-'+index" :checked="session.enableReserve" @update:checked="(v: any) => session.enableReserve = v" />
+                      <div class="space-y-0.5">
+                        <Label :for="'enable-reserve-'+index" class="cursor-pointer text-sm font-medium">Enable Reserve Seats</Label>
+                      </div>
+                    </div>
+                    <div>
+                      <Label>Max Reserve Seats <span class="text-xs text-gray-400 font-normal">(optional)</span></Label>
+                      <Input 
+                        type="number" 
+                        :value="session.maxReserveSeats ?? ''"
+                        @input="(e: Event) => session.maxReserveSeats = (e.target as HTMLInputElement).value ? Number((e.target as HTMLInputElement).value) : null"
+                        placeholder="e.g. 10"
+                        min="1" 
+                        class="mt-1.5"
+                      />
+                    </div>
                   </div>
               </div>
             </div>

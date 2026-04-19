@@ -38,6 +38,8 @@ interface LocalSubSession {
   end: Date
   location: string
   maxSeats: number | null
+  enableReserve: boolean
+  maxReserveSeats: number | null
   pointsAwarded: number
   autoRegister: boolean
   isExpanded: boolean
@@ -90,6 +92,8 @@ const formSchema = z.object({
   targetAudience: z.array(z.string()).min(1, 'กรุณาเลือกกลุ่มเป้าหมายอย่างน้อย 1 กลุ่ม'),
   tags: z.array(z.string()).min(1, 'กรุณาเลือก Tag อย่างน้อย 1 รายการ'),
   maxSeats: z.coerce.number().int().min(1, 'จำนวนที่นั่งต้องมีอย่างน้อย 1').nullable().optional(),
+  enableReserve: z.boolean().optional().default(false),
+  maxReserveSeats: z.coerce.number().int().min(1, 'จำนวนที่นั่ง Reserve ต้องมีอย่างน้อย 1').nullable().optional(),
   thumbnail: z.custom<File>((val) => val instanceof File, 'กรุณาอัปโหลดรูปปก').nullable().optional(),
   images: z.array(z.custom<File>()).optional(),
 }).superRefine((data, ctx) => {
@@ -109,6 +113,8 @@ const getSubSessionSchema = (eventStart?: Date, eventEnd?: Date, eventMaxSeats?:
   end: z.coerce.date(),
   location: z.string().min(1, 'กรุณาระบุสถานที่'),
   maxSeats: z.coerce.number().int().min(1, 'จำนวนที่นั่งต้องมีอย่างน้อย 1').nullable().optional(),
+  enableReserve: z.boolean().optional().default(false),
+  maxReserveSeats: z.coerce.number().int().min(1, 'จำนวนที่นั่ง Reserve ต้องมีอย่างน้อย 1').nullable().optional(),
   pointsAwarded: z.coerce.number().min(0, 'คะแนนต้องไม่ติดลบ'),
   autoRegister: z.boolean().optional(),
 }).superRefine((data, ctx) => {
@@ -135,10 +141,11 @@ const form = useForm({
     eventStartDate: new Date(),
     eventEndDate: new Date(),
     registrationOpenDate: new Date(),
-    registrationEndDate: new Date(),
     targetAudience: [],
     tags: [],
     maxSeats: null,
+    enableReserve: false,
+    maxReserveSeats: null,
     thumbnail: null,
     images: [],
   },
@@ -176,10 +183,11 @@ onMounted(async () => {
           eventStartDate: new Date(eventToEdit.eventStartDate),
           eventEndDate: new Date(eventToEdit.eventEndDate),
           registrationOpenDate: new Date(eventToEdit.registrationOpenDate),
-          registrationEndDate: new Date(eventToEdit.registrationEndDate),
           targetAudience: eventToEdit.targetAudience ?? [],
           tags: eventToEdit.tags ?? [],
           maxSeats: (eventToEdit as any).maxSeats ?? null,
+          enableReserve: (eventToEdit as any).enableReserve ?? false,
+          maxReserveSeats: (eventToEdit as any).maxReserveSeats ?? null,
         })
 
         if (eventToEdit.thumbnail && typeof eventToEdit.thumbnail === 'string') {
@@ -221,6 +229,8 @@ onMounted(async () => {
           end: new Date(s.endTime),
           location: s.location,
           maxSeats: s.maxSeats,
+          enableReserve: (s as any).enableReserve ?? false,
+          maxReserveSeats: (s as any).maxReserveSeats ?? null,
           pointsAwarded: s.pointsAwarded,
           autoRegister: s.autoRegister,
           isExpanded: false,
@@ -319,6 +329,10 @@ const submitEvent = async () => {
     if (values.maxSeats != null) {
       formData.append('maxSeats', String(values.maxSeats))
     }
+    formData.append('enableReserve', String(values.enableReserve))
+    if (values.maxReserveSeats != null) {
+      formData.append('maxReserveSeats', String(values.maxReserveSeats))
+    }
     
     values.targetAudience?.forEach((t) => formData.append('targetAudience', t))
     values.tags?.forEach((tag) => formData.append('tags', tag))
@@ -372,6 +386,8 @@ const submitEvent = async () => {
             endTime: session.end.toISOString(),
             location: session.location,
             maxSeats: session.maxSeats !== null ? Number(session.maxSeats) : undefined,
+            enableReserve: session.enableReserve,
+            maxReserveSeats: session.maxReserveSeats !== null ? Number(session.maxReserveSeats) : undefined,
             pointsAwarded: Number(session.pointsAwarded),
             autoRegister: session.autoRegister
         }
