@@ -46,9 +46,34 @@ export class EventRegistrationsService {
 
     // Determine registration status
     // If no PRE_EVENT form required -> APPROVED immediately
-    const initialStatus = hasActivePreEventForm
+    let initialStatus: RegistrationStatus = hasActivePreEventForm
       ? RegistrationStatus.PENDING
       : RegistrationStatus.APPROVED;
+
+    if (event.maxSeats !== null) {
+      const currentRegs = await this.prisma.eventRegistration.count({
+        where: {
+          eventId,
+          sessionId: null,
+          status: { in: [RegistrationStatus.APPROVED, RegistrationStatus.PENDING] }
+        }
+      });
+      if (currentRegs >= event.maxSeats) {
+        if (event.enableReserve) {
+          if (event.maxReserveSeats !== null) {
+            const currentReserves = await this.prisma.eventRegistration.count({
+              where: { eventId, sessionId: null, status: RegistrationStatus.RESERVE }
+            });
+            if (currentReserves >= event.maxReserveSeats) {
+              throw new ConflictException('Event has reached maximum seats and reserve seats');
+            }
+          }
+          initialStatus = RegistrationStatus.RESERVE;
+        } else {
+          throw new ConflictException('Event has reached maximum seats');
+        }
+      }
+    }
 
     const user = await this.usersService.findByEmail(authenticatedUser.email);
     if (!user) {
@@ -102,17 +127,39 @@ export class EventRegistrationsService {
         });
 
         if (!existingSessionReg) {
+          let sessionStatus: RegistrationStatus = initialStatus;
+          if (sessionStatus !== RegistrationStatus.RESERVE && session.maxSeats !== null) {
+            const currentRegs = await tx.eventRegistration.count({
+              where: { eventId, sessionId: session.id, status: { in: [RegistrationStatus.APPROVED, RegistrationStatus.PENDING] } }
+            });
+            if (currentRegs >= session.maxSeats) {
+              if (session.enableReserve) {
+                if (session.maxReserveSeats !== null) {
+                  const currentReserves = await tx.eventRegistration.count({
+                    where: { eventId, sessionId: session.id, status: RegistrationStatus.RESERVE }
+                  });
+                  if (currentReserves >= session.maxReserveSeats) {
+                    continue; // skip
+                  }
+                }
+                sessionStatus = RegistrationStatus.RESERVE;
+              } else {
+                continue; // skip
+              }
+            }
+          }
+
           await tx.eventRegistration.create({
             data: {
               event: { connect: { id: eventId } },
               user: { connect: { id: user.id } },
               session: { connect: { id: session.id } },
-              status: initialStatus,
+              status: sessionStatus,
             },
           });
 
           // Decrement availableSeats only when immediately approved and session has a seat limit
-          if (initialStatus === RegistrationStatus.APPROVED && session.maxSeats !== null) {
+          if (sessionStatus === RegistrationStatus.APPROVED && session.maxSeats !== null) {
             await tx.eventSession.update({
               where: { id: session.id },
               data: { availableSeats: { decrement: 1 } },
@@ -183,6 +230,15 @@ export class EventRegistrationsService {
         'Registration not found for this user and event.',
       );
     }
+
+    // Try to promote a reserve registration if one was freed
+    // The user may have had PENDING or APPROVED status. If they did, it frees up a slot.
+    // For simplicity, attempt to promote one if there's any RESERVE seat available.
+    await this.promoteReserveRegistration(eventId, null);
+    for (const reg of approvedSessionRegs) {
+      await this.promoteReserveRegistration(eventId, reg.sessionId);
+    }
+
     return deleteResult;
   }
 
@@ -212,9 +268,16 @@ export class EventRegistrationsService {
   }
 
   async cancelRegistrationById(registrationId: string) {
-    return this.prisma.eventRegistration.delete({
+    const reg = await this.prisma.eventRegistration.findUnique({
+      where: { id: registrationId }
+    });
+    const result = await this.prisma.eventRegistration.delete({
       where: { id: registrationId },
     });
+    if (reg && (reg.status === RegistrationStatus.PENDING || reg.status === RegistrationStatus.APPROVED)) {
+      await this.promoteReserveRegistration(reg.eventId, reg.sessionId);
+    }
+    return result;
   }
 
   async changeAttendedStatusByRegistrationId(
@@ -342,6 +405,11 @@ export class EventRegistrationsService {
       ).catch(err => console.error('Failed to send rejection email:', err));
     } catch (emailError) {
       console.error('Error preparing rejection email:', emailError);
+    }
+
+    // Promote RESERVE seat if rejecting a PENDING or APPROVED application
+    if (registration.status === RegistrationStatus.PENDING || registration.status === RegistrationStatus.APPROVED) {
+      await this.promoteReserveRegistration(eventId, registration.sessionId);
     }
 
     return updated;
@@ -825,5 +893,47 @@ export class EventRegistrationsService {
     );
 
     return workbook.xlsx.write(res);
+  }
+
+  private async promoteReserveRegistration(eventId: string, sessionId: string | null = null) {
+    const reserveReg = await this.prisma.eventRegistration.findFirst({
+      where: {
+        eventId,
+        sessionId,
+        status: RegistrationStatus.RESERVE,
+      },
+      orderBy: { registeredAt: 'asc' },
+    });
+
+    if (!reserveReg) return null;
+
+    const event = await this.prisma.event.findUnique({
+      where: { id: eventId },
+      include: { forms: true },
+    });
+
+    const hasActivePreEventForm = event?.forms.some(
+      (form) => form.type === FormType.PRE_EVENT && form.isActive,
+    );
+
+    const newStatus = hasActivePreEventForm
+      ? RegistrationStatus.PENDING
+      : RegistrationStatus.APPROVED;
+
+    const updated = await this.prisma.eventRegistration.update({
+      where: { id: reserveReg.id },
+      data: { status: newStatus },
+      include: { user: true, session: true, event: true }
+    });
+
+    if (newStatus === RegistrationStatus.APPROVED && updated.session && updated.session.maxSeats !== null) {
+      // decrement available seats
+      await this.prisma.eventSession.update({
+        where: { id: updated.session.id },
+        data: { availableSeats: { decrement: 1 } }
+      });
+    }
+
+    return updated;
   }
 }

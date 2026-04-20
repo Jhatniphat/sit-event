@@ -4,7 +4,7 @@ import axios, {
   type AxiosResponse,
   type AxiosError,
 } from 'axios';
-
+import { useAuthStore } from '@/features/auth/stores/auth.store';
 // ดึง Base URL ของ API จาก Environment Variables (สำหรับ Vite)
 const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
 
@@ -34,9 +34,11 @@ const apiClient: AxiosInstance = axios.create({
 // ===== Request Interceptor =====
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    const token = localStorage.getItem('authToken');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    const authStore = useAuthStore();
+    const accessToken = authStore.accessToken;
+    if (accessToken) {
+      config.headers.Authorization = `Bearer ${accessToken}`;
+      // config.headers['x-csrf-token'] = accessToken;
     }
     return config;
   },
@@ -88,18 +90,16 @@ apiClient.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        const { useAuthStore } = await import('@/features/auth/stores/auth.store');
         const authStore = useAuthStore();
-
-        let rToken = authStore.refreshToken;
-        if (!rToken) {
-          rToken = localStorage.getItem('refreshToken');
+        let refreshToken = authStore.refreshToken;
+        if (!refreshToken) {
+          refreshToken = localStorage.getItem('refreshToken');
         }
 
-        if (rToken) {
+        if (refreshToken) {
           // ใช้ axios ตรง ๆ เพื่อไม่ให้ไปชนกับ interceptor ตัวเอง
           const refreshRes = await axios.post(`${baseURL}/auth/refresh`, {
-            refreshToken: rToken
+            refreshToken: refreshToken
           }, { withCredentials: true });
 
           const newAccessToken = refreshRes.data.accessToken;

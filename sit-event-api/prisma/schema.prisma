@@ -67,6 +67,7 @@ enum RegistrationStatus {
   PENDING
   APPROVED
   REJECTED
+  RESERVE
 }
 
 enum BackgroundType {
@@ -125,6 +126,8 @@ model Event {
   targetAudience       TargetAudience[]
   tags                 EventTag[]
   maxSeats             Int?             // Optional max participants for the entire event
+  enableReserve        Boolean          @default(false)
+  maxReserveSeats      Int?             // Optional max reserve participants
   activityHours        Int?
   invitation           String?          @db.Text
   website              String?
@@ -159,6 +162,8 @@ model EventSession {
   endTime        DateTime @db.Timestamptz
   location       String?
   maxSeats       Int?     // Optional: null means unlimited
+  enableReserve  Boolean  @default(false)
+  maxReserveSeats Int?    // Optional
   availableSeats Int?     // Optional: null means unlimited
   pointsAwarded  Int?
   autoRegister   Boolean  @default(false)
