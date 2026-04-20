@@ -1,10 +1,20 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { MailerService } from '@nestjs-modules/mailer';
+import * as QRCode from 'qrcode';
 import { SendEmailDto, EmailTemplate } from './dto/send-email.dto';
 
 @Injectable()
 export class EmailService {
   constructor(private readonly mailerService: MailerService) { }
+
+  async generateQRCode(userId: string, eventId: string): Promise<Buffer> {
+    if (!userId || !eventId) {
+      throw new BadRequestException('ต้องระบุ userId และ eventId');
+    }
+
+    const payload = `${userId}:${eventId}`;
+    return QRCode.toBuffer(payload, { type: 'png', errorCorrectionLevel: 'M' });
+  }
 
   async sendEmail(dto: SendEmailDto): Promise<{ success: boolean; message: string }> {
     const { to, subject, template, context, html, text, attachments } = dto;
