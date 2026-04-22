@@ -200,7 +200,7 @@ export const useEventStore = defineStore('events', {
       }
     },
 
-    async createSession(eventId: string, sessionData: CreateSessionDto) {
+    async createSession(eventId: string, sessionData: CreateSessionDto | FormData) {
       try {
         const newSession = await EventService.createSession(eventId, sessionData)
         this.currentEventSessions.push(newSession)
@@ -209,7 +209,7 @@ export const useEventStore = defineStore('events', {
       }
     },
 
-    async updateSession(eventId: string, sessionId: string, sessionData: UpdateSessionDto) {
+    async updateSession(eventId: string, sessionId: string, sessionData: UpdateSessionDto | FormData) {
       try {
         const updatedSession = await EventService.updateSession(eventId, sessionId, sessionData)
         const index = this.currentEventSessions.findIndex((s) => s.id === sessionId)

@@ -1,5 +1,6 @@
 import { IsString, IsNotEmpty, IsDateString, IsInt, Min, IsOptional, IsBoolean } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Transform, Type } from 'class-transformer';
 
 export class CreateEventSessionDto {
   @ApiProperty({
@@ -49,6 +50,7 @@ export class CreateEventSessionDto {
   @IsInt()
   @Min(1)
   @IsOptional()
+  @Type(() => Number)
   maxSeats?: number;
 
   @ApiPropertyOptional({
@@ -58,6 +60,7 @@ export class CreateEventSessionDto {
   })
   @IsBoolean()
   @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
   autoRegister?: boolean;
 
   @ApiPropertyOptional({
@@ -67,17 +70,22 @@ export class CreateEventSessionDto {
   @IsInt()
   @Min(0)
   @IsOptional()
+  @Type(() => Number)
   pointsAwarded?: number;
+
   @IsBoolean()
   @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
   enableReserve?: boolean;
 
   @IsInt()
   @Min(1)
   @IsOptional()
+  @Type(() => Number)
   maxReserveSeats?: number;
 
   @IsBoolean()
   @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
   requireApprove?: boolean;
 }

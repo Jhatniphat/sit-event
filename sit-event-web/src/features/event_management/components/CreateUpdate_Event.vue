@@ -385,24 +385,27 @@ const submitEvent = async () => {
     })
 
     subSessions.value.forEach(session => {
-        const payload = {
-            name: session.name,
-            description: session.description || '', 
-            startTime: session.start.toISOString(),
-            endTime: session.end.toISOString(),
-            location: session.location,
-            maxSeats: session.maxSeats !== null ? Number(session.maxSeats) : undefined,
-            enableReserve: session.enableReserve,
-            maxReserveSeats: session.maxReserveSeats !== null ? Number(session.maxReserveSeats) : undefined,
-            requireApprove: session.requireApprove,
-            pointsAwarded: Number(session.pointsAwarded),
-            autoRegister: session.autoRegister
+        const formData = new FormData()
+        formData.append('name', session.name)
+        formData.append('description', session.description || '')
+        formData.append('startTime', session.start.toISOString())
+        formData.append('endTime', session.end.toISOString())
+        formData.append('location', session.location)
+        if (session.maxSeats !== null && session.maxSeats !== undefined) formData.append('maxSeats', String(session.maxSeats))
+        formData.append('enableReserve', String(session.enableReserve))
+        if (session.maxReserveSeats !== null && session.maxReserveSeats !== undefined) formData.append('maxReserveSeats', String(session.maxReserveSeats))
+        formData.append('requireApprove', String(session.requireApprove))
+        formData.append('pointsAwarded', String(session.pointsAwarded))
+        formData.append('autoRegister', String(session.autoRegister))
+
+        if (session.thumbnail instanceof File) {
+            formData.append('thumbnail', session.thumbnail)
         }
 
         if (session.isNew) {
-            sessionPromises.push(eventStore.createSession(targetEventId!, payload))
+            sessionPromises.push(eventStore.createSession(targetEventId!, formData as any))
         } else {
-           sessionPromises.push(eventStore.updateSession(targetEventId!, session.id, payload))
+           sessionPromises.push(eventStore.updateSession(targetEventId!, session.id, formData as any))
         }
     })
 

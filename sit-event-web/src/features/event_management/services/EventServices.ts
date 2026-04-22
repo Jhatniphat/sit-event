@@ -352,9 +352,10 @@ export const EventService = {
     }
   },
 
-  async createSession(eventId: string, data: CreateSessionDto): Promise<EventSession> {
+  async createSession(eventId: string, data: CreateSessionDto | FormData): Promise<EventSession> {
     try {
-      return await apiClient.post<EventSession, EventSession>(`/events/${eventId}/sessions`, data)
+      const config = data instanceof FormData ? { headers: { 'Content-Type': 'multipart/form-data' } } : undefined
+      return await apiClient.post<EventSession, EventSession>(`/events/${eventId}/sessions`, data, config)
     } catch (error: unknown) {
       if (isApiError(error)) throw error
       throw new Error('Failed to create session.')
@@ -364,12 +365,14 @@ export const EventService = {
   async updateSession(
     eventId: string,
     sessionId: string,
-    data: UpdateSessionDto,
+    data: UpdateSessionDto | FormData,
   ): Promise<EventSession> {
     try {
+      const config = data instanceof FormData ? { headers: { 'Content-Type': 'multipart/form-data' } } : undefined
       return await apiClient.patch<EventSession, EventSession>(
         `/events/${eventId}/sessions/${sessionId}`,
         data,
+        config,
       )
     } catch (error: unknown) {
       if (isApiError(error)) throw error

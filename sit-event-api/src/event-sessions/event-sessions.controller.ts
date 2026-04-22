@@ -47,7 +47,7 @@ export class EventSessionsController {
     @UploadedFiles() files: { thumbnail?: any[] },
     @Body() createEventSessionDto: CreateEventSessionDto,
   ) {
-    return this.eventSessionsService.create(eventId, createEventSessionDto, files.thumbnail?.[0]);
+    return this.eventSessionsService.create(eventId, createEventSessionDto, files?.thumbnail?.[0]);
   }
 
   @Get()
@@ -231,7 +231,7 @@ export class EventSessionsController {
       eventId,
       sessionId,
       updateEventSessionDto,
-      files.thumbnail?.[0],
+      files?.thumbnail?.[0],
     );
   }
 
