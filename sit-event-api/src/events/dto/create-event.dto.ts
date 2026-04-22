@@ -143,4 +143,9 @@ export class CreateEventDto {
   @Min(1)
   @Type(() => Number)
   maxReserveSeats?: number;
+
+  @IsBoolean()
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  requireApprove?: boolean;
 }

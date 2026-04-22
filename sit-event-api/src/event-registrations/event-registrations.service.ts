@@ -44,13 +44,12 @@ export class EventRegistrationsService {
       (form) => form.type === FormType.PRE_EVENT && form.isActive,
     );
 
-    // Determine registration status
-    // If no PRE_EVENT form required -> APPROVED immediately
-    let initialStatus: RegistrationStatus = hasActivePreEventForm
+    // Check if event requires manual approval
+    let initialStatus: RegistrationStatus = event.requireApprove
       ? RegistrationStatus.PENDING
       : RegistrationStatus.APPROVED;
 
-    if (event.maxSeats !== null) {
+    if (event.maxSeats !== null && !event.requireApprove) {
       const currentRegs = await this.prisma.eventRegistration.count({
         where: {
           eventId,
@@ -62,13 +61,13 @@ export class EventRegistrationsService {
         if (event.enableReserve) {
           if (event.maxReserveSeats !== null) {
             const currentReserves = await this.prisma.eventRegistration.count({
-              where: { eventId, sessionId: null, status: RegistrationStatus.RESERVE }
+              where: { eventId, sessionId: null, status: RegistrationStatus.RESERVED }
             });
             if (currentReserves >= event.maxReserveSeats) {
               throw new ConflictException('Event has reached maximum seats and reserve seats');
             }
           }
-          initialStatus = RegistrationStatus.RESERVE;
+          initialStatus = RegistrationStatus.RESERVED;
         } else {
           throw new ConflictException('Event has reached maximum seats');
         }
@@ -128,7 +127,10 @@ export class EventRegistrationsService {
 
         if (!existingSessionReg) {
           let sessionStatus: RegistrationStatus = initialStatus;
-          if (sessionStatus !== RegistrationStatus.RESERVE && session.maxSeats !== null) {
+          if (sessionStatus === RegistrationStatus.APPROVED && session.requireApprove) {
+            sessionStatus = RegistrationStatus.PENDING;
+          }
+          if (sessionStatus !== RegistrationStatus.RESERVED && sessionStatus !== RegistrationStatus.PENDING && session.maxSeats !== null) {
             const currentRegs = await tx.eventRegistration.count({
               where: { eventId, sessionId: session.id, status: { in: [RegistrationStatus.APPROVED, RegistrationStatus.PENDING] } }
             });
@@ -136,13 +138,13 @@ export class EventRegistrationsService {
               if (session.enableReserve) {
                 if (session.maxReserveSeats !== null) {
                   const currentReserves = await tx.eventRegistration.count({
-                    where: { eventId, sessionId: session.id, status: RegistrationStatus.RESERVE }
+                    where: { eventId, sessionId: session.id, status: RegistrationStatus.RESERVED }
                   });
                   if (currentReserves >= session.maxReserveSeats) {
                     continue; // skip
                   }
                 }
-                sessionStatus = RegistrationStatus.RESERVE;
+                sessionStatus = RegistrationStatus.RESERVED;
               } else {
                 continue; // skip
               }
@@ -318,7 +320,7 @@ export class EventRegistrationsService {
   async approveRegistration(eventId: string, registrationId: string) {
     const registration = await this.prisma.eventRegistration.findFirst({
       where: { id: registrationId, eventId: eventId },
-      include: { session: true },
+      include: { session: true, event: true },
     });
 
     if (!registration) {
@@ -329,43 +331,93 @@ export class EventRegistrationsService {
       throw new BadRequestException('Registration is already approved.');
     }
 
+    let targetStatus: RegistrationStatus = RegistrationStatus.APPROVED;
+
+    if (registration.sessionId === null) {
+      // Main Event
+      if (registration.event && registration.event.maxSeats !== null) {
+        const currentRegs = await this.prisma.eventRegistration.count({
+          where: { eventId, sessionId: null, status: RegistrationStatus.APPROVED }
+        });
+        if (currentRegs >= registration.event.maxSeats) {
+          if (registration.event.enableReserve) {
+            if (registration.event.maxReserveSeats !== null) {
+              const currentReserves = await this.prisma.eventRegistration.count({
+                where: { eventId, sessionId: null, status: RegistrationStatus.RESERVED }
+              });
+              if (currentReserves >= registration.event.maxReserveSeats) {
+                throw new ConflictException('Event has reached maximum seats and reserve seats');
+              }
+            }
+            targetStatus = RegistrationStatus.RESERVED;
+          } else {
+            throw new ConflictException('Event has reached maximum seats');
+          }
+        }
+      }
+    } else {
+      // Session
+      if (registration.session && registration.session.maxSeats !== null) {
+        const currentRegs = await this.prisma.eventRegistration.count({
+          where: { eventId, sessionId: registration.session.id, status: RegistrationStatus.APPROVED }
+        });
+        if (currentRegs >= registration.session.maxSeats) {
+          if (registration.session.enableReserve) {
+            if (registration.session.maxReserveSeats !== null) {
+              const currentReserves = await this.prisma.eventRegistration.count({
+                where: { eventId, sessionId: registration.session.id, status: RegistrationStatus.RESERVED }
+              });
+              if (currentReserves >= registration.session.maxReserveSeats) {
+                throw new ConflictException('Session has reached maximum seats and reserve seats');
+              }
+            }
+            targetStatus = RegistrationStatus.RESERVED;
+          } else {
+            throw new ConflictException('Session has reached maximum seats');
+          }
+        }
+      }
+    }
+
     const updated = await this.prisma.eventRegistration.update({
       where: { id: registrationId },
       data: {
-        status: RegistrationStatus.APPROVED,
-        approvedAt: new Date(),
+        status: targetStatus,
+        approvedAt: targetStatus === RegistrationStatus.APPROVED ? new Date() : null,
       },
       include: { user: true, event: true, session: true },
     });
 
     // Decrement session available seats upon approval (if session has maxSeats)
-    if (registration.sessionId && registration.session?.maxSeats !== null && registration.session?.maxSeats !== undefined) {
+    if (targetStatus === RegistrationStatus.APPROVED && registration.sessionId && registration.session?.maxSeats !== null && registration.session?.maxSeats !== undefined) {
       await this.prisma.eventSession.update({
         where: { id: registration.sessionId },
         data: { availableSeats: { decrement: 1 } },
       });
     }
 
-    // --- Send Approval Email ---
-    try {
-      const participantName = `${updated.user.firstName} ${updated.user.lastName}`;
-      const eventName = updated.event.name;
-      const eventDate = updated.event.eventStartDate.toLocaleDateString('th-TH', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      });
-      const eventLocation = updated.session?.location || 'See event details';
+    // --- Send Approval Email (Only if APPROVED) ---
+    if (targetStatus === RegistrationStatus.APPROVED) {
+      try {
+        const participantName = `${updated.user.firstName} ${updated.user.lastName}`;
+        const eventName = updated.event.name;
+        const eventDate = updated.event.eventStartDate.toLocaleDateString('th-TH', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+        });
+        const eventLocation = updated.session?.location || 'See event details';
 
-      this.emailService.sendApprovalNotification(
-        updated.user.email,
-        participantName,
-        eventName,
-        eventDate,
-        eventLocation
-      ).catch(err => console.error('Failed to send approval email:', err));
-    } catch (emailError) {
-      console.error('Error preparing approval email:', emailError);
+        this.emailService.sendApprovalNotification(
+          updated.user.email,
+          participantName,
+          eventName,
+          eventDate,
+          eventLocation
+        ).catch(err => console.error('Failed to send approval email:', err));
+      } catch (emailError) {
+        console.error('Error preparing approval email:', emailError);
+      }
     }
 
     return updated;
@@ -513,8 +565,10 @@ export class EventRegistrationsService {
       const row: any = {
         id: reg.id,
         userId: reg.userId,
-        // Always include basic status
         status: reg.status,
+        sessionId: reg.sessionId,
+        sessionName: reg.session ? reg.session.name : null,
+        isMainEvent: reg.sessionId === null,
       };
 
       // Map System Fields
@@ -552,6 +606,63 @@ export class EventRegistrationsService {
       include: { user: true, session: true },
       orderBy: { registeredAt: 'desc' },
     });
+  }
+
+  // =============================================
+  // Get Registration Capacity Left
+  // =============================================
+  async getRegistrationCapacity(eventId: string) {
+    const event = await this.prisma.event.findUnique({
+      where: { id: eventId },
+      include: { sessions: true },
+    });
+
+    if (!event) {
+      throw new NotFoundException('Event not found');
+    }
+
+    const payload: any = {
+      mainEvent: null,
+      sessions: {},
+    };
+
+    // Calculate for main event
+    if (event.maxSeats !== null) {
+      const approvedCount = await this.prisma.eventRegistration.count({
+        where: { eventId, sessionId: null, status: RegistrationStatus.APPROVED },
+      });
+      const reservedCount = await this.prisma.eventRegistration.count({
+        where: { eventId, sessionId: null, status: RegistrationStatus.RESERVED },
+      });
+
+      payload.mainEvent = {
+        maxSeats: event.maxSeats,
+        approvedCount,
+        maxReserveSeats: event.enableReserve ? event.maxReserveSeats : null,
+        reservedCount,
+      };
+    }
+
+    // Calculate for sessions
+    for (const session of event.sessions) {
+      if (session.maxSeats !== null) {
+        const approvedCount = await this.prisma.eventRegistration.count({
+          where: { eventId, sessionId: session.id, status: RegistrationStatus.APPROVED },
+        });
+        const reservedCount = await this.prisma.eventRegistration.count({
+          where: { eventId, sessionId: session.id, status: RegistrationStatus.RESERVED },
+        });
+
+        payload.sessions[session.id] = {
+          maxSeats: session.maxSeats,
+          approvedCount,
+          maxReserveSeats: session.enableReserve ? session.maxReserveSeats : null,
+          reservedCount,
+        };
+      }
+    }
+
+    return payload;
   }
 
   async checkUserQrStatus(eventId: string, userId: string) {
@@ -900,7 +1011,7 @@ export class EventRegistrationsService {
       where: {
         eventId,
         sessionId,
-        status: RegistrationStatus.RESERVE,
+        status: RegistrationStatus.RESERVED,
       },
       orderBy: { registeredAt: 'asc' },
     });
@@ -912,13 +1023,18 @@ export class EventRegistrationsService {
       include: { forms: true },
     });
 
-    const hasActivePreEventForm = event?.forms.some(
-      (form) => form.type === FormType.PRE_EVENT && form.isActive,
-    );
-
-    const newStatus = hasActivePreEventForm
+    let newStatus = event?.requireApprove
       ? RegistrationStatus.PENDING
       : RegistrationStatus.APPROVED;
+
+    if (sessionId) {
+      const session = await this.prisma.eventSession.findUnique({
+        where: { id: sessionId },
+      });
+      if (session?.requireApprove && newStatus === RegistrationStatus.APPROVED) {
+        newStatus = RegistrationStatus.PENDING;
+      }
+    }
 
     const updated = await this.prisma.eventRegistration.update({
       where: { id: reserveReg.id },

@@ -40,7 +40,7 @@ const past = computed(() => groupedRegis.value.filter((g) => new Date(g.event.ev
 
 function statusBgColor(status: string) {
   if (status === 'APPROVED') return 'text-green-700 bg-green-100 border border-green-200';
-  if (status === 'PENDING' || status === 'RESERVE') return 'text-yellow-700 bg-yellow-100 border border-yellow-200';
+  if (status === 'PENDING' || status === 'RESERVED') return 'text-yellow-700 bg-yellow-100 border border-yellow-200';
   if (status === 'REJECTED') return 'text-red-700 bg-red-100 border border-red-200';
   return 'text-slate-700 bg-slate-100 border border-slate-200';
 }
@@ -112,12 +112,12 @@ const seeEventDetail = (eventId: string) => {
           </div>
           <div class="w-5"></div>
           <div class="flex flex-col justify-center">
-            <div class="font-medium text-lg text-slate-800">{{ group.event.name }}</div>
+            <div class="font-medium text-lg text-slate-800 event-registration-name">{{ group.event.name }}</div>
             <div class="text-sm text-slate-500 mt-0.5">
               {{ formatEventRange(group.event.eventStartDate, group.event.eventEndDate) }}
             </div>
             <div class="mt-2 flex gap-2">
-              <span v-if="group.mainReg?.status" :class="statusBgColor(group.mainReg.status)" class="px-2 py-0.5 text-[10px] rounded font-semibold uppercase tracking-wider">
+              <span v-if="group.mainReg?.status" :class="statusBgColor(group.mainReg.status)" class="px-2 py-0.5 text-[10px] rounded font-semibold uppercase tracking-wider event-registration-status-tag">
                 {{ group.mainReg.status }}
               </span>
             </div>
@@ -144,11 +144,11 @@ const seeEventDetail = (eventId: string) => {
         <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Registered Sessions</div>
         <div v-for="sReg in group.sessions" :key="sReg.id" class="flex flex-row justify-between items-center py-2 border-b last:border-0 border-slate-50">
           <div class="flex flex-col">
-            <div class="text-sm font-medium text-slate-700">{{ sReg.session?.name }}</div>
+            <div class="text-sm font-medium text-slate-700 subsession-registration-name">{{ sReg.session?.name }}</div>
             <div class="text-xs text-slate-400 mt-0.5" v-if="sReg.session">{{ formatEventRange(sReg.session.startTime, sReg.session.endTime) }}</div>
           </div>
           <div>
-            <span :class="statusBgColor(sReg.status)" class="px-2 py-0.5 text-[9px] rounded font-semibold uppercase tracking-wider">
+            <span :class="statusBgColor(sReg.status)" class="px-2 py-0.5 text-[9px] rounded font-semibold uppercase tracking-wider subsession-registration-status-tag">
               {{ sReg.status }}
             </span>
           </div>
@@ -173,12 +173,12 @@ const seeEventDetail = (eventId: string) => {
           </div>
           <div class="w-5"></div>
           <div class="flex flex-col justify-center">
-            <div class="font-medium text-lg text-slate-800">{{ group.event.name }}</div>
+            <div class="font-medium text-lg text-slate-800 event-registration-name">{{ group.event.name }}</div>
             <div class="text-sm text-slate-500 mt-0.5">
               {{ formatEventRange(group.event.eventStartDate, group.event.eventEndDate) }}
             </div>
             <div class="mt-2 flex gap-2">
-              <span v-if="group.mainReg?.status" :class="statusBgColor(group.mainReg.status)" class="px-2 py-0.5 text-[10px] rounded font-semibold uppercase tracking-wider">
+              <span v-if="group.mainReg?.status" :class="statusBgColor(group.mainReg.status)" class="px-2 py-0.5 text-[10px] rounded font-semibold uppercase tracking-wider event-registration-status-tag">
                 {{ group.mainReg.status }}
               </span>
             </div>
@@ -205,11 +205,11 @@ const seeEventDetail = (eventId: string) => {
         <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Registered Sessions</div>
         <div v-for="sReg in group.sessions" :key="sReg.id" class="flex flex-row justify-between items-center py-2 border-b last:border-0 border-slate-50">
           <div class="flex flex-col">
-            <div class="text-sm font-medium text-slate-700">{{ sReg.session?.name }}</div>
+            <div class="text-sm font-medium text-slate-700 subsession-registration-name">{{ sReg.session?.name }}</div>
             <div class="text-xs text-slate-400 mt-0.5" v-if="sReg.session">{{ formatEventRange(sReg.session.startTime, sReg.session.endTime) }}</div>
           </div>
           <div>
-            <span :class="statusBgColor(sReg.status)" class="px-2 py-0.5 text-[9px] rounded font-semibold uppercase tracking-wider">
+            <span :class="statusBgColor(sReg.status)" class="px-2 py-0.5 text-[9px] rounded font-semibold uppercase tracking-wider subsession-registration-status-tag">
               {{ sReg.status }}
             </span>
           </div>

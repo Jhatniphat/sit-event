@@ -68,4 +68,16 @@ export class CreateEventSessionDto {
   @Min(0)
   @IsOptional()
   pointsAwarded?: number;
+  @IsBoolean()
+  @IsOptional()
+  enableReserve?: boolean;
+
+  @IsInt()
+  @Min(1)
+  @IsOptional()
+  maxReserveSeats?: number;
+
+  @IsBoolean()
+  @IsOptional()
+  requireApprove?: boolean;
 }

@@ -131,6 +131,15 @@ export class EventRegistrationsController {
   }
 
   // =============================================
+  // Get Registration Capacity Limits (Admin)
+  // =============================================
+  @Get(':eventId/registrations/capacity')
+  @AdminOnly()
+  async getRegistrationCapacity(@Param('eventId') eventId: string) {
+    return this.eventRegistrationsService.getRegistrationCapacity(eventId);
+  }
+
+  // =============================================
   // Approve Registration (Admin)
   // =============================================
   @Patch(':eventId/registrations/:registrationId/approve')

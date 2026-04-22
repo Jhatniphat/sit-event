@@ -40,6 +40,7 @@ interface LocalSubSession {
   maxSeats: number | null
   enableReserve: boolean
   maxReserveSeats: number | null
+  requireApprove: boolean
   pointsAwarded: number
   autoRegister: boolean
   isExpanded: boolean
@@ -94,6 +95,7 @@ const formSchema = z.object({
   maxSeats: z.coerce.number().int().min(1, 'จำนวนที่นั่งต้องมีอย่างน้อย 1').nullable().optional(),
   enableReserve: z.boolean().optional().default(false),
   maxReserveSeats: z.coerce.number().int().min(1, 'จำนวนที่นั่ง Reserve ต้องมีอย่างน้อย 1').nullable().optional(),
+  requireApprove: z.boolean().optional().default(false),
   thumbnail: z.custom<File>((val) => val instanceof File, 'กรุณาอัปโหลดรูปปก').nullable().optional(),
   images: z.array(z.custom<File>()).optional(),
 }).superRefine((data, ctx) => {
@@ -146,6 +148,7 @@ const form = useForm({
     maxSeats: null,
     enableReserve: false,
     maxReserveSeats: null,
+    requireApprove: false,
     thumbnail: null,
     images: [],
   },
@@ -188,6 +191,7 @@ onMounted(async () => {
           maxSeats: (eventToEdit as any).maxSeats ?? null,
           enableReserve: (eventToEdit as any).enableReserve ?? false,
           maxReserveSeats: (eventToEdit as any).maxReserveSeats ?? null,
+          requireApprove: (eventToEdit as any).requireApprove ?? false,
         })
 
         if (eventToEdit.thumbnail && typeof eventToEdit.thumbnail === 'string') {
@@ -231,6 +235,7 @@ onMounted(async () => {
           maxSeats: s.maxSeats,
           enableReserve: (s as any).enableReserve ?? false,
           maxReserveSeats: (s as any).maxReserveSeats ?? null,
+          requireApprove: (s as any).requireApprove ?? false,
           pointsAwarded: s.pointsAwarded,
           autoRegister: s.autoRegister,
           isExpanded: false,
@@ -333,6 +338,7 @@ const submitEvent = async () => {
     if (values.maxReserveSeats != null) {
       formData.append('maxReserveSeats', String(values.maxReserveSeats))
     }
+    formData.append('requireApprove', String(values.requireApprove))
     
     values.targetAudience?.forEach((t) => formData.append('targetAudience', t))
     values.tags?.forEach((tag) => formData.append('tags', tag))
@@ -388,6 +394,7 @@ const submitEvent = async () => {
             maxSeats: session.maxSeats !== null ? Number(session.maxSeats) : undefined,
             enableReserve: session.enableReserve,
             maxReserveSeats: session.maxReserveSeats !== null ? Number(session.maxReserveSeats) : undefined,
+            requireApprove: session.requireApprove,
             pointsAwarded: Number(session.pointsAwarded),
             autoRegister: session.autoRegister
         }

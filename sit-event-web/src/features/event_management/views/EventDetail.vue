@@ -293,7 +293,7 @@ const onConfirmUnregister = async () => {
           
           <div class="space-y-6">
             <div>
-              <h1 class="text-3xl font-bold text-gray-900 mb-2">{{ eventItem.name }}</h1>
+              <h1 class="text-3xl font-bold text-gray-900 mb-2 event-detail-event-name">{{ eventItem.name }}</h1>
               <div class="flex flex-wrap gap-2 mb-4">
                 <Badge variant="secondary" class="text-xs">SIT Event</Badge>
               </div>
@@ -374,6 +374,7 @@ const onConfirmUnregister = async () => {
                 :variant="eventItem.hasRegister ? 'destructive' : 'default'"
                 :disabled="isButtonDisabled"
                 @click="handleActionClick"
+                :id="eventItem.hasRegister ? 'unregister-button' : 'register-button'"
               >
                 {{ buttonText }}
               </Button>

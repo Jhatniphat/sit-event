@@ -133,7 +133,19 @@ const handleDrop = (e: DragEvent) => {
               <div class="text-sm text-gray-500">Allow users to reserve seats if capacity is reached.</div>
             </div>
             <FormControl>
-               <input type="checkbox" :checked="value" @change="handleChange(!value)" class="w-5 h-5 text-blue-600 rounded focus:ring-blue-500 border-gray-300" />
+               <input type="checkbox" :checked="value" @change="handleChange(!value)" id="toggle-reserve-seats" class="w-5 h-5 text-blue-600 rounded focus:ring-blue-500 border-gray-300" />
+            </FormControl>
+          </FormItem>
+        </FormField>
+
+        <FormField v-slot="{ value, handleChange }" name="requireApprove">
+          <FormItem class="flex flex-row items-center justify-between rounded-lg border border-gray-200 p-4 bg-white">
+            <div class="space-y-0.5">
+              <FormLabel class="text-base text-gray-800">Require Manual Approval</FormLabel>
+              <div class="text-sm text-gray-500">Manually approve participants before they become APPROVED.</div>
+            </div>
+            <FormControl>
+               <input type="checkbox" :checked="value" @change="handleChange(!value)" id="toggle-require-approve" class="w-5 h-5 text-blue-600 rounded focus:ring-blue-500 border-gray-300" />
             </FormControl>
           </FormItem>
         </FormField>
@@ -142,7 +154,7 @@ const handleDrop = (e: DragEvent) => {
           <FormItem>
             <FormLabel>Max Reserve Seats <span class="text-xs text-gray-400 font-normal">(optional)</span></FormLabel>
             <FormControl>
-              <Input type="number" placeholder="e.g. 20" min="1" v-bind="componentField" id="input-max-reserve-seats" />
+              <Input type="number" placeholder="e.g. 20" min="1" v-bind="componentField" id="input-reserve-seats" />
             </FormControl>
             <FormMessage />
           </FormItem>

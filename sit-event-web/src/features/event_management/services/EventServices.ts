@@ -46,6 +46,7 @@ export interface Event {
   targetAudience: TargetAudience[]
   tags: EventTag[]
   maxSeats?: number | null // Optional: null means unlimited
+  requireApprove?: boolean
   creatorId: string // uuid, readOnly [cite: 11, 12]
   createdAt: Date // date-time, readOnly [cite: 12]
   images: File[]
@@ -67,6 +68,7 @@ export interface CreateEventDto {
   eventEndDate: string // date-time, required [cite: 18, 20]
   targetAudience?: TargetAudience[]
   tags?: EventTag[]
+  requireApprove?: boolean
 }
 /**
  * DTO สำหรับการ "อัปเดต" Event
@@ -88,6 +90,9 @@ export interface EventSession {
   location: string
   maxSeats: number | null    // null = unlimited
   availableSeats: number | null  // null = unlimited
+  enableReserve?: boolean
+  maxReserveSeats?: number | null
+  requireApprove?: boolean
   pointsAwarded: number
   autoRegister: boolean
 }
@@ -99,6 +104,9 @@ export interface CreateSessionDto {
   endTime: string // ISO String
   location: string
   maxSeats?: number    // Optional: omit for unlimited
+  enableReserve?: boolean
+  maxReserveSeats?: number
+  requireApprove?: boolean
   pointsAwarded: number
   autoRegister?: boolean
 }

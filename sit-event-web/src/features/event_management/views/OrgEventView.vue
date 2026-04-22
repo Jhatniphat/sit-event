@@ -302,7 +302,7 @@ const formatEnum = (value: string) => {
                   <button
                     @click="handleGrantStaff(event.id)"
                     class="p-2 text-gray-500 hover:text-orange-600 hover:bg-orange-50 rounded-md transition-colors"
-                    title="Edit Event"
+                    title="Grant Staff"
                   >
                     <svg
                       xmlns="http://www.w3.org/2000/svg"

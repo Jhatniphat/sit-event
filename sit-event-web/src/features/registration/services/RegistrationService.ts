@@ -47,7 +47,7 @@ export interface EventRegistration {
   userId: string
   eventId: string
   sessionId: string | null
-  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'RESERVE'
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'RESERVED'
   registeredAt: string | Date
   attended: boolean
   checkedInAt: string | Date | null
@@ -424,6 +424,18 @@ export const RegistrationService = {
         throw error
       }
       throw new Error('An unexpected error occurred while fetching pending registrations.')
+    }
+  },
+
+  async getRegistrationCapacity(eventId: string): Promise<any> {
+    try {
+      return await apiClient.get<void, any>(`/events/${eventId}/registrations/capacity`)
+    } catch (error) {
+      if (isApiError(error)) {
+        console.error(`[RegistrationService.getRegistrationCapacity] API Error ${error.status}: ${error.message}`)
+        throw error
+      }
+      throw new Error('Failed to fetch registration capacity limits.')
     }
   },
 

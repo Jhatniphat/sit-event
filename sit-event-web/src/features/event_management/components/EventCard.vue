@@ -125,7 +125,7 @@ const handleButtonClick = () => {
     </div>
 
     <CardHeader class="pb-2">
-      <CardTitle class="text-xl font-bold line-clamp-1 group-hover:text-primary transition-colors" :title="event.name">
+      <CardTitle class="text-xl font-bold line-clamp-1 group-hover:text-primary transition-colors event-card-event-name" :title="event.name">
         {{ event.name }}
       </CardTitle>
       

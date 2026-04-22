@@ -19,6 +19,7 @@ interface SubSession {
   maxSeats: number | null
   enableReserve: boolean
   maxReserveSeats: number | null
+  requireApprove: boolean
   pointsAwarded: number
   autoRegister: boolean
   isExpanded: boolean
@@ -59,6 +60,7 @@ const addSubSession = () => {
     maxSeats: null,  // optional – null means unlimited
     enableReserve: false,
     maxReserveSeats: null,
+    requireApprove: false,
     autoRegister: false,
     pointsAwarded: 0,
     thumbnail: null,
@@ -284,6 +286,11 @@ const handleSkip = () => {
                         class="mt-1.5"
                       />
                     </div>
+                  </div>
+
+                  <div class="flex items-center space-x-2 pt-2">
+                      <Checkbox :id="'require-approve-'+index" :checked="session.requireApprove" @update:checked="(v: any) => session.requireApprove = v" />
+                      <Label :for="'require-approve-'+index" class="cursor-pointer text-sm font-medium">Require Manual Approval for this Session</Label>
                   </div>
               </div>
             </div>
