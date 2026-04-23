@@ -215,7 +215,8 @@ export const EventService = {
   async getAllEvents(params?: {
     page?: number
     limit?: number
-    tag?: EventTag
+    tags?: EventTag
+    name?: string
   }): Promise<PaginatedResult<Event>> {
     try {
       const result = await apiClient.get<PaginatedResult<Event>, PaginatedResult<Event>>(

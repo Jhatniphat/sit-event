@@ -14,6 +14,7 @@ import {
   type GetParticipantsParams,
   type ParticipantInfo,
   type ParticipantSummary,
+  type EventTag,
 } from '@/features/event_management/services/EventServices'
 import { type ParsedApiError } from '@/shared/utils/FetchUtils'
 
@@ -81,17 +82,26 @@ export const useEventStore = defineStore('events', {
     /**
      * R = Read (All)
      */
-    async fetchAllEvents(page: number, limit: number) {
-      if (this.events.length > 0 && this.pagination?.page === page) {
-        // logic cache อย่างง่าย
-      }
+    async fetchAllEvents(params: { page: number; limit: number; name?: string; tags?: string }) {
+      // Logic การ Cache: ถ้า Params เหมือนเดิมเป๊ะๆ อาจจะไม่ต้องยิงใหม่
+      // แต่ถ้าเป็นการ Search (มี name หรือ tag) แนะนำให้ยิงใหม่เสมอเพื่อให้ข้อมูลสดใหม่
       this.isLoadingList = true
       this.error = null
+      console.log('Fetching events with params:', params)
+
       try {
-        const { data, pagination } = await EventService.getAllEvents({ page, limit })
+        const { data, pagination } = await EventService.getAllEvents({
+          page: params.page,
+          limit: params.limit,
+          name: params.name || undefined,
+          tags: params.tags === 'ALL' ? undefined : (params.tags as EventTag), // ถ้าเป็น ALL ส่ง undefined
+        })
+
         this.events = data
+        console.log('this.events:', this.events)
         this.pagination = pagination
       } catch (error) {
+        // ใช้ helper handleError ที่คุณมีอยู่
         this.error = handleError(error, 'Failed to fetch events.')
       } finally {
         this.isLoadingList = false
