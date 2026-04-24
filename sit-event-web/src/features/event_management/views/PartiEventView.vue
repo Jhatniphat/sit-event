@@ -48,7 +48,7 @@ const isLoading = ref(false)
 
 // --- Search & Filter State ---
 const searchQuery = ref('')
-const selectedTag = ref<string>('ALL') // ค่าเริ่มต้นเป็น 'ALL'
+const selectedTags = ref<string[]>(['ALL'])
 const ALL_EVENT_TAGS = ['ALL', 'SPEAK', 'EDUCATION', 'WORKSHOP', 'SEMINAR', 'COMPETITION', 'SOCIAL', 'CAREER']
 
 const isEventsLoading = computed(() => eventStore.isLoadingList)
@@ -58,7 +58,7 @@ const loadEvents = async () => {
     page: 1,
     limit: 100,
     name: searchQuery.value,
-    tags: selectedTag.value
+    tags: selectedTags.value.includes('ALL') ? undefined : selectedTags.value.join(',')
   })
 }
 
@@ -72,14 +72,33 @@ watch(searchQuery, () => {
   debouncedSearch()
 })
 
-watch(selectedTag, () => {
-  console.log('Selected Tag changed to:', selectedTag.value)
-  loadEvents()
-})
+watch(selectedTags, () => loadEvents(), { deep: true })
+
+const toggleTag = (tag: string) => {
+  if (tag === 'ALL') {
+    selectedTags.value = ['ALL']
+  } else {
+    // ถ้าเลือกอันอื่น ให้เอา 'ALL' ออกก่อน
+    selectedTags.value = selectedTags.value.filter(t => t !== 'ALL')
+    
+    if (selectedTags.value.includes(tag)) {
+      // ถ้ามีอยู่แล้วให้เอาออก (Deselect)
+      selectedTags.value = selectedTags.value.filter(t => t !== tag)
+    } else {
+      // ถ้ายังไม่มีให้เพิ่มเข้าไป
+      selectedTags.value.push(tag)
+    }
+    
+    // ถ้าไม่เหลืออะไรเลย ให้กลับไปเลือก 'ALL'
+    if (selectedTags.value.length === 0) {
+      selectedTags.value = ['ALL']
+    }
+  }
+}
 
 const clearFilters = () => {
   searchQuery.value = ''
-  selectedTag.value = 'ALL'
+  selectedTags.value = ['ALL']
 }
 
 
@@ -389,14 +408,14 @@ onUnmounted(() => {
           </button>
         </div>
 
-        <div class="flex items-center gap-2 overflow-x-auto w-full md:w-auto pb-2 md:pb-0 scrollbar-hide">
+        <div class="flex items-center gap-2 overflow-x-auto w-full md:w-auto pl-2 pt-2 pb-2 pb-0 scrollbar-hide">
           <button
             v-for="tag in ALL_EVENT_TAGS"
             :key="tag"
-            @click="selectedTag = tag"
+            @click="toggleTag(tag)"
             :class="[
               'px-5 py-2.5 rounded-xl text-[11px] font-black tracking-wider transition-all whitespace-nowrap border uppercase',
-              selectedTag === tag 
+              selectedTags.includes(tag)
                 ? 'bg-black text-white border-black shadow-lg shadow-black/20 scale-105' 
                 : 'bg-white text-gray-500 border-gray-100 hover:border-gray-300'
             ]"
