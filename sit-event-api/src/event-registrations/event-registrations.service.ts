@@ -221,6 +221,14 @@ export class EventRegistrationsService {
       }
     }
 
+    const mainRegistration = await this.prisma.eventRegistration.findFirst({
+      where: {
+        eventId: eventId,
+        userId: user.id,
+        sessionId: null,
+      },
+    });
+
     const deleteResult = await this.prisma.eventRegistration.deleteMany({
       where: {
         eventId: eventId,
@@ -234,9 +242,9 @@ export class EventRegistrationsService {
     }
 
     // Try to promote a reserve registration if one was freed
-    // The user may have had PENDING or APPROVED status. If they did, it frees up a slot.
-    // For simplicity, attempt to promote one if there's any RESERVE seat available.
-    await this.promoteReserveRegistration(eventId, null);
+    if (mainRegistration && mainRegistration.status === RegistrationStatus.APPROVED) {
+      await this.promoteReserveRegistration(eventId, null);
+    }
     for (const reg of approvedSessionRegs) {
       await this.promoteReserveRegistration(eventId, reg.sessionId);
     }
@@ -276,7 +284,7 @@ export class EventRegistrationsService {
     const result = await this.prisma.eventRegistration.delete({
       where: { id: registrationId },
     });
-    if (reg && (reg.status === RegistrationStatus.PENDING || reg.status === RegistrationStatus.APPROVED)) {
+    if (reg && reg.status === RegistrationStatus.APPROVED) {
       await this.promoteReserveRegistration(reg.eventId, reg.sessionId);
     }
     return result;
@@ -459,8 +467,8 @@ export class EventRegistrationsService {
       console.error('Error preparing rejection email:', emailError);
     }
 
-    // Promote RESERVE seat if rejecting a PENDING or APPROVED application
-    if (registration.status === RegistrationStatus.PENDING || registration.status === RegistrationStatus.APPROVED) {
+    // Promote RESERVE seat if rejecting an APPROVED application
+    if (registration.status === RegistrationStatus.APPROVED) {
       await this.promoteReserveRegistration(eventId, registration.sessionId);
     }
 
