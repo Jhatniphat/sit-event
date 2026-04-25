@@ -91,9 +91,9 @@ export class EventRegistrationsService {
       throw new ConflictException('You are already registered for this event');
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const mainRegistration = await this.prisma.$transaction(async (tx) => {
       // 1. Create registration for the main event
-      const mainRegistration = await tx.eventRegistration.create({
+      const reg = await tx.eventRegistration.create({
         data: {
           event: { connect: { id: eventId } },
           user: { connect: { id: user.id } },
@@ -170,8 +170,45 @@ export class EventRegistrationsService {
         }
       }
 
-      return mainRegistration;
+      return reg;
     });
+
+    // --- Send registration confirmation email (fire-and-forget) ---
+    this.prisma.eventRegistration.findFirst({
+      where: { userId: user.id, eventId, sessionId: null },
+      include: {
+        user: true,
+        event: true,
+        session: true,
+      },
+    }).then(async (reg) => {
+      if (!reg) return;
+      const sessions = await this.prisma.eventRegistration.findMany({
+        where: { userId: user.id, eventId, sessionId: { not: null } },
+        include: { session: true },
+      });
+      const sessionInfos = sessions
+        .filter(s => s.session)
+        .map(s => ({
+          name: s.session!.name,
+          time: this.formatSessionTime(s.session!),
+        }));
+      await this.emailService.sendRegistrationEmail({
+        status: initialStatus,
+        email: user.email,
+        participantName: `${user.firstName} ${user.lastName}`,
+        eventName: reg.event.name,
+        eventId,
+        userId: user.id,
+        eventStartDate: reg.event.eventStartDate.toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' }),
+        eventEndDate: reg.event.eventEndDate
+          ? reg.event.eventEndDate.toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' })
+          : undefined,
+        sessions: sessionInfos,
+      });
+    }).catch(err => console.error('[Email] Failed to send registration email:', err));
+
+    return mainRegistration;
   }
 
   async unregisterUserFromEvent(
@@ -404,27 +441,26 @@ export class EventRegistrationsService {
       });
     }
 
-    // --- Send Approval Email (Only if APPROVED) ---
-    if (targetStatus === RegistrationStatus.APPROVED) {
+    // --- Send Approval Email ---
+    if (targetStatus === RegistrationStatus.APPROVED || targetStatus === RegistrationStatus.RESERVED) {
       try {
-        const participantName = `${updated.user.firstName} ${updated.user.lastName}`;
-        const eventName = updated.event.name;
-        const eventDate = updated.event.eventStartDate.toLocaleDateString('th-TH', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric',
-        });
-        const eventLocation = updated.session?.location || 'See event details';
-
-        this.emailService.sendApprovalNotification(
-          updated.user.email,
-          participantName,
-          eventName,
-          eventDate,
-          eventLocation
-        ).catch(err => console.error('Failed to send approval email:', err));
+        const sessionInfos = await this.buildSessionInfosForUser(updated.userId, eventId);
+        this.emailService.sendRegistrationEmail({
+          status: targetStatus,
+          email: updated.user.email,
+          participantName: `${updated.user.firstName} ${updated.user.lastName}`,
+          eventName: updated.event.name,
+          eventId,
+          userId: updated.userId,
+          eventStartDate: updated.event.eventStartDate.toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' }),
+          eventEndDate: updated.event.eventEndDate
+            ? updated.event.eventEndDate.toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' })
+            : undefined,
+          eventLocation: updated.session?.location || undefined,
+          sessions: sessionInfos,
+        }).catch(err => console.error('[Email] Failed to send approval/reserve email:', err));
       } catch (emailError) {
-        console.error('Error preparing approval email:', emailError);
+        console.error('[Email] Error preparing approval email:', emailError);
       }
     }
 
@@ -457,14 +493,22 @@ export class EventRegistrationsService {
 
     // --- Send Rejection Email ---
     try {
-      const participantName = `${updated.user.firstName} ${updated.user.lastName}`;
-      this.emailService.sendRejectionNotification(
-        updated.user.email,
-        participantName,
-        updated.event.name,
-      ).catch(err => console.error('Failed to send rejection email:', err));
+      const sessionInfos = await this.buildSessionInfosForUser(updated.userId, eventId);
+      this.emailService.sendRegistrationEmail({
+        status: RegistrationStatus.REJECTED,
+        email: updated.user.email,
+        participantName: `${updated.user.firstName} ${updated.user.lastName}`,
+        eventName: updated.event.name,
+        eventId,
+        userId: updated.userId,
+        eventStartDate: updated.event.eventStartDate.toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' }),
+        eventEndDate: updated.event.eventEndDate
+          ? updated.event.eventEndDate.toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' })
+          : undefined,
+        sessions: sessionInfos,
+      }).catch(err => console.error('[Email] Failed to send rejection email:', err));
     } catch (emailError) {
-      console.error('Error preparing rejection email:', emailError);
+      console.error('[Email] Error preparing rejection email:', emailError);
     }
 
     // Promote RESERVE seat if rejecting an APPROVED application
@@ -1058,6 +1102,62 @@ export class EventRegistrationsService {
       });
     }
 
+    // --- Send email on promotion from RESERVE ---
+    try {
+      const sessionInfos = await this.buildSessionInfosForUser(updated.userId, eventId);
+      this.emailService.sendRegistrationEmail({
+        status: newStatus,
+        email: updated.user.email,
+        participantName: `${updated.user.firstName} ${updated.user.lastName}`,
+        eventName: updated.event.name,
+        eventId,
+        userId: updated.userId,
+        eventStartDate: updated.event.eventStartDate.toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' }),
+        eventEndDate: updated.event.eventEndDate
+          ? updated.event.eventEndDate.toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' })
+          : undefined,
+        sessions: sessionInfos,
+      }).catch(err => console.error('[Email] Failed to send promotion email:', err));
+    } catch (emailError) {
+      console.error('[Email] Error preparing promotion email:', emailError);
+    }
+
     return updated;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Private helpers
+  // ---------------------------------------------------------------------------
+
+  /**
+   * เป็น helper แปลงเวลา session เป็น string
+   */
+  private formatSessionTime(session: { startTime?: Date | null; endTime?: Date | null }): string | undefined {
+    if (!session.startTime) return undefined;
+    const fmt = (d: Date) =>
+      d.toLocaleString('th-TH', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    if (session.endTime) {
+      return `${fmt(session.startTime)} - ${fmt(session.endTime)}`;
+    }
+    return fmt(session.startTime);
+  }
+
+  /**
+   * ดึงรายการ sub-sessions ที่ user ลงทะเบียน (sessionId ไม่ใช่ null) และแปลงเป็น session info
+   */
+  private async buildSessionInfosForUser(
+    userId: string,
+    eventId: string,
+  ): Promise<Array<{ name: string; time?: string }>> {
+    const sessionRegs = await this.prisma.eventRegistration.findMany({
+      where: { userId, eventId, sessionId: { not: null } },
+      include: { session: true },
+    });
+    return sessionRegs
+      .filter(r => r.session)
+      .map(r => ({
+        name: r.session!.name,
+        time: this.formatSessionTime(r.session!),
+      }));
   }
 }

@@ -43,6 +43,9 @@ export class EventsService {
     }
 
     const { sessions, forms, ...eventData } = createEventDto;
+    console.log("sessions", sessions);
+    console.log("forms", forms);
+    console.log("eventData", eventData)
 
     return this.prisma.event.create({
       data: {

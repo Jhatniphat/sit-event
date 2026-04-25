@@ -2,6 +2,7 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import { MailerService } from '@nestjs-modules/mailer';
 import * as QRCode from 'qrcode';
 import { SendEmailDto, EmailTemplate } from './dto/send-email.dto';
+import { RegistrationStatus } from '../../generated/prisma';
 
 @Injectable()
 export class EmailService {
@@ -96,7 +97,7 @@ export class EmailService {
   }
 
   /**
-   * แจ้งอนุมัติเข้าร่วม Event
+   * แจ้งอนุมัติเข้าร่วม Event (legacy — kept for compatibility)
    */
   async sendApprovalNotification(
     email: string,
@@ -114,7 +115,7 @@ export class EmailService {
   }
 
   /**
-   * แจ้งปฏิเสธการเข้าร่วม
+   * แจ้งปฏิเสธการเข้าร่วม (legacy — kept for compatibility)
    */
   async sendRejectionNotification(
     email: string,
@@ -128,5 +129,110 @@ export class EmailService {
       template: 'rejection',
       context: { participantName, eventName, reason },
     });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Registration notification: handles all statuses (new unified method)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * ส่งอีเมลแจ้งผลการลงทะเบียน/อัปเดตสถานะ
+   *
+   * @param status  RegistrationStatus ที่ต้องการแจ้ง
+   * @param email   อีเมลผู้รับ
+   * @param context ข้อมูลที่ใช้ใน template
+   * @param userId  ใช้สำหรับ generate QR Code เมื่อ status = APPROVED
+   * @param eventId ใช้สำหรับ generate QR Code เมื่อ status = APPROVED
+   */
+  async sendRegistrationEmail(params: {
+    status: RegistrationStatus;
+    email: string;
+    participantName: string;
+    eventName: string;
+    eventId: string;
+    userId: string;
+    eventStartDate: string;
+    eventEndDate?: string;
+    eventLocation?: string;
+    sessions?: Array<{ name: string; time?: string }>;
+    reason?: string;
+  }): Promise<void> {
+    const {
+      status,
+      email,
+      participantName,
+      eventName,
+      eventId,
+      userId,
+      eventStartDate,
+      eventEndDate,
+      eventLocation,
+      sessions,
+      reason,
+    } = params;
+
+    const baseContext = {
+      participantName,
+      eventName,
+      eventStartDate,
+      eventEndDate,
+      eventLocation,
+      sessions,
+    };
+
+    switch (status) {
+      case RegistrationStatus.PENDING: {
+        await this.mailerService.sendMail({
+          to: email,
+          subject: `ลงทะเบียนสำเร็จ (รอการอนุมัติ) - ${eventName}`,
+          template: 'registration-pending',
+          context: baseContext,
+        });
+        break;
+      }
+
+      case RegistrationStatus.APPROVED: {
+        // Generate QR Code as inline attachment
+        const qrBuffer = await this.generateQRCode(userId, eventId);
+        await this.mailerService.sendMail({
+          to: email,
+          subject: `ได้รับการอนุมัติ - ${eventName}`,
+          template: 'registration-approved',
+          context: baseContext,
+          attachments: [
+            {
+              filename: 'qr_code.png',
+              content: qrBuffer,
+              cid: 'qr_code', // referenced as cid:qr_code in template
+            },
+          ],
+        });
+        break;
+      }
+
+      case RegistrationStatus.RESERVED: {
+        await this.mailerService.sendMail({
+          to: email,
+          subject: `อยู่ในรายชื่อสำรอง - ${eventName}`,
+          template: 'registration-reserved',
+          context: baseContext,
+        });
+        break;
+      }
+
+      case RegistrationStatus.REJECTED: {
+        await this.mailerService.sendMail({
+          to: email,
+          subject: `ผลการพิจารณาการสมัคร - ${eventName}`,
+          template: 'registration-rejected',
+          context: { ...baseContext, reason },
+        });
+        break;
+      }
+
+      default:
+        // ไม่ส่งอีเมลสำหรับสถานะอื่น ๆ
+        break;
+    }
   }
 }

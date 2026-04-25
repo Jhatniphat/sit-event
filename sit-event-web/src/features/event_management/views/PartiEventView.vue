@@ -49,7 +49,7 @@ const isLoading = ref(false)
 // --- Search & Filter State ---
 const searchQuery = ref('')
 const selectedTag = ref<string>('ALL') // ค่าเริ่มต้นเป็น 'ALL'
-const ALL_EVENT_TAGS = ['ALL', 'SPEAK', 'EDUCATION', 'WORKSHOP', 'SEMINAR', 'COMPETITION', 'SOCIAL', 'CAREER']
+const ALL_EVENT_TAGS = ['ALL', 'SPEAK', 'EDUCATION', 'WORKSHOP', 'SEMINAR', 'COMPETITION', 'SOCIAL', 'CAREER', 'OPENHOUSE', 'CAMP']
 
 const isEventsLoading = computed(() => eventStore.isLoadingList)
 

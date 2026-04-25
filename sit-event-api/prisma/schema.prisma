@@ -36,6 +36,8 @@ enum EventTag {
   COMPETITION
   SOCIAL
   CAREER
+  OPENHOUSE
+  CAMP 
 }
 
 enum FormFieldType {

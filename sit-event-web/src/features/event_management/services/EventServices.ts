@@ -12,6 +12,8 @@ export type EventTag =
   | 'COMPETITION'
   | 'SOCIAL'
   | 'CAREER'
+  | 'OPENHOUSE'
+  | 'CAMP'
 
 export type TargetAudience = 'EXTERNAL_STUDENT' | 'INTERNAL_STUDENT' | 'TEACHER' | 'PUBLIC'
 

@@ -56,7 +56,7 @@ const wantPostEventForm = ref(false)
 
 // Constants
 const ALL_EVENT_TARGET_AUDIENCE = ['EXTERNAL_STUDENT', 'INTERNAL_STUDENT', 'TEACHER', 'PUBLIC']
-const ALL_EVENT_TAGS = ['SPEAK', 'EDUCATION', 'WORKSHOP', 'SEMINAR', 'COMPETITION', 'SOCIAL', 'CAREER']
+const ALL_EVENT_TAGS = ['SPEAK', 'EDUCATION', 'WORKSHOP', 'SEMINAR', 'COMPETITION', 'SOCIAL', 'CAREER', 'OPENHOUSE', 'CAMP']
 
 // UI State
 const currentStep = ref(1)
@@ -323,6 +323,12 @@ const submitEvent = async () => {
   
   try {
     const values = form.values
+    console.log('[DEBUG] form values before submit:', {
+      enableReserve: values.enableReserve,
+      requireApprove: values.requireApprove,
+      enableReserveType: typeof values.enableReserve,
+      requireApproveType: typeof values.requireApprove,
+    })
     const formData = new FormData()
     
     formData.append('name', values.name!)
