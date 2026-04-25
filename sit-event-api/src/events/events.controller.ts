@@ -72,6 +72,15 @@ export class EventsController {
       thumbnail: thumbnailFileName, 
       images: imageFileNames,     
     };
+
+    console.log('[DEBUG] Backend Received Event Data:', {
+      name: eventData.name,
+      enableReserve: eventData.enableReserve,
+      requireApprove: eventData.requireApprove,
+      enableReserveType: typeof eventData.enableReserve,
+      requireApproveType: typeof eventData.requireApprove
+    });
+
     return this.eventService.create(eventData, user);
   }
 

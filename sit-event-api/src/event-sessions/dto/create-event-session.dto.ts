@@ -58,10 +58,14 @@ export class CreateEventSessionDto {
     example: false,
     default: false,
   })
-  @IsBoolean()
   @IsOptional()
-  @Transform(({ value }) => value === 'true' || value === true)
-  autoRegister?: boolean;
+  @Transform(({ value }) => {
+    if (value === 'false' || value === false || value === 0 || value === '0') return false;
+    if (value === 'true' || value === true || value === 1 || value === '1') return true;
+    return value;
+  })
+  @IsBoolean()
+  autoRegister?: any;
 
   @ApiPropertyOptional({
     description: 'Points awarded for attending this session',
@@ -73,10 +77,14 @@ export class CreateEventSessionDto {
   @Type(() => Number)
   pointsAwarded?: number;
 
-  @IsBoolean()
   @IsOptional()
-  @Transform(({ value }) => value === 'true' || value === true)
-  enableReserve?: boolean;
+  @Transform(({ value }) => {
+    if (value === 'false' || value === false || value === 0 || value === '0') return false;
+    if (value === 'true' || value === true || value === 1 || value === '1') return true;
+    return value;
+  })
+  @IsBoolean()
+  enableReserve?: any;
 
   @IsInt()
   @Min(1)
@@ -84,8 +92,12 @@ export class CreateEventSessionDto {
   @Type(() => Number)
   maxReserveSeats?: number;
 
-  @IsBoolean()
   @IsOptional()
-  @Transform(({ value }) => value === 'true' || value === true)
-  requireApprove?: boolean;
+  @Transform(({ value }) => {
+    if (value === 'false' || value === false || value === 0 || value === '0') return false;
+    if (value === 'true' || value === true || value === 1 || value === '1') return true;
+    return value;
+  })
+  @IsBoolean()
+  requireApprove?: any;
 }
