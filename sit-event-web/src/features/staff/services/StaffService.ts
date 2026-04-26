@@ -74,11 +74,10 @@ const handleServiceError = (error: any, methodName: string) => {
 
 export const StaffService = {
 
-async getAllStaffScope(): Promise<StaffScope[]> {
+  async getAllStaffScope(eventId?: string): Promise<StaffScope[]> {
     try {
-      const result = await apiClient.get<StaffScope[], StaffScope[]>(
-        '/event-staffs/scopes',
-      )
+      const url = eventId ? `/event-staffs/scopes?eventId=${eventId}` : '/event-staffs/scopes'
+      const result = await apiClient.get<StaffScope[], StaffScope[]>(url)
       return result
     } catch (error) {
       return handleServiceError(error, 'getAllStaffScopes')

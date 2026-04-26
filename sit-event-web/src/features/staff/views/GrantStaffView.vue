@@ -31,7 +31,7 @@ const editingStaffName = ref('')
 const staffIdToDelete = ref('')
 
 onMounted(async () => {
-  await staffStore.fetchAllScopes()
+  await staffStore.fetchAllScopes(eventId)
   await staffStore.fetchAllStaff(eventId)
   await eventStore.fetchEventSessions(eventId)
 })
@@ -124,7 +124,7 @@ const handleExecuteDelete = async () => {
     toast.success('Permission removed successfully')
     deleteModal.value = false
     staffIdToDelete.value = ''
-    await staffStore.fetchAllScopes()
+    await staffStore.fetchAllScopes(eventId)
   } else {
     toast.error(staffStore.error || 'Failed to remove permission')
   }
@@ -141,7 +141,7 @@ const handleConfirmFinal = async () => {
   if (success) {
     addModal.value = false
     step.value = 1
-    await staffStore.fetchAllScopes()
+    await staffStore.fetchAllScopes(eventId)
     toast.success('Permissions updated successfully')
   } else {
     toast.error(staffStore.error || 'Failed to update permissions')
@@ -171,7 +171,7 @@ const handleUpdateFinal = async () => {
 
     toast.success('Permission updated successfully')
     editModal.value = false
-    await staffStore.fetchAllScopes()
+    await staffStore.fetchAllScopes(eventId)
   } catch (error) {
     console.error(error)
     toast.error('Failed to update permission')

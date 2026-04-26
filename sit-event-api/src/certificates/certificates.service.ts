@@ -215,6 +215,9 @@ export class CertificatesService {
   }
 
   async generatePreview(dto: PreviewCertificateDto): Promise<Buffer> {
+    const BASE_WIDTH = 800;
+    const BASE_HEIGHT = 565;
+
     // 1. ดึงข้อมูล Template เพื่อเอา path รูป Background
     const template = await this.prisma.certificateTemplate.findUnique({
       where: { id: dto.templateId },
@@ -231,6 +234,10 @@ export class CertificatesService {
     const image = await loadImage(bgBuffer);
     const canvas = createCanvas(image.width, image.height);
     const ctx = canvas.getContext('2d');
+
+    // คำนวณอัตราส่วนการขยาย (Scaling Factor)
+    const scaleX = image.width / BASE_WIDTH;
+    const scaleY = image.height / BASE_HEIGHT;
 
     // วาด Background
     ctx.drawImage(image, 0, 0);
@@ -265,31 +272,37 @@ export class CertificatesService {
           break;
       }
 
+      // ปรับตำแหน่งและขนาดตามอัตราส่วน
+      const drawX = el.x * scaleX;
+      const drawY = el.y * scaleY;
+      const drawWidth = (el.width || 100) * scaleX;
+      const drawHeight = (el.height || 50) * scaleY;
+      const drawFontSize = (el.fontSize || 20) * scaleX;
+
       // การตั้งค่า Font และ Drawing
       if (isImage) {
         // วาดกรอบสมมติสำหรับรูปภาพ
         ctx.strokeStyle = '#FF0000'; // สีแดง
-        ctx.lineWidth = 2;
-        ctx.strokeRect(el.x, el.y, el.width || 100, el.height || 50);
+        ctx.lineWidth = 2 * scaleX;
+        ctx.strokeRect(drawX, drawY, drawWidth, drawHeight);
 
         // เขียนบอกว่าเป็นรูป
-        ctx.font = '16px Arial';
+        ctx.font = `${16 * scaleX}px Arial`;
         ctx.fillStyle = '#FF0000';
-        ctx.fillText('Image/Signature', el.x + 5, el.y + 20);
+        ctx.fillText('Image/Signature', drawX + 5 * scaleX, drawY + 20 * scaleY);
       } else {
         // วาดข้อความ
         // หมายเหตุ: Font ควรเป็น Font ที่รองรับภาษาไทยในเครื่อง Server
         // ถ้าไม่มี Font อาจจะเป็นสี่เหลี่ยมได้
-        const fontSize = el.fontSize || 20;
         const fontFamily = el.fontFamily || 'Arial'; // หรือ 'Sarabun', 'Tahoma'
         const fontWeight = el.fontWeight || 'normal';
 
-        ctx.font = `${fontWeight} ${fontSize}px "${fontFamily}"`;
+        ctx.font = `${fontWeight} ${drawFontSize}px "${fontFamily}"`;
         ctx.fillStyle = el.color || '#000000';
         ctx.textAlign = (el.textAlign as CanvasTextAlign) || 'left';
         ctx.textBaseline = 'top'; // *** สำคัญ: ให้ x,y เริ่มจากมุมซ้ายบน ***
 
-        ctx.fillText(text, el.x, el.y);
+        ctx.fillText(text, drawX, drawY);
       }
     }
 
@@ -298,6 +311,9 @@ export class CertificatesService {
   }
 
   async issueCertificate(eventId: string, userId: string): Promise<void> {
+    const BASE_WIDTH = 800;
+    const BASE_HEIGHT = 565;
+
     try {
       // 1. ดึงข้อมูล Template เพื่อเอา path รูป Background
       const template = await this.prisma.certificateTemplate.findFirst({
@@ -328,6 +344,10 @@ export class CertificatesService {
       const image = await loadImage(bgBuffer);
       const canvas = createCanvas(image.width, image.height);
       const ctx = canvas.getContext('2d');
+
+      // คำนวณอัตราส่วนการขยาย (Scaling Factor)
+      const scaleX = image.width / BASE_WIDTH;
+      const scaleY = image.height / BASE_HEIGHT;
 
       // วาด Background
       ctx.drawImage(image, 0, 0);
@@ -361,27 +381,33 @@ export class CertificatesService {
             break;
         }
 
+        // ปรับตำแหน่งและขนาดตามอัตราส่วน
+        const drawX = el.x * scaleX;
+        const drawY = el.y * scaleY;
+        const drawWidth = (el.width || 100) * scaleX;
+        const drawHeight = (el.height || 50) * scaleY;
+        const drawFontSize = (el.fontSize || 20) * scaleX;
+
         if (isImage) {
           if (el.sourceFilepath) {
             try {
               const elBuffer = await this.minioClient.getFile(el.sourceFilepath);
               const elImage = await loadImage(elBuffer);
-              ctx.drawImage(elImage, el.x, el.y, el.width || elImage.width, el.height || elImage.height);
+              ctx.drawImage(elImage, drawX, drawY, drawWidth, drawHeight);
             } catch (err) {
               console.error('Failed to draw image element on certificate', err);
             }
           }
         } else {
-          const fontSize = el.fontSize || 20;
           const fontFamily = el.fontFamily || 'Arial';
           const fontWeight = el.fontWeight || 'normal';
 
-          ctx.font = `${fontWeight} ${fontSize}px "${fontFamily}"`;
+          ctx.font = `${fontWeight} ${drawFontSize}px "${fontFamily}"`;
           ctx.fillStyle = el.color || '#000000';
           ctx.textAlign = (el.textAlign as CanvasTextAlign) || 'left';
           ctx.textBaseline = 'top';
 
-          ctx.fillText(text, el.x, el.y);
+          ctx.fillText(text, drawX, drawY);
         }
       }
 

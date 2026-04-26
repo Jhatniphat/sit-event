@@ -48,7 +48,8 @@ export class EventRegistrationsController {
   }
 
   @Patch(':eventId/registrations/:registrationId')
-  @AdminOnly()
+  @UseGuards(StaffScopesGuard)
+  @RequirePermission(StaffPermissionType.CHECK_IN)
   async changeAttendedStatusByRegistrationId(
     @Param('eventId') eventId: string,
     @Param('registrationId') registrationId: string,
@@ -61,7 +62,8 @@ export class EventRegistrationsController {
   }
 
   @Patch(':eventId/users/:userId')
-  @AllRoleAccess()
+  @UseGuards(StaffScopesGuard)
+  @RequirePermission(StaffPermissionType.CHECK_IN)
   async changeAttendedStatusByUserId(
     @Param('eventId') eventId: string,
     @Param('userId') userId: string,
@@ -165,7 +167,8 @@ export class EventRegistrationsController {
 
   // Check-in Event หลัก (Update)
   @Patch(':eventId/check-in/:userId')
-  @AllRoleAccess() 
+  @UseGuards(StaffScopesGuard)
+  @RequirePermission(StaffPermissionType.CHECK_IN)
   async checkInUser(
     @Param('eventId') eventId: string,
     @Param('userId') userId: string,
@@ -175,7 +178,8 @@ export class EventRegistrationsController {
 
   // [NEW] Check-in Sub-session
   @Patch(':eventId/check-in/:userId/:sessionId')
-  @AllRoleAccess()
+  @UseGuards(StaffScopesGuard)
+  @RequirePermission(StaffPermissionType.CHECK_IN)
   async checkInUserSession(
     @Param('eventId') eventId: string,
     @Param('userId') userId: string,
