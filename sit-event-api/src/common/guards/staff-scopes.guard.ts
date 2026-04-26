@@ -52,6 +52,12 @@ export class StaffScopesGuard implements CanActivate {
 
     const userId = dbUser.id;  // ✅ Use database UUID, not Keycloak sub
     
+    // STEP 0: System Admins bypass all specific staff checks
+    if (dbUser.userRole === 'ADMIN') {
+      this.logger.debug(`User ${userId} is System Admin, bypassing staff permission check`);
+      return true;
+    }
+    
     //  Better eventId extraction from multiple possible locations
     const eventId = 
       request.params.eventId || 
