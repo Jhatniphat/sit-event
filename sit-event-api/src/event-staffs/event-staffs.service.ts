@@ -65,7 +65,7 @@ export class EventStaffsService {
           where: { id: existingApplication.id },
           data: {
             eventRole: dto.eventRole,
-            status: 'PENDING',
+            status: 'ACCEPTED', // Automatically accept reapplications for simplicity, can be changed to PENDING if review is needed
           },
         });
       } else {
@@ -89,7 +89,7 @@ export class EventStaffsService {
           connect: { id: user.id },
         },
         eventRole: dto.eventRole,
-        status: 'PENDING',
+        status: 'ACCEPTED', // Automatically accept applications for simplicity, can be changed to PENDING if review is needed
       },
     });
   }

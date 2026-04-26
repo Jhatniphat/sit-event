@@ -36,6 +36,8 @@ enum EventTag {
   COMPETITION
   SOCIAL
   CAREER
+  OPENHOUSE
+  CAMP 
 }
 
 enum FormFieldType {
@@ -67,6 +69,7 @@ enum RegistrationStatus {
   PENDING
   APPROVED
   REJECTED
+  RESERVED
 }
 
 enum BackgroundType {
@@ -125,6 +128,9 @@ model Event {
   targetAudience       TargetAudience[]
   tags                 EventTag[]
   maxSeats             Int?             // Optional max participants for the entire event
+  enableReserve        Boolean          @default(false)
+  maxReserveSeats      Int?             // Optional max reserve participants
+  requireApprove       Boolean          @default(false)
   activityHours        Int?
   invitation           String?          @db.Text
   website              String?
@@ -154,10 +160,14 @@ model EventSession {
   eventId        String
   name           String
   description    String?  @db.Text
+  thumbnail      String?
   startTime      DateTime @db.Timestamptz
   endTime        DateTime @db.Timestamptz
   location       String?
   maxSeats       Int?     // Optional: null means unlimited
+  enableReserve  Boolean  @default(false)
+  maxReserveSeats Int?    // Optional
+  requireApprove Boolean  @default(false)
   availableSeats Int?     // Optional: null means unlimited
   pointsAwarded  Int?
   autoRegister   Boolean  @default(false)
@@ -340,6 +350,7 @@ model CertificateTemplate {
   event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
   elements CertificateElement[] // เชื่อมกับ Element ย่อยๆ
+  @@map("certificate_templates")
 }
 
 model CertificateElement {
@@ -361,6 +372,7 @@ model CertificateElement {
   dateFormat     String?       // เช่น "DD MMMM YYYY" หรือ "DD/MM/YYYY" สำหรับ FieldType.Date
 
   certificateTemplate CertificateTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  @@map("certificate_elements")
 }
 
 model Suggestion {

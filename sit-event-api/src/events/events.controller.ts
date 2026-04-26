@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Controller,
   Get,
   Post,
@@ -28,7 +29,7 @@ import {
 import { MinioClientService } from '../minio/minio-client.service';
 import { StaffScopesGuard, RequirePermission } from '../common/guards/staff-scopes.guard';
 import { EventSessionsService } from '../event-sessions/event-sessions.service';
-import { StaffPermissionType } from 'generated/prisma';
+import { EventTag, StaffPermissionType } from 'generated/prisma';
 
 @Controller('events')
 export class EventsController {
@@ -71,6 +72,15 @@ export class EventsController {
       thumbnail: thumbnailFileName, 
       images: imageFileNames,     
     };
+
+    console.log('[DEBUG] Backend Received Event Data:', {
+      name: eventData.name,
+      enableReserve: eventData.enableReserve,
+      requireApprove: eventData.requireApprove,
+      enableReserveType: typeof eventData.enableReserve,
+      requireApproveType: typeof eventData.requireApprove
+    });
+
     return this.eventService.create(eventData, user);
   }
 
@@ -79,8 +89,37 @@ export class EventsController {
   async getAllEvent(
     @Query('page', new ParseIntPipe({ optional: true })) page?: number,
     @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
+    @Query('name') name?: string,
+    @Query('tags') tags?: string | string[],
   ) {
-    return this.eventService.findAll({ page, limit });
+    const parsedTags = this.parseTags(tags);
+    return this.eventService.findAll({ page, limit, name, tags: parsedTags });
+  }
+
+  private parseTags(tags?: string | string[]): EventTag[] | undefined {
+    if (!tags) {
+      return undefined;
+    }
+
+    const rawTags = Array.isArray(tags) ? tags : tags.split(',');
+    const normalizedTags = rawTags
+      .map((tag) => tag.trim().toUpperCase())
+      .filter((tag) => tag.length > 0);
+
+    if (normalizedTags.length === 0) {
+      return undefined;
+    }
+
+    const validTags = Object.values(EventTag);
+    const invalidTags = normalizedTags.filter((tag) => !validTags.includes(tag as EventTag));
+
+    if (invalidTags.length > 0) {
+      throw new BadRequestException(
+        `Invalid event tag(s): ${invalidTags.join(', ')}. Allowed tags: ${validTags.join(', ')}`,
+      );
+    }
+
+    return [...new Set(normalizedTags)] as EventTag[];
   }
 
   @Get(':eventId/participants')

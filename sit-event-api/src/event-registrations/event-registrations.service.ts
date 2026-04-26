@@ -1,8 +1,10 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma.service';
 import { UsersService } from '../users/users.service';
@@ -42,11 +44,35 @@ export class EventRegistrationsService {
       (form) => form.type === FormType.PRE_EVENT && form.isActive,
     );
 
-    // Determine registration status
-    // If no PRE_EVENT form required -> APPROVED immediately
-    const initialStatus = hasActivePreEventForm
+    // Check if event requires manual approval
+    let initialStatus: RegistrationStatus = event.requireApprove
       ? RegistrationStatus.PENDING
       : RegistrationStatus.APPROVED;
+
+    if (event.maxSeats !== null && !event.requireApprove) {
+      const currentRegs = await this.prisma.eventRegistration.count({
+        where: {
+          eventId,
+          sessionId: null,
+          status: { in: [RegistrationStatus.APPROVED, RegistrationStatus.PENDING] }
+        }
+      });
+      if (currentRegs >= event.maxSeats) {
+        if (event.enableReserve) {
+          if (event.maxReserveSeats !== null) {
+            const currentReserves = await this.prisma.eventRegistration.count({
+              where: { eventId, sessionId: null, status: RegistrationStatus.RESERVED }
+            });
+            if (currentReserves >= event.maxReserveSeats) {
+              throw new ConflictException('Event has reached maximum seats and reserve seats');
+            }
+          }
+          initialStatus = RegistrationStatus.RESERVED;
+        } else {
+          throw new ConflictException('Event has reached maximum seats');
+        }
+      }
+    }
 
     const user = await this.usersService.findByEmail(authenticatedUser.email);
     if (!user) {
@@ -65,9 +91,9 @@ export class EventRegistrationsService {
       throw new ConflictException('You are already registered for this event');
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const mainRegistration = await this.prisma.$transaction(async (tx) => {
       // 1. Create registration for the main event
-      const mainRegistration = await tx.eventRegistration.create({
+      const reg = await tx.eventRegistration.create({
         data: {
           event: { connect: { id: eventId } },
           user: { connect: { id: user.id } },
@@ -100,17 +126,42 @@ export class EventRegistrationsService {
         });
 
         if (!existingSessionReg) {
+          let sessionStatus: RegistrationStatus = initialStatus;
+          if (sessionStatus === RegistrationStatus.APPROVED && session.requireApprove) {
+            sessionStatus = RegistrationStatus.PENDING;
+          }
+          if (sessionStatus !== RegistrationStatus.RESERVED && sessionStatus !== RegistrationStatus.PENDING && session.maxSeats !== null) {
+            const currentRegs = await tx.eventRegistration.count({
+              where: { eventId, sessionId: session.id, status: { in: [RegistrationStatus.APPROVED, RegistrationStatus.PENDING] } }
+            });
+            if (currentRegs >= session.maxSeats) {
+              if (session.enableReserve) {
+                if (session.maxReserveSeats !== null) {
+                  const currentReserves = await tx.eventRegistration.count({
+                    where: { eventId, sessionId: session.id, status: RegistrationStatus.RESERVED }
+                  });
+                  if (currentReserves >= session.maxReserveSeats) {
+                    continue; // skip
+                  }
+                }
+                sessionStatus = RegistrationStatus.RESERVED;
+              } else {
+                continue; // skip
+              }
+            }
+          }
+
           await tx.eventRegistration.create({
             data: {
               event: { connect: { id: eventId } },
               user: { connect: { id: user.id } },
               session: { connect: { id: session.id } },
-              status: initialStatus,
+              status: sessionStatus,
             },
           });
 
           // Decrement availableSeats only when immediately approved and session has a seat limit
-          if (initialStatus === RegistrationStatus.APPROVED && session.maxSeats !== null) {
+          if (sessionStatus === RegistrationStatus.APPROVED && session.maxSeats !== null) {
             await tx.eventSession.update({
               where: { id: session.id },
               data: { availableSeats: { decrement: 1 } },
@@ -119,8 +170,45 @@ export class EventRegistrationsService {
         }
       }
 
-      return mainRegistration;
+      return reg;
     });
+
+    // --- Send registration confirmation email (fire-and-forget) ---
+    this.prisma.eventRegistration.findFirst({
+      where: { userId: user.id, eventId, sessionId: null },
+      include: {
+        user: true,
+        event: true,
+        session: true,
+      },
+    }).then(async (reg) => {
+      if (!reg) return;
+      const sessions = await this.prisma.eventRegistration.findMany({
+        where: { userId: user.id, eventId, sessionId: { not: null } },
+        include: { session: true },
+      });
+      const sessionInfos = sessions
+        .filter(s => s.session)
+        .map(s => ({
+          name: s.session!.name,
+          time: this.formatSessionTime(s.session!),
+        }));
+      await this.emailService.sendRegistrationEmail({
+        status: initialStatus,
+        email: user.email,
+        participantName: `${user.firstName} ${user.lastName}`,
+        eventName: reg.event.name,
+        eventId,
+        userId: user.id,
+        eventStartDate: reg.event.eventStartDate.toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' }),
+        eventEndDate: reg.event.eventEndDate
+          ? reg.event.eventEndDate.toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' })
+          : undefined,
+        sessions: sessionInfos,
+      });
+    }).catch(err => console.error('[Email] Failed to send registration email:', err));
+
+    return mainRegistration;
   }
 
   async unregisterUserFromEvent(
@@ -170,6 +258,14 @@ export class EventRegistrationsService {
       }
     }
 
+    const mainRegistration = await this.prisma.eventRegistration.findFirst({
+      where: {
+        eventId: eventId,
+        userId: user.id,
+        sessionId: null,
+      },
+    });
+
     const deleteResult = await this.prisma.eventRegistration.deleteMany({
       where: {
         eventId: eventId,
@@ -181,6 +277,15 @@ export class EventRegistrationsService {
         'Registration not found for this user and event.',
       );
     }
+
+    // Try to promote a reserve registration if one was freed
+    if (mainRegistration && mainRegistration.status === RegistrationStatus.APPROVED) {
+      await this.promoteReserveRegistration(eventId, null);
+    }
+    for (const reg of approvedSessionRegs) {
+      await this.promoteReserveRegistration(eventId, reg.sessionId);
+    }
+
     return deleteResult;
   }
 
@@ -210,9 +315,16 @@ export class EventRegistrationsService {
   }
 
   async cancelRegistrationById(registrationId: string) {
-    return this.prisma.eventRegistration.delete({
+    const reg = await this.prisma.eventRegistration.findUnique({
+      where: { id: registrationId }
+    });
+    const result = await this.prisma.eventRegistration.delete({
       where: { id: registrationId },
     });
+    if (reg && reg.status === RegistrationStatus.APPROVED) {
+      await this.promoteReserveRegistration(reg.eventId, reg.sessionId);
+    }
+    return result;
   }
 
   async changeAttendedStatusByRegistrationId(
@@ -253,7 +365,7 @@ export class EventRegistrationsService {
   async approveRegistration(eventId: string, registrationId: string) {
     const registration = await this.prisma.eventRegistration.findFirst({
       where: { id: registrationId, eventId: eventId },
-      include: { session: true },
+      include: { session: true, event: true },
     });
 
     if (!registration) {
@@ -264,17 +376,65 @@ export class EventRegistrationsService {
       throw new BadRequestException('Registration is already approved.');
     }
 
+    let targetStatus: RegistrationStatus = RegistrationStatus.APPROVED;
+
+    if (registration.sessionId === null) {
+      // Main Event
+      if (registration.event && registration.event.maxSeats !== null) {
+        const currentRegs = await this.prisma.eventRegistration.count({
+          where: { eventId, sessionId: null, status: RegistrationStatus.APPROVED }
+        });
+        if (currentRegs >= registration.event.maxSeats) {
+          if (registration.event.enableReserve) {
+            if (registration.event.maxReserveSeats !== null) {
+              const currentReserves = await this.prisma.eventRegistration.count({
+                where: { eventId, sessionId: null, status: RegistrationStatus.RESERVED }
+              });
+              if (currentReserves >= registration.event.maxReserveSeats) {
+                throw new ConflictException('Event has reached maximum seats and reserve seats');
+              }
+            }
+            targetStatus = RegistrationStatus.RESERVED;
+          } else {
+            throw new ConflictException('Event has reached maximum seats');
+          }
+        }
+      }
+    } else {
+      // Session
+      if (registration.session && registration.session.maxSeats !== null) {
+        const currentRegs = await this.prisma.eventRegistration.count({
+          where: { eventId, sessionId: registration.session.id, status: RegistrationStatus.APPROVED }
+        });
+        if (currentRegs >= registration.session.maxSeats) {
+          if (registration.session.enableReserve) {
+            if (registration.session.maxReserveSeats !== null) {
+              const currentReserves = await this.prisma.eventRegistration.count({
+                where: { eventId, sessionId: registration.session.id, status: RegistrationStatus.RESERVED }
+              });
+              if (currentReserves >= registration.session.maxReserveSeats) {
+                throw new ConflictException('Session has reached maximum seats and reserve seats');
+              }
+            }
+            targetStatus = RegistrationStatus.RESERVED;
+          } else {
+            throw new ConflictException('Session has reached maximum seats');
+          }
+        }
+      }
+    }
+
     const updated = await this.prisma.eventRegistration.update({
       where: { id: registrationId },
       data: {
-        status: RegistrationStatus.APPROVED,
-        approvedAt: new Date(),
+        status: targetStatus,
+        approvedAt: targetStatus === RegistrationStatus.APPROVED ? new Date() : null,
       },
       include: { user: true, event: true, session: true },
     });
 
     // Decrement session available seats upon approval (if session has maxSeats)
-    if (registration.sessionId && registration.session?.maxSeats !== null && registration.session?.maxSeats !== undefined) {
+    if (targetStatus === RegistrationStatus.APPROVED && registration.sessionId && registration.session?.maxSeats !== null && registration.session?.maxSeats !== undefined) {
       await this.prisma.eventSession.update({
         where: { id: registration.sessionId },
         data: { availableSeats: { decrement: 1 } },
@@ -282,25 +442,26 @@ export class EventRegistrationsService {
     }
 
     // --- Send Approval Email ---
-    try {
-      const participantName = `${updated.user.firstName} ${updated.user.lastName}`;
-      const eventName = updated.event.name;
-      const eventDate = updated.event.eventStartDate.toLocaleDateString('th-TH', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      });
-      const eventLocation = updated.session?.location || 'See event details';
-
-      this.emailService.sendApprovalNotification(
-        updated.user.email,
-        participantName,
-        eventName,
-        eventDate,
-        eventLocation
-      ).catch(err => console.error('Failed to send approval email:', err));
-    } catch (emailError) {
-      console.error('Error preparing approval email:', emailError);
+    if (targetStatus === RegistrationStatus.APPROVED || targetStatus === RegistrationStatus.RESERVED) {
+      try {
+        const sessionInfos = await this.buildSessionInfosForUser(updated.userId, eventId);
+        this.emailService.sendRegistrationEmail({
+          status: targetStatus,
+          email: updated.user.email,
+          participantName: `${updated.user.firstName} ${updated.user.lastName}`,
+          eventName: updated.event.name,
+          eventId,
+          userId: updated.userId,
+          eventStartDate: updated.event.eventStartDate.toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' }),
+          eventEndDate: updated.event.eventEndDate
+            ? updated.event.eventEndDate.toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' })
+            : undefined,
+          eventLocation: updated.session?.location || undefined,
+          sessions: sessionInfos,
+        }).catch(err => console.error('[Email] Failed to send approval/reserve email:', err));
+      } catch (emailError) {
+        console.error('[Email] Error preparing approval email:', emailError);
+      }
     }
 
     return updated;
@@ -332,14 +493,27 @@ export class EventRegistrationsService {
 
     // --- Send Rejection Email ---
     try {
-      const participantName = `${updated.user.firstName} ${updated.user.lastName}`;
-      this.emailService.sendRejectionNotification(
-        updated.user.email,
-        participantName,
-        updated.event.name,
-      ).catch(err => console.error('Failed to send rejection email:', err));
+      const sessionInfos = await this.buildSessionInfosForUser(updated.userId, eventId);
+      this.emailService.sendRegistrationEmail({
+        status: RegistrationStatus.REJECTED,
+        email: updated.user.email,
+        participantName: `${updated.user.firstName} ${updated.user.lastName}`,
+        eventName: updated.event.name,
+        eventId,
+        userId: updated.userId,
+        eventStartDate: updated.event.eventStartDate.toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' }),
+        eventEndDate: updated.event.eventEndDate
+          ? updated.event.eventEndDate.toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' })
+          : undefined,
+        sessions: sessionInfos,
+      }).catch(err => console.error('[Email] Failed to send rejection email:', err));
     } catch (emailError) {
-      console.error('Error preparing rejection email:', emailError);
+      console.error('[Email] Error preparing rejection email:', emailError);
+    }
+
+    // Promote RESERVE seat if rejecting an APPROVED application
+    if (registration.status === RegistrationStatus.APPROVED) {
+      await this.promoteReserveRegistration(eventId, registration.sessionId);
     }
 
     return updated;
@@ -443,8 +617,10 @@ export class EventRegistrationsService {
       const row: any = {
         id: reg.id,
         userId: reg.userId,
-        // Always include basic status
         status: reg.status,
+        sessionId: reg.sessionId,
+        sessionName: reg.session ? reg.session.name : null,
+        isMainEvent: reg.sessionId === null,
       };
 
       // Map System Fields
@@ -482,6 +658,63 @@ export class EventRegistrationsService {
       include: { user: true, session: true },
       orderBy: { registeredAt: 'desc' },
     });
+  }
+
+  // =============================================
+  // Get Registration Capacity Left
+  // =============================================
+  async getRegistrationCapacity(eventId: string) {
+    const event = await this.prisma.event.findUnique({
+      where: { id: eventId },
+      include: { sessions: true },
+    });
+
+    if (!event) {
+      throw new NotFoundException('Event not found');
+    }
+
+    const payload: any = {
+      mainEvent: null,
+      sessions: {},
+    };
+
+    // Calculate for main event
+    if (event.maxSeats !== null) {
+      const approvedCount = await this.prisma.eventRegistration.count({
+        where: { eventId, sessionId: null, status: RegistrationStatus.APPROVED },
+      });
+      const reservedCount = await this.prisma.eventRegistration.count({
+        where: { eventId, sessionId: null, status: RegistrationStatus.RESERVED },
+      });
+
+      payload.mainEvent = {
+        maxSeats: event.maxSeats,
+        approvedCount,
+        maxReserveSeats: event.enableReserve ? event.maxReserveSeats : null,
+        reservedCount,
+      };
+    }
+
+    // Calculate for sessions
+    for (const session of event.sessions) {
+      if (session.maxSeats !== null) {
+        const approvedCount = await this.prisma.eventRegistration.count({
+          where: { eventId, sessionId: session.id, status: RegistrationStatus.APPROVED },
+        });
+        const reservedCount = await this.prisma.eventRegistration.count({
+          where: { eventId, sessionId: session.id, status: RegistrationStatus.RESERVED },
+        });
+
+        payload.sessions[session.id] = {
+          maxSeats: session.maxSeats,
+          approvedCount,
+          maxReserveSeats: session.enableReserve ? session.maxReserveSeats : null,
+          reservedCount,
+        };
+      }
+    }
+
+    return payload;
   }
 
   async checkUserQrStatus(eventId: string, userId: string) {
@@ -602,6 +835,119 @@ export class EventRegistrationsService {
 
     return updatedSessionRegistration;
   }
+
+  async staffCheckIn(
+    eventId: string,
+    userId: string,
+    sessionId: string | null | undefined,
+  ) {
+    try {
+      // Validate event exists
+      const event = await this.prisma.event.findUnique({
+        where: { id: eventId },
+      });
+
+      if (!event) {
+        throw new NotFoundException(`Event with ID '${eventId}' not found.`);
+      }
+
+      // Normalize sessionId: treat undefined as null for consistency
+      const normalizedSessionId = sessionId || null;
+
+      // Find the registration
+      let registration: any;
+
+      if (normalizedSessionId) {
+        // Session-specific check-in
+        registration = await this.prisma.eventRegistration.findFirst({
+          where: {
+            eventId: eventId,
+            userId: userId,
+            sessionId: normalizedSessionId,
+          },
+          include: {
+            event: true,
+            user: true,
+            session: true,
+          },
+        });
+
+        if (!registration) {
+          throw new NotFoundException(
+            `Registration for user '${userId}' in session '${normalizedSessionId}' not found.`,
+          );
+        }
+      } else {
+        // Main event check-in
+        registration = await this.prisma.eventRegistration.findFirst({
+          where: {
+            eventId: eventId,
+            userId: userId,
+            sessionId: null,
+          },
+          include: {
+            event: true,
+            user: true,
+          },
+        });
+
+        if (!registration) {
+          throw new NotFoundException(
+            `Main event registration for user '${userId}' not found.`,
+          );
+        }
+      }
+
+      // Check registration status is APPROVED
+      if (registration.status !== RegistrationStatus.APPROVED) {
+        throw new BadRequestException(
+          `Registration status is '${registration.status}', must be 'APPROVED' to check-in.`,
+        );
+      }
+
+      // Check for duplicate check-in
+      if (registration.attended) {
+        throw new ConflictException(
+          `User '${userId}' has already been checked-in.`,
+        );
+      }
+
+      // Update the registration with check-in details
+      const updatedRegistration = await this.prisma.eventRegistration.update({
+        where: { id: registration.id },
+        data: {
+          attended: true,
+          checkedInAt: new Date(),
+        },
+        include: {
+          event: true,
+          user: true,
+          session: true,
+        },
+      });
+
+      return updatedRegistration;
+    } catch (error) {
+      // Re-throw known exceptions (caught in GlobalExceptionFilter)
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException ||
+        error instanceof ConflictException
+      ) {
+        throw error;
+      }
+
+      // Log unexpected errors
+      console.error(
+        `Unexpected error in staffCheckIn - eventId: ${eventId}, userId: ${userId}, sessionId: ${sessionId}`,
+        error,
+      );
+
+      // Re-throw as-is to let GlobalExceptionFilter handle it
+      throw error;
+    }
+  }
+
   // =============================================
   // Export Registrations to Excel
   // =============================================
@@ -710,5 +1056,108 @@ export class EventRegistrationsService {
     );
 
     return workbook.xlsx.write(res);
+  }
+
+  private async promoteReserveRegistration(eventId: string, sessionId: string | null = null) {
+    const reserveReg = await this.prisma.eventRegistration.findFirst({
+      where: {
+        eventId,
+        sessionId,
+        status: RegistrationStatus.RESERVED,
+      },
+      orderBy: { registeredAt: 'asc' },
+    });
+
+    if (!reserveReg) return null;
+
+    const event = await this.prisma.event.findUnique({
+      where: { id: eventId },
+      include: { forms: true },
+    });
+
+    let newStatus = event?.requireApprove
+      ? RegistrationStatus.PENDING
+      : RegistrationStatus.APPROVED;
+
+    if (sessionId) {
+      const session = await this.prisma.eventSession.findUnique({
+        where: { id: sessionId },
+      });
+      if (session?.requireApprove && newStatus === RegistrationStatus.APPROVED) {
+        newStatus = RegistrationStatus.PENDING;
+      }
+    }
+
+    const updated = await this.prisma.eventRegistration.update({
+      where: { id: reserveReg.id },
+      data: { status: newStatus },
+      include: { user: true, session: true, event: true }
+    });
+
+    if (newStatus === RegistrationStatus.APPROVED && updated.session && updated.session.maxSeats !== null) {
+      // decrement available seats
+      await this.prisma.eventSession.update({
+        where: { id: updated.session.id },
+        data: { availableSeats: { decrement: 1 } }
+      });
+    }
+
+    // --- Send email on promotion from RESERVE ---
+    try {
+      const sessionInfos = await this.buildSessionInfosForUser(updated.userId, eventId);
+      this.emailService.sendRegistrationEmail({
+        status: newStatus,
+        email: updated.user.email,
+        participantName: `${updated.user.firstName} ${updated.user.lastName}`,
+        eventName: updated.event.name,
+        eventId,
+        userId: updated.userId,
+        eventStartDate: updated.event.eventStartDate.toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' }),
+        eventEndDate: updated.event.eventEndDate
+          ? updated.event.eventEndDate.toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' })
+          : undefined,
+        sessions: sessionInfos,
+      }).catch(err => console.error('[Email] Failed to send promotion email:', err));
+    } catch (emailError) {
+      console.error('[Email] Error preparing promotion email:', emailError);
+    }
+
+    return updated;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Private helpers
+  // ---------------------------------------------------------------------------
+
+  /**
+   * เป็น helper แปลงเวลา session เป็น string
+   */
+  private formatSessionTime(session: { startTime?: Date | null; endTime?: Date | null }): string | undefined {
+    if (!session.startTime) return undefined;
+    const fmt = (d: Date) =>
+      d.toLocaleString('th-TH', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    if (session.endTime) {
+      return `${fmt(session.startTime)} - ${fmt(session.endTime)}`;
+    }
+    return fmt(session.startTime);
+  }
+
+  /**
+   * ดึงรายการ sub-sessions ที่ user ลงทะเบียน (sessionId ไม่ใช่ null) และแปลงเป็น session info
+   */
+  private async buildSessionInfosForUser(
+    userId: string,
+    eventId: string,
+  ): Promise<Array<{ name: string; time?: string }>> {
+    const sessionRegs = await this.prisma.eventRegistration.findMany({
+      where: { userId, eventId, sessionId: { not: null } },
+      include: { session: true },
+    });
+    return sessionRegs
+      .filter(r => r.session)
+      .map(r => ({
+        name: r.session!.name,
+        time: this.formatSessionTime(r.session!),
+      }));
   }
 }

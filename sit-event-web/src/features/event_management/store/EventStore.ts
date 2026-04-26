@@ -13,6 +13,8 @@ import {
   type ParticipantPaginationResponse,
   type GetParticipantsParams,
   type ParticipantInfo,
+  type ParticipantSummary,
+  type EventTag,
 } from '@/features/event_management/services/EventServices'
 import { type ParsedApiError } from '@/shared/utils/FetchUtils'
 
@@ -30,6 +32,8 @@ interface IEventState {
   error: string | null
   participantsData: ParticipantPaginationResponse | null
   allParticipants: ParticipantInfo[]
+  summaryAttendance: ParticipantSummary
+  paginationParticipant: PaginationMeta
 }
 
 // 2. Error Helper
@@ -59,7 +63,9 @@ export const useEventStore = defineStore('events', {
     isLoadingPartiList: false,
     error: null,
     participantsData: null as ParticipantPaginationResponse | null,
-    allParticipants: [] as ParticipantInfo[], // สำหรับเก็บรายชื่อผู้เข้าร่วมทั้งหมดใน Session (สำหรับ Staff)
+    allParticipants: [] as ParticipantInfo[],
+    summaryAttendance: {} as ParticipantSummary,
+    paginationParticipant: {} as PaginationMeta,
   }),
 
   getters: {
@@ -76,14 +82,19 @@ export const useEventStore = defineStore('events', {
     /**
      * R = Read (All)
      */
-    async fetchAllEvents(page: number, limit: number) {
-      if (this.events.length > 0 && this.pagination?.page === page) {
-        // logic cache อย่างง่าย
-      }
+    async fetchAllEvents(params: { page: number; limit: number; name?: string; tags?: string }) {
+      // Logic การ Cache: ถ้า Params เหมือนเดิมเป๊ะๆ อาจจะไม่ต้องยิงใหม่
+      // แต่ถ้าเป็นการ Search (มี name หรือ tag) แนะนำให้ยิงใหม่เสมอเพื่อให้ข้อมูลสดใหม่
       this.isLoadingList = true
       this.error = null
       try {
-        const { data, pagination } = await EventService.getAllEvents({ page, limit })
+        const { data, pagination } = await EventService.getAllEvents({
+          page: params.page,
+          limit: params.limit,
+          name: params.name || undefined,
+          tags: params.tags === 'ALL' ? undefined : (params.tags as EventTag),
+        })
+
         this.events = data
         this.pagination = pagination
       } catch (error) {
@@ -195,7 +206,7 @@ export const useEventStore = defineStore('events', {
       }
     },
 
-    async createSession(eventId: string, sessionData: CreateSessionDto) {
+    async createSession(eventId: string, sessionData: CreateSessionDto | FormData) {
       try {
         const newSession = await EventService.createSession(eventId, sessionData)
         this.currentEventSessions.push(newSession)
@@ -204,7 +215,7 @@ export const useEventStore = defineStore('events', {
       }
     },
 
-    async updateSession(eventId: string, sessionId: string, sessionData: UpdateSessionDto) {
+    async updateSession(eventId: string, sessionId: string, sessionData: UpdateSessionDto | FormData) {
       try {
         const updatedSession = await EventService.updateSession(eventId, sessionId, sessionData)
         const index = this.currentEventSessions.findIndex((s) => s.id === sessionId)
@@ -290,6 +301,8 @@ export const useEventStore = defineStore('events', {
         const participants = await EventService.participantsForEvent(eventId, params)
         this.participantsData = participants
         this.allParticipants = participants.data
+        this.summaryAttendance = participants.summary
+        this.pagination = participants.pagination
       } catch (error) {
         this.error = handleError(error, 'Failed to fetch participants.')
         console.error(this.error)
@@ -306,10 +319,11 @@ export const useEventStore = defineStore('events', {
       this.isLoadingPartiList = true
       this.error = null
       try {
-        console.log('Fetching participants for session:', { eventId, sessionId, params })
         const participants = await EventService.participantsForSession(eventId, sessionId, params)
         this.participantsData = participants
         this.allParticipants = participants.data
+        this.summaryAttendance = participants.summary
+        this.pagination = participants.pagination
       } catch (error) {
         this.error = handleError(error, 'Failed to fetch participants.')
         console.error(this.error)

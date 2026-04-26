@@ -88,10 +88,14 @@ export class CreateEventDto {
   @IsOptional()
   website?: string;
 
-  @IsBoolean()
   @IsOptional()
-  @Transform(({ value }) => value === 'true' || value === true)
-  needWifi?: boolean;
+  @Transform(({ value }) => {
+    if (value === 'false' || value === false || value === 0 || value === '0') return false;
+    if (value === 'true' || value === true || value === 1 || value === '1') return true;
+    return value;
+  })
+  @IsBoolean()
+  needWifi?: any;
 
   @IsString()
   @IsOptional()
@@ -132,4 +136,28 @@ export class CreateEventDto {
     return value;
   })
   forms?: any[];
+
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (value === 'false' || value === false || value === 0 || value === '0') return false;
+    if (value === 'true' || value === true || value === 1 || value === '1') return true;
+    return value;
+  })
+  @IsBoolean()
+  enableReserve?: any;
+
+  @IsInt()
+  @IsOptional()
+  @Min(1)
+  @Type(() => Number)
+  maxReserveSeats?: number;
+
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (value === 'false' || value === false || value === 0 || value === '0') return false;
+    if (value === 'true' || value === true || value === 1 || value === '1') return true;
+    return value;
+  })
+  @IsBoolean()
+  requireApprove?: any;
 }

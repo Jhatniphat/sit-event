@@ -22,7 +22,6 @@ export const useStaffStore = defineStore('staff', () => {
     try {
       const result = await StaffService.getAllStaffScope()
       allScopes.value = result
-      console.log('[StaffStore] Fetched all scopes:', result)
     } catch (err: any) {
       error.value = err.message || 'Failed to fetch all scopes'
       throw err

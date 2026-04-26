@@ -2,9 +2,9 @@
 import { computed, ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useStaffStore } from '../store/StaffStore'
-import type { StaffPermission } from '../services/StaffService'
+import type { StaffPermission, StaffScope } from '../services/StaffService'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, Loader2, ShieldCheck, UserCircle } from 'lucide-vue-next'
+import { ArrowLeft, Loader2, X, Pencil, UserCircle } from 'lucide-vue-next'
 import SelectStaff from '../components/SelectStaff.vue'
 import SelectRole from '../components/SelectRole.vue'
 import ConfirmationStaff from '../components/ConfirmationStaff.vue'
@@ -18,43 +18,77 @@ const eventStore = useEventStore()
 
 // --- State Management ---
 const addModal = ref(false)
+const editModal = ref(false)
+const deleteModal = ref(false)
 const step = ref(1)
 const eventId = route.params.id as string
 const selectedStaffIds = ref<string[]>([])
 const selectedRoles = ref<string[]>([])
 const selectedSession = ref('')
 const availableRoles = ['CHECK_IN', 'VIEW_PARTICIPANTS']
+const editingScopeId = ref<StaffScope['id'] | null>(null)
+const editingStaffName = ref('')
+const staffIdToDelete = ref('')
 
 onMounted(async () => {
   await staffStore.fetchAllScopes()
   await staffStore.fetchAllStaff(eventId)
   await eventStore.fetchEventSessions(eventId)
-  console.log('GrantStaffView Mounted - Event ID:', eventId)
-  console.log('Fetched Staff Scopes:', staffStore.allScopes)
-  console.log('Fetched Staff List:', staffStore.allStaff)
 })
 
 const staffScopesList = computed(() => staffStore.allScopes || [])
-const staffList = computed(() => staffStore.allStaff || []) 
+const rawStaffList = computed(() => staffStore.allStaff || [])
 const sessionsList = computed(() => eventStore.currentEventSessions || [])
 const isLoading = computed(() => staffStore.isLoading)
 
+const filteredStaffList = computed(() => {
+  if (!rawStaffList.value) return []
+  if (sessionsList.value.length === 0) return rawStaffList.value // ถ้าไม่มี session เลย ก็เลือกได้ทุกคน
+
+  // 1. สร้าง Map เพื่อเก็บว่า Staff แต่ละคน มีสิทธิ์ที่ Session ไหนไปบ้างแล้ว
+  // โครงสร้าง: { staffId: Set([sessionId1, sessionId2, null]) }  *null คือ Event-Wide
+  const staffAssignments = new Map<string, Set<string | null>>()
+
+  staffScopesList.value.forEach((scope) => {
+    if (!staffAssignments.has(scope.staffId)) {
+      staffAssignments.set(scope.staffId, new Set())
+    }
+    staffAssignments.get(scope.staffId)?.add(scope.sessionId || null)
+  })
+
+  // 2. คำนวณจำนวน Session ทั้งหมดที่มี (+1 สำหรับ Event-Wide)
+  const totalPossibleSlots = sessionsList.value.length + 1
+
+  // 3. กรองรายชื่อพนักงาน
+  return rawStaffList.value.filter((staff) => {
+    const assignedSlots = staffAssignments.get(staff.id)
+
+    // ถ้ายังไม่เคยมีสิทธิ์เลย หรือ จำนวนสิทธิ์ที่มีน้อยกว่าจำนวน Session ทั้งหมดที่มี
+    // แสดงว่าเขายัง "ว่าง" ในบาง Session ให้เลือกได้
+    if (!assignedSlots) return true
+    return assignedSlots.size < totalPossibleSlots
+  })
+})
+
 const selectedStaffNames = computed(() => {
-  if (!staffList.value) return []
-  return staffList.value
+  if (!rawStaffList.value) return []
+  return rawStaffList.value
     .filter((s) => selectedStaffIds.value.includes(s.id))
     .map((s) => `${s.user?.firstName || ''} ${s.user?.lastName || ''}`)
 })
 
 const selectedSessionName = computed(() => {
   if (!selectedSession.value) return 'Event-wide'
-  const found = sessionsList.value.find(s => s.id === selectedSession.value)
+  const found = sessionsList.value.find((s) => s.id === selectedSession.value)
   return found ? found.name : selectedSession.value
 })
 
 const formatEnum = (value: string) => {
   if (!value) return '-'
-  return value.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())
+  return value
+    .replace(/_/g, ' ')
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
 // --- Logic Actions ---
@@ -66,24 +100,81 @@ const AddNewPermission = () => {
   addModal.value = true
 }
 
+const editStaffScope = (scope: StaffScope) => {
+  editingScopeId.value = scope.id
+  editingStaffName.value = `${scope.staff?.user.firstName} ${scope.staff?.user.lastName}`
+
+  // Set ค่าเริ่มต้นใน Modal ให้ตรงกับข้อมูลที่มีอยู่
+  selectedRoles.value = [scope.permission]
+  selectedSession.value = scope.sessionId || ''
+
+  editModal.value = true
+}
+
+const confirmDelete = (staffId: string) => {
+  staffIdToDelete.value = staffId
+  deleteModal.value = true
+}
+
+const handleExecuteDelete = async () => {
+  if (!staffIdToDelete.value) return
+
+  const success = await staffStore.removeScope(staffIdToDelete.value)
+  if (success) {
+    toast.success('Permission removed successfully')
+    deleteModal.value = false
+    staffIdToDelete.value = ''
+    await staffStore.fetchAllScopes()
+  } else {
+    toast.error(staffStore.error || 'Failed to remove permission')
+  }
+}
+
 const handleConfirmFinal = async () => {
-  const scopePayload = selectedRoles.value.map(role => ({
+  const scopePayload = selectedRoles.value.map((role) => ({
     permission: role as StaffPermission,
-    sessionId: selectedSession.value || null
+    sessionId: selectedSession.value || null,
   }))
 
-  const success = await staffStore.bulkAddStaffScopes(
-    selectedStaffIds.value,
-    scopePayload
-  )
+  const success = await staffStore.bulkAddStaffScopes(selectedStaffIds.value, scopePayload)
 
   if (success) {
     addModal.value = false
     step.value = 1
     await staffStore.fetchAllScopes()
-    toast.success('Permissions updated successfully') 
+    toast.success('Permissions updated successfully')
   } else {
     toast.error(staffStore.error || 'Failed to update permissions')
+  }
+}
+
+const handleUpdateFinal = async () => {
+  if (!editingScopeId.value) return
+  try {
+    const scopeToUpdate = staffStore.allScopes.find((s) => s.id === editingScopeId.value)
+
+    if (!scopeToUpdate?.staffId) {
+      toast.error('Could not find staff information')
+      return
+    }
+
+    await staffStore.removeScope(editingScopeId.value)
+
+    const scopePayload = selectedRoles.value.map((role) => ({
+      permission: role as StaffPermission,
+      sessionId: selectedSession.value || null,
+    }))
+
+    const staffId = scopeToUpdate.staffId
+
+    await staffStore.bulkAddStaffScopes([staffId], scopePayload)
+
+    toast.success('Permission updated successfully')
+    editModal.value = false
+    await staffStore.fetchAllScopes()
+  } catch (error) {
+    console.error(error)
+    toast.error('Failed to update permission')
   }
 }
 
@@ -136,6 +227,7 @@ const isNextDisabled = computed(() => {
                 <th class="px-6 py-4">Email</th>
                 <th class="px-6 py-4">Role</th>
                 <th class="px-6 py-4">Session</th>
+                <th class="px-6 py-4 w-[50px]"></th>
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
@@ -147,7 +239,8 @@ const isNextDisabled = computed(() => {
                   </div>
                 </td>
               </tr>
-              <tr v-else
+              <tr
+                v-else
                 v-for="(staff, index) in staffScopesList"
                 :key="staff.id"
                 class="hover:bg-gray-50/80 transition-colors"
@@ -160,15 +253,37 @@ const isNextDisabled = computed(() => {
                 <td class="px-6 py-4 text-gray-600">
                   <div class="flex flex-wrap gap-1">
                     <span
-                      v-for="role in staff.permission"
-                      :key="role"
-                      class="px-2 py-0.5 rounded text-xs bg-blue-50 text-blue-700 border border-blue-100"
+                      class="px-2 p-1 rounded-lg text-xs bg-blue-50 text-blue-500 border border-blue-100 font-bold"
                     >
-                      {{ formatEnum(role) }}
+                      {{ formatEnum(staff.permission) }}
                     </span>
                   </div>
                 </td>
-                <td class="px-6 py-4 text-gray-900">{{ staff.session }}</td>
+                <td class="px-6 py-4 text-gray-900">
+                  <div class="flex flex-wrap gap-1">
+                    <span
+                      class="px-2 p-1 rounded-lg text-xs bg-purple-50 text-purple-500 border border-purple-100 font-bold"
+                    >
+                      {{ staff.session?.name ? staff.session.name : 'Event-Wide' }}
+                    </span>
+                  </div>
+                </td>
+                <td class="px-6 py-4 w-[50px] text-right">
+                  <div class="flex flex-row">
+                    <button
+                      @click="editStaffScope(staff)"
+                      class="p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors"
+                    >
+                      <Pencil class="w-4 h-4" />
+                    </button>
+                    <button
+                      @click="confirmDelete(staff.id)"
+                      class="p-2 text-red-500 hover:bg-red-100 rounded-full transition-colors"
+                    >
+                      <X class="w-4 h-4" />
+                    </button>
+                  </div>
+                </td>
               </tr>
             </tbody>
           </table>
@@ -191,7 +306,7 @@ const isNextDisabled = computed(() => {
         <div class="p-6 overflow-y-auto flex-1">
           <SelectStaff
             v-if="step === 1"
-            :all-staff="staffList"
+            :all-staff="filteredStaffList"
             v-model:selectedIds="selectedStaffIds"
           />
 
@@ -199,6 +314,8 @@ const isNextDisabled = computed(() => {
             v-if="step === 2"
             :all-role="availableRoles"
             :all-session="sessionsList"
+            :all-scopes="staffScopesList"      
+            :selected-staff-ids="selectedStaffIds"
             v-model:selectedRoles="selectedRoles"
             v-model:selectedSession="selectedSession"
             :selected-staff-names="selectedStaffNames"
@@ -230,6 +347,78 @@ const isNextDisabled = computed(() => {
             <Loader2 v-if="isLoading" class="w-4 h-4 animate-spin mr-2" />
             {{ step === 3 ? 'Confirm & Grant' : 'Next Step' }}
           </Button>
+        </div>
+      </div>
+    </div>
+
+    <div
+      v-if="editModal"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-[2px] p-4 text-left"
+    >
+      <div class="bg-white rounded-2xl shadow-xl w-full max-w-4xl flex flex-col max-h-[90vh]">
+        <div class="p-6 border-b shrink-0 flex justify-between items-center">
+          <div>
+            <h3 class="font-bold text-gray-900 text-xl">Edit Permission</h3>
+            <p class="text-xs text-gray-400 mt-1">Modifying access for {{ editingStaffName }}</p>
+          </div>
+          <button @click="editModal = false" class="p-2 hover:bg-gray-100 rounded-full">
+            <X class="w-5 h-5 text-gray-400" />
+          </button>
+        </div>
+
+        <div class="p-6 overflow-y-auto flex-1">
+          <SelectRole
+            :all-role="availableRoles"
+            :all-session="sessionsList"
+            :all-scopes="staffScopesList"      
+            :selected-staff-ids="selectedStaffIds"
+            v-model:selectedRoles="selectedRoles"
+            v-model:selectedSession="selectedSession"
+            :selected-staff-names="[editingStaffName]"
+          />
+        </div>
+
+        <div class="p-6 border-t flex justify-end gap-3 shrink-0">
+          <button
+            @click="editModal = false"
+            class="px-4 py-2 text-sm font-bold text-gray-500 hover:text-gray-800 transition-colors"
+          >
+            Cancel
+          </button>
+
+          <Button
+            @click="handleUpdateFinal"
+            class="min-w-[120px] font-bold shadow-sm bg-black text-white hover:bg-gray-800"
+            :disabled="selectedRoles.length === 0 || isLoading"
+          >
+            <Loader2 v-if="isLoading" class="w-4 h-4 animate-spin mr-2" />
+            Save Changes
+          </Button>
+        </div>
+      </div>
+    </div>
+    <div
+      v-if="deleteModal"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+    >
+      <div class="bg-white rounded-lg shadow-lg max-w-md w-full p-6 space-y-4">
+        <h3 class="text-lg font-semibold text-gray-900">Confirm Deletion</h3>
+        <p class="text-gray-500">
+          Are you sure you want to remove this permission? This action cannot be undone.
+        </p>
+        <div class="flex justify-end gap-3 pt-2">
+          <button
+            @click="deleteModal = false"
+            class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+          >
+            Cancel
+          </button>
+          <button
+            @click="handleExecuteDelete()"
+            class="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700"
+          >
+            Delete
+          </button>
         </div>
       </div>
     </div>

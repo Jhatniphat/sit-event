@@ -69,8 +69,8 @@ function scanQRCode(eventId: string) {
 
 <template>
   <div class="mt-8">
-    <div class="font-semibold text-xl">Upcoming</div>
-    <div class="h-2"></div>
+    <div class="font-semibold text-xl mb-4">Upcoming</div>
+    <div v-if="upcoming.length === 0" class="text-slate-400 text-sm mb-6">No upcoming events.</div>
     <div v-for="(reg, index) in upcoming" :key="index">
       <div class="flex flex-row justify-start items-center my-3">
         <div @click="seeEventDetail(reg.eventId)" class="flex flex-row items-center flex-1">
@@ -101,8 +101,8 @@ function scanQRCode(eventId: string) {
     </div>
   </div>
   <div class="mt-8">
-    <div class="font-semibold text-xl">Ongoing</div>
-    <div class="h-2"></div>
+    <div class="font-semibold text-xl mb-4">Ongoing</div>
+    <div v-if="ongoing.length === 0" class="text-slate-400 text-sm mb-6">No ongoing events.</div>
     <div v-for="(reg, index) in ongoing" :key="index">
       <div class="flex flex-row justify-start items-center my-3">
         <div @click="seeEventDetail(reg.eventId)" class="flex flex-row items-center flex-1">

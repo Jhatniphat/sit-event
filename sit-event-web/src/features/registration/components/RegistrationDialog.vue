@@ -79,6 +79,7 @@ const getSelectionBtnClass = (isSelected: boolean) => {
           type="button"
           :class="getSelectionBtnClass(selectedRole === 'STAFF')"
           @click="selectRole('STAFF')"
+          id="registration-staff-select-button"
         >
           <span class="text-4xl mb-2">📋</span>
           <span class="font-semibold text-lg">Staff</span>
@@ -94,6 +95,7 @@ const getSelectionBtnClass = (isSelected: boolean) => {
           type="button"
           :class="getSelectionBtnClass(selectedRole === 'PARTICIPANT')"
           @click="selectRole('PARTICIPANT')"
+          id="registration-participant-select-button"
         >
           <span class="text-4xl mb-2">🙋‍♂️</span>
           <span class="font-semibold text-lg">Participant</span>
@@ -117,6 +119,7 @@ const getSelectionBtnClass = (isSelected: boolean) => {
           type="submit" 
           @click="handleConfirm" 
           :disabled="!selectedRole"
+          id="registration-confirm-button"
         >
           ยืนยัน
         </Button>

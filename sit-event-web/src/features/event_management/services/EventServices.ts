@@ -12,6 +12,8 @@ export type EventTag =
   | 'COMPETITION'
   | 'SOCIAL'
   | 'CAREER'
+  | 'OPENHOUSE'
+  | 'CAMP'
 
 export type TargetAudience = 'EXTERNAL_STUDENT' | 'INTERNAL_STUDENT' | 'TEACHER' | 'PUBLIC'
 
@@ -46,6 +48,7 @@ export interface Event {
   targetAudience: TargetAudience[]
   tags: EventTag[]
   maxSeats?: number | null // Optional: null means unlimited
+  requireApprove?: boolean
   creatorId: string // uuid, readOnly [cite: 11, 12]
   createdAt: Date // date-time, readOnly [cite: 12]
   images: File[]
@@ -67,6 +70,7 @@ export interface CreateEventDto {
   eventEndDate: string // date-time, required [cite: 18, 20]
   targetAudience?: TargetAudience[]
   tags?: EventTag[]
+  requireApprove?: boolean
 }
 /**
  * DTO สำหรับการ "อัปเดต" Event
@@ -88,6 +92,9 @@ export interface EventSession {
   location: string
   maxSeats: number | null    // null = unlimited
   availableSeats: number | null  // null = unlimited
+  enableReserve?: boolean
+  maxReserveSeats?: number | null
+  requireApprove?: boolean
   pointsAwarded: number
   autoRegister: boolean
 }
@@ -99,6 +106,9 @@ export interface CreateSessionDto {
   endTime: string // ISO String
   location: string
   maxSeats?: number    // Optional: omit for unlimited
+  enableReserve?: boolean
+  maxReserveSeats?: number
+  requireApprove?: boolean
   pointsAwarded: number
   autoRegister?: boolean
 }
@@ -126,12 +136,22 @@ export interface RegisterForEventDto {
   sessionId?: string // Optional [cite: 44]
 }
 
+export interface ParticipantSummary {
+  totalRegistered: number
+  totalAttended: number
+  totalApproved: number
+  totalPending: number
+  totalRejected: number
+  attendanceRate: string // เช่น "0%"
+}
+
 export interface ParticipantPaginationResponse {
   total: number
   limit: number
   offset: number
   data: ParticipantInfo[]
 }
+
 export interface ParticipantInfo {
   userId: string
   firstName: string
@@ -139,15 +159,24 @@ export interface ParticipantInfo {
   email: string
   status: ParticipantStatus
   attended: boolean
-  checkedInAt: string | null // date-time
-  registeredAt: string | Date // date-time
+  sessionId: string | null
+  sessionName: string | null
+  checkedInAt: string | null
+  registeredAt: string | Date
 }
 
 export type ParticipantStatus = 'APPROVED' | 'REJECTED' | 'REGISTERED'
 
+export interface ParticipantPaginationResponse {
+  summary: ParticipantSummary // เพิ่มส่วนนี้เข้าไป
+  data: ParticipantInfo[]
+  pagination: PaginationMeta
+}
+
 export interface GetParticipantsParams {
+  page?: number   // เพิ่ม page เพื่อใช้คู่กับ pagination
   limit?: number
-  offset?: number
+  offset?: number // ถ้า API ใช้ offset
   search?: string
 }
 // ===== 2. Type Guard for Error Handling =====
@@ -188,7 +217,8 @@ export const EventService = {
   async getAllEvents(params?: {
     page?: number
     limit?: number
-    tag?: EventTag
+    tags?: EventTag
+    name?: string
   }): Promise<PaginatedResult<Event>> {
     try {
       const result = await apiClient.get<PaginatedResult<Event>, PaginatedResult<Event>>(
@@ -325,9 +355,10 @@ export const EventService = {
     }
   },
 
-  async createSession(eventId: string, data: CreateSessionDto): Promise<EventSession> {
+  async createSession(eventId: string, data: CreateSessionDto | FormData): Promise<EventSession> {
     try {
-      return await apiClient.post<EventSession, EventSession>(`/events/${eventId}/sessions`, data)
+      const config = data instanceof FormData ? { headers: { 'Content-Type': 'multipart/form-data' } } : undefined
+      return await apiClient.post<EventSession, EventSession>(`/events/${eventId}/sessions`, data, config)
     } catch (error: unknown) {
       if (isApiError(error)) throw error
       throw new Error('Failed to create session.')
@@ -337,12 +368,14 @@ export const EventService = {
   async updateSession(
     eventId: string,
     sessionId: string,
-    data: UpdateSessionDto,
+    data: UpdateSessionDto | FormData,
   ): Promise<EventSession> {
     try {
+      const config = data instanceof FormData ? { headers: { 'Content-Type': 'multipart/form-data' } } : undefined
       return await apiClient.patch<EventSession, EventSession>(
         `/events/${eventId}/sessions/${sessionId}`,
         data,
+        config,
       )
     } catch (error: unknown) {
       if (isApiError(error)) throw error
@@ -383,49 +416,44 @@ export const EventService = {
   },
 
   // Participant List For Staff
-  // เดี๋ยวมาแก้ให้ไม่ใช้ any นะครับบ
   async participantsForEvent(
     eventId: string,
     params?: GetParticipantsParams,
-  ): Promise<any> {
+  ): Promise<ParticipantPaginationResponse> {
     try {
-      const participantsList = await apiClient.get<any>(
+      // apiClient จะ return ข้อมูลที่แกะจาก response.data มาให้เลย
+      const result = await apiClient.get<ParticipantPaginationResponse>(
         `/events/${eventId}/participants`,
         { params },
       )
-      console.log('Participants List:', participantsList.data)
-      return participantsList.data
+      return result as unknown as ParticipantPaginationResponse
     } catch (error: unknown) {
       if (isApiError(error)) {
-        console.error(
-          `[EventService] ParticipantsForEvent API Error ${error.status}: ${error.message}`,
-        )
+        console.error(`[EventService] participantsForEvent API Error ${error.status}: ${error.message}`)
         throw error
       }
-      console.error('[EventService] ParticipantsForEvent Unexpected Error:', error)
-      throw new Error('An unexpected error occurred during get all participants.')
+      throw new Error('An unexpected error occurred while fetching event participants.')
     }
   },
+
+  // Participant List For Session
   async participantsForSession(
     eventId: string,
     sessionId: string,
     params?: GetParticipantsParams,
   ): Promise<ParticipantPaginationResponse> {
     try {
-      const participantsList = await apiClient.get<ParticipantPaginationResponse>(
+      const result = await apiClient.get<ParticipantPaginationResponse>(
         `/events/${eventId}/sessions/${sessionId}/participants`,
         { params },
       )
-      return participantsList.data
+      return result as unknown as ParticipantPaginationResponse
     } catch (error: unknown) {
       if (isApiError(error)) {
-        console.error(
-          `[EventService.participantsForSession] API Error ${error.status}: ${error.message}`,
-        )
+        console.error(`[EventService] participantsForSession API Error ${error.status}: ${error.message}`)
         throw error
       }
-      console.error('[EventService.participantsForSession] Unexpected Error:', error)
-      throw new Error('An unexpected error occurred during get all participants.')
+      throw new Error('An unexpected error occurred while fetching session participants.')
     }
   },
 }

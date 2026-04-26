@@ -112,6 +112,48 @@ export class ScopesService {
   }
 
   /*
+   * Check if a staff member has ACCEPTED status.
+   * Returns { isAccepted: boolean, staff?: EventStaff, message?: string }
+   * Used by guards to provide clear error messages about staff status.
+   */
+  async checkStaffStatus(userId: string, eventId: string): Promise<{ isAccepted: boolean; staff?: any; message?: string }> {
+    const staff = await this.prisma.eventStaff.findUnique({
+      where: {
+        eventId_userId: {
+          eventId,
+          userId,
+        },
+      },
+    });
+
+    if (!staff) {
+      this.logger.warn(
+        `No staff record found for userId: ${userId}, eventId: ${eventId}`,
+      );
+      return {
+        isAccepted: false,
+        message: 'Staff record not found',
+      };
+    }
+
+    if (staff.status !== 'ACCEPTED') {
+      this.logger.warn(
+        `Staff userId: ${userId}, eventId: ${eventId} has status ${staff.status}, not ACCEPTED`,
+      );
+      return {
+        isAccepted: false,
+        staff,
+        message: `Staff account is ${staff.status}. Must be ACCEPTED to access event resources.`,
+      };
+    }
+
+    return {
+      isAccepted: true,
+      staff,
+    };
+  }
+
+  /*
    * Helper method for guards checking.
    * Checks if a user has a specific permission for a given event, optionally scoped to a session.
    * If sessionId is provided, checking if the staff has permission for that SPECIFIC session OR event-wide permission.
@@ -137,13 +179,8 @@ export class ScopesService {
       return false;
     }
 
-    // Check if staff has ACCEPTED status - only ACCEPTED staff members can have permissions
-    // if (staff.status !== 'ACCEPTED') {
-    //   this.logger.warn(
-    //     `Staff userId: ${userId}, eventId: ${eventId} has status ${staff.status}, not ACCEPTED. Required permission: ${permission}`,
-    //   );
-    //   return false;
-    // }
+    // Note: Staff status is already validated in guard via checkStaffStatus()
+    // No need to re-check here
 
     // Check if any scope matches the requirement
     const hasPermission = staff.scopes.some((scope) => {

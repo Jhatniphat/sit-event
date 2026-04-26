@@ -1,7 +1,8 @@
-import { Controller, Post, Param, Delete, HttpCode, Patch, Get, Query, Res } from '@nestjs/common';
+import { Controller, Post, Param, Delete, HttpCode, Patch, Get, Query, Res, Body, UseGuards } from '@nestjs/common';
 import { EventRegistrationsService } from './event-registrations.service';
 import type { Response } from 'express';
 import { RegistrationStatus } from '../../generated/prisma';
+import { StaffPermissionType } from '../../generated/prisma';
 import { 
   Roles, 
   AdminOnly, 
@@ -11,6 +12,8 @@ import {
   type AuthenticatedUser,
   UserRole,
 } from '../common';
+import { StaffScopesGuard, RequirePermission } from '../common/guards/staff-scopes.guard';
+import { StaffCheckInDto } from './dto/staff-check-in.dto';
 
 @Controller('events')
 export class EventRegistrationsController {
@@ -128,6 +131,15 @@ export class EventRegistrationsController {
   }
 
   // =============================================
+  // Get Registration Capacity Limits (Admin)
+  // =============================================
+  @Get(':eventId/registrations/capacity')
+  @AdminOnly()
+  async getRegistrationCapacity(@Param('eventId') eventId: string) {
+    return this.eventRegistrationsService.getRegistrationCapacity(eventId);
+  }
+
+  // =============================================
   // Approve Registration (Admin)
   // =============================================
   @Patch(':eventId/registrations/:registrationId/approve')
@@ -170,6 +182,31 @@ export class EventRegistrationsController {
     @Param('sessionId') sessionId: string,
   ) {
     return this.eventRegistrationsService.checkInUserSession(eventId, userId, sessionId);
+  }
+
+  // =============================================
+  // Staff Check-in with EventStaffScope Authorization
+  // =============================================
+
+  @Post(':eventId/staff/check-in')
+  @UseGuards(StaffScopesGuard)
+  @RequirePermission(StaffPermissionType.CHECK_IN)
+  async staffCheckIn(
+    @Param('eventId') eventId: string,
+    @Body() dto: StaffCheckInDto,
+  ) {
+    // Note: StaffScopesGuard ensures:
+    // 1. User is authenticated and exists in DB
+    // 2. Has CHECK_IN permission in EventStaffScope
+    // 3. Scope matches (event-wide or session-specific)
+    // 
+    // Guard validates authorization before this handler is called.
+    
+    return this.eventRegistrationsService.staffCheckIn(
+      eventId,
+      dto.userId,
+      dto.sessionId ?? null,
+    );
   }
 
   // =============================================

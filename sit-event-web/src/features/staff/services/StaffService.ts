@@ -76,19 +76,18 @@ export const StaffService = {
 
 async getAllStaffScope(): Promise<StaffScope[]> {
     try {
-      const result = await apiClient.get<StaffScope[]>(
+      const result = await apiClient.get<StaffScope[], StaffScope[]>(
         '/event-staffs/scopes',
       )
-      console.log('[StaffService.getAllStaffScope] Fetched scopes:', result.data)
-      return result.data
+      return result
     } catch (error) {
       return handleServiceError(error, 'getAllStaffScopes')
     }
   },
   async getScopesByStaffId(staffId: string): Promise<StaffScope[]> {
     try {
-      const result = await apiClient.get<StaffScope[]>(`/event-staffs/${staffId}/scopes`)
-      return result.data
+      const result = await apiClient.get<StaffScope[], StaffScope[]>(`/event-staffs/${staffId}/scopes`)
+      return result
     } catch (error) {
       return handleServiceError(error, 'getScopesByStaffId')
     }
@@ -96,7 +95,6 @@ async getAllStaffScope(): Promise<StaffScope[]> {
   async addStaffScope(staffId: string, data: UpdateStaffScopeDto): Promise<void> {
     try {
       await apiClient.post(`/event-staffs/${staffId}/scopes`, data)
-      console.log(`[StaffService.addStaffScope] Added scope for staffId=${staffId} with data=`, data)
     } catch (error) {
       return handleServiceError(error, 'addStaffScope')
     }
@@ -110,7 +108,7 @@ async getAllStaffScope(): Promise<StaffScope[]> {
   },
   async getAllStaff(eventId: string): Promise<StaffMemberArray> {
     try {
-      return await apiClient.get(`/events/${eventId}/staffs`)
+      return await apiClient.get<StaffMemberArray, StaffMemberArray>(`/events/${eventId}/staffs`)
     } catch (error) {
       return handleServiceError(error, 'getAllStaff')
     }

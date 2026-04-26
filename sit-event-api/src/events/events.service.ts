@@ -1,6 +1,6 @@
 import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma.service';
-import { Event, Prisma, UserRole, FormType } from 'generated/prisma';
+import { Event, Prisma, UserRole, FormType, EventTag } from 'generated/prisma';
 import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
 import { UsersService } from '../users/users.service';
@@ -10,6 +10,8 @@ import { MinioClientService } from '../minio/minio-client.service';
 export interface PaginationParams {
   page?: number;
   limit?: number;
+  name?: string;
+  tags?: EventTag[];
 }
 
 export interface PaginatedResult<T> {
@@ -41,6 +43,9 @@ export class EventsService {
     }
 
     const { sessions, forms, ...eventData } = createEventDto;
+    console.log("sessions", sessions);
+    console.log("forms", forms);
+    console.log("eventData", eventData)
 
     return this.prisma.event.create({
       data: {
@@ -95,12 +100,33 @@ export class EventsService {
     const page = params?.page || 1;
     const limit = params?.limit || 10;
     const skip = (page - 1) * limit;
+    const name = params?.name?.trim();
+    const tags = params?.tags;
+
+    const where: Prisma.EventWhereInput = {
+      ...(name
+        ? {
+            name: {
+              contains: name,
+              mode: 'insensitive',
+            },
+          }
+        : {}),
+      ...(tags && tags.length > 0
+        ? {
+            tags: {
+              hasSome: tags,
+            },
+          }
+        : {}),
+    };
 
     // Get total count for pagination metadata
-    const total = await this.prisma.event.count();
+    const total = await this.prisma.event.count({ where });
 
     // Get paginated results
     const events = await this.prisma.event.findMany({
+      where,
       skip,
       take: limit,
       orderBy: {

@@ -81,9 +81,10 @@ const hasCertificateConfig = computed(() =>
 
 // --- SYNC WITH STORE ---
 const initFromStore = (eventId: string) => {
-    isCreatingNode.value = true;
+    isCreatingNode.value = false;
     const data = certificateStore.certificates[eventId];
     if (data) {
+        isCreatingNode.value = true;
         existingTemplateId.value = data.id;
         certificateBackground.value = {
           file: null, 

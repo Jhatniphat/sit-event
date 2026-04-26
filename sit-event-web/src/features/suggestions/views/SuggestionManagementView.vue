@@ -151,7 +151,10 @@ const deleteSuggestion = async (id: string) => {
 
 const getImageUrl = (url?: string) => {
   if (!url) return '';
-  // Construct Minio url 
+  // If it's already a full URL (signed URL from backend), return it as is
+  if (url.startsWith('http')) return url;
+  
+  // Fallback for direct Minio filenames (if any remain)
   const minioUrl = import.meta.env.VITE_MINIO_ENDPOINT_FRONTEND || 'http://localhost:9000';
   return `${minioUrl}/sitevent/${url}`;
 }

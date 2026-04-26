@@ -33,7 +33,7 @@ const emit = defineEmits<{
       </DialogHeader>
       <DialogFooter>
         <Button variant="outline" @click="emit('update:open', false)">ยกเลิก</Button>
-        <Button variant="destructive" @click="emit('confirm')">ยืนยันการยกเลิก</Button>
+        <Button variant="destructive" @click="emit('confirm')" id="confirm-unregister-button">ยืนยันการยกเลิก</Button>
       </DialogFooter>
     </DialogContent>
   </Dialog>

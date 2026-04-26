@@ -1,5 +1,6 @@
 import { IsString, IsNotEmpty, IsDateString, IsInt, Min, IsOptional, IsBoolean } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Transform, Type } from 'class-transformer';
 
 export class CreateEventSessionDto {
   @ApiProperty({
@@ -49,6 +50,7 @@ export class CreateEventSessionDto {
   @IsInt()
   @Min(1)
   @IsOptional()
+  @Type(() => Number)
   maxSeats?: number;
 
   @ApiPropertyOptional({
@@ -56,9 +58,14 @@ export class CreateEventSessionDto {
     example: false,
     default: false,
   })
-  @IsBoolean()
   @IsOptional()
-  autoRegister?: boolean;
+  @Transform(({ value }) => {
+    if (value === 'false' || value === false || value === 0 || value === '0') return false;
+    if (value === 'true' || value === true || value === 1 || value === '1') return true;
+    return value;
+  })
+  @IsBoolean()
+  autoRegister?: any;
 
   @ApiPropertyOptional({
     description: 'Points awarded for attending this session',
@@ -67,5 +74,30 @@ export class CreateEventSessionDto {
   @IsInt()
   @Min(0)
   @IsOptional()
+  @Type(() => Number)
   pointsAwarded?: number;
+
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (value === 'false' || value === false || value === 0 || value === '0') return false;
+    if (value === 'true' || value === true || value === 1 || value === '1') return true;
+    return value;
+  })
+  @IsBoolean()
+  enableReserve?: any;
+
+  @IsInt()
+  @Min(1)
+  @IsOptional()
+  @Type(() => Number)
+  maxReserveSeats?: number;
+
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (value === 'false' || value === false || value === 0 || value === '0') return false;
+    if (value === 'true' || value === true || value === 1 || value === '1') return true;
+    return value;
+  })
+  @IsBoolean()
+  requireApprove?: any;
 }

@@ -73,7 +73,19 @@ export class StaffScopesGuard implements CanActivate {
       throw new BadRequestException('Event context required for permission verification');
     }
 
-    // Verify permission using the scopes service
+    // STEP 1: Check if staff has ACCEPTED status first
+    const statusCheck = await this.scopesService.checkStaffStatus(userId, eventId);
+    
+    if (!statusCheck.isAccepted) {
+      this.logger.warn(
+        `Staff status check failed - userId: ${userId}, eventId: ${eventId}, status: ${statusCheck.staff?.status || 'not found'}`,
+      );
+      throw new ForbiddenException(
+        statusCheck.message || 'Staff account must be ACCEPTED to access resources',
+      );
+    }
+
+    // STEP 2: Verify permission using the scopes service
     const hasPermission = await this.scopesService.checkPermission(
       userId,  // Using database UUID
       eventId,

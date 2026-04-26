@@ -38,6 +38,9 @@ interface LocalSubSession {
   end: Date
   location: string
   maxSeats: number | null
+  enableReserve: boolean
+  maxReserveSeats: number | null
+  requireApprove: boolean
   pointsAwarded: number
   autoRegister: boolean
   isExpanded: boolean
@@ -53,7 +56,7 @@ const wantPostEventForm = ref(false)
 
 // Constants
 const ALL_EVENT_TARGET_AUDIENCE = ['EXTERNAL_STUDENT', 'INTERNAL_STUDENT', 'TEACHER', 'PUBLIC']
-const ALL_EVENT_TAGS = ['SPEAK', 'EDUCATION', 'WORKSHOP', 'SEMINAR', 'COMPETITION', 'SOCIAL', 'CAREER']
+const ALL_EVENT_TAGS = ['SPEAK', 'EDUCATION', 'WORKSHOP', 'SEMINAR', 'COMPETITION', 'SOCIAL', 'CAREER', 'OPENHOUSE', 'CAMP']
 
 // UI State
 const currentStep = ref(1)
@@ -90,6 +93,9 @@ const formSchema = z.object({
   targetAudience: z.array(z.string()).min(1, 'กรุณาเลือกกลุ่มเป้าหมายอย่างน้อย 1 กลุ่ม'),
   tags: z.array(z.string()).min(1, 'กรุณาเลือก Tag อย่างน้อย 1 รายการ'),
   maxSeats: z.coerce.number().int().min(1, 'จำนวนที่นั่งต้องมีอย่างน้อย 1').nullable().optional(),
+  enableReserve: z.boolean().optional().default(false),
+  maxReserveSeats: z.coerce.number().int().min(1, 'จำนวนที่นั่ง Reserve ต้องมีอย่างน้อย 1').nullable().optional(),
+  requireApprove: z.boolean().optional().default(false),
   thumbnail: z.custom<File>((val) => val instanceof File, 'กรุณาอัปโหลดรูปปก').nullable().optional(),
   images: z.array(z.custom<File>()).optional(),
 }).superRefine((data, ctx) => {
@@ -109,6 +115,8 @@ const getSubSessionSchema = (eventStart?: Date, eventEnd?: Date, eventMaxSeats?:
   end: z.coerce.date(),
   location: z.string().min(1, 'กรุณาระบุสถานที่'),
   maxSeats: z.coerce.number().int().min(1, 'จำนวนที่นั่งต้องมีอย่างน้อย 1').nullable().optional(),
+  enableReserve: z.boolean().optional().default(false),
+  maxReserveSeats: z.coerce.number().int().min(1, 'จำนวนที่นั่ง Reserve ต้องมีอย่างน้อย 1').nullable().optional(),
   pointsAwarded: z.coerce.number().min(0, 'คะแนนต้องไม่ติดลบ'),
   autoRegister: z.boolean().optional(),
 }).superRefine((data, ctx) => {
@@ -139,6 +147,9 @@ const form = useForm({
     targetAudience: [],
     tags: [],
     maxSeats: null,
+    enableReserve: false,
+    maxReserveSeats: null,
+    requireApprove: false,
     thumbnail: null,
     images: [],
   },
@@ -180,6 +191,9 @@ onMounted(async () => {
           targetAudience: eventToEdit.targetAudience ?? [],
           tags: eventToEdit.tags ?? [],
           maxSeats: (eventToEdit as any).maxSeats ?? null,
+          enableReserve: (eventToEdit as any).enableReserve ?? false,
+          maxReserveSeats: (eventToEdit as any).maxReserveSeats ?? null,
+          requireApprove: (eventToEdit as any).requireApprove ?? false,
         })
 
         if (eventToEdit.thumbnail && typeof eventToEdit.thumbnail === 'string') {
@@ -221,6 +235,9 @@ onMounted(async () => {
           end: new Date(s.endTime),
           location: s.location,
           maxSeats: s.maxSeats,
+          enableReserve: (s as any).enableReserve ?? false,
+          maxReserveSeats: (s as any).maxReserveSeats ?? null,
+          requireApprove: (s as any).requireApprove ?? false,
           pointsAwarded: s.pointsAwarded,
           autoRegister: s.autoRegister,
           isExpanded: false,
@@ -308,6 +325,12 @@ const submitEvent = async () => {
   
   try {
     const values = form.values
+    console.log('[DEBUG] form values before submit:', {
+      enableReserve: values.enableReserve,
+      requireApprove: values.requireApprove,
+      enableReserveType: typeof values.enableReserve,
+      requireApproveType: typeof values.requireApprove,
+    })
     const formData = new FormData()
     
     formData.append('name', values.name!)
@@ -319,6 +342,11 @@ const submitEvent = async () => {
     if (values.maxSeats != null) {
       formData.append('maxSeats', String(values.maxSeats))
     }
+    formData.append('enableReserve', String(values.enableReserve))
+    if (values.maxReserveSeats != null) {
+      formData.append('maxReserveSeats', String(values.maxReserveSeats))
+    }
+    formData.append('requireApprove', String(values.requireApprove))
     
     values.targetAudience?.forEach((t) => formData.append('targetAudience', t))
     values.tags?.forEach((tag) => formData.append('tags', tag))
@@ -365,21 +393,27 @@ const submitEvent = async () => {
     })
 
     subSessions.value.forEach(session => {
-        const payload = {
-            name: session.name,
-            description: session.description || '', 
-            startTime: session.start.toISOString(),
-            endTime: session.end.toISOString(),
-            location: session.location,
-            maxSeats: session.maxSeats !== null ? Number(session.maxSeats) : undefined,
-            pointsAwarded: Number(session.pointsAwarded),
-            autoRegister: session.autoRegister
+        const formData = new FormData()
+        formData.append('name', session.name)
+        formData.append('description', session.description || '')
+        formData.append('startTime', session.start.toISOString())
+        formData.append('endTime', session.end.toISOString())
+        formData.append('location', session.location)
+        if (session.maxSeats !== null && session.maxSeats !== undefined) formData.append('maxSeats', String(session.maxSeats))
+        formData.append('enableReserve', String(session.enableReserve))
+        if (session.maxReserveSeats !== null && session.maxReserveSeats !== undefined) formData.append('maxReserveSeats', String(session.maxReserveSeats))
+        formData.append('requireApprove', String(session.requireApprove))
+        formData.append('pointsAwarded', String(session.pointsAwarded))
+        formData.append('autoRegister', String(session.autoRegister))
+
+        if (session.thumbnail instanceof File) {
+            formData.append('thumbnail', session.thumbnail)
         }
 
         if (session.isNew) {
-            sessionPromises.push(eventStore.createSession(targetEventId!, payload))
+            sessionPromises.push(eventStore.createSession(targetEventId!, formData as any))
         } else {
-           sessionPromises.push(eventStore.updateSession(targetEventId!, session.id, payload))
+           sessionPromises.push(eventStore.updateSession(targetEventId!, session.id, formData as any))
         }
     })
 
