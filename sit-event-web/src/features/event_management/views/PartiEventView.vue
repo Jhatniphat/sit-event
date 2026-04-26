@@ -119,7 +119,6 @@ const objectUrlMap = new Map<string, string>()
 const fetchHeroSlides = async () => {
   console.log("fetchHeroSlides")
   try {
-    const minioUrl = import.meta.env.VITE_MINIO_ENDPOINT_FRONTEND || 'http://localhost:9000';
     const activeSuggestions = await suggestionService.getActiveSuggestions();
     
     if (activeSuggestions.length > 0) {
@@ -134,8 +133,8 @@ const fetchHeroSlides = async () => {
           description: s.description,
           buttonText: buttonLink ? 'ดูรายละเอียด' : undefined,
           buttonLink: buttonLink,
-          logos: s.icons ? s.icons.map(icon => `${minioUrl}/sitevent/${icon}`) : [],
-          bgImage: s.backgroundType === 'IMAGE' && s.backgroundImage ? `${minioUrl}/sitevent/${s.backgroundImage}` : undefined,
+          logos: s.icons || [],
+          bgImage: s.backgroundType === 'IMAGE' ? s.backgroundImage : undefined,
           eventStartDate: s.contentDate || s.startDate
         }
       });
