@@ -16,11 +16,11 @@ export const useStaffStore = defineStore('staff', () => {
   /**
    * ดึง Scope ทั้งหมด (Admin View)
    */
-  const fetchAllScopes = async () => {
+  const fetchAllScopes = async (eventId?: string) => {
     isLoading.value = true
     error.value = null
     try {
-      const result = await StaffService.getAllStaffScope()
+      const result = await StaffService.getAllStaffScope(eventId)
       allScopes.value = result
     } catch (err: any) {
       error.value = err.message || 'Failed to fetch all scopes'

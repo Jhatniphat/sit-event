@@ -65,35 +65,19 @@ const truncatedDescription = computed(() => {
 })
 
 const buttonText = computed(() => {
-  if (props.event.hasRegister) return 'ยกเลิกการลงทะเบียน'
-  if (daysRemaining.value <= 0) return 'ปิดรับสมัครแล้ว'
-  // Always show register if active, even if need login (handled in click)
-  return 'ลงทะเบียนเข้าร่วม'
+  return 'ไปดูรายละเอียด'
 })
 
 const isButtonDisabled = computed(() => {
-  if (props.event.hasRegister) return false
-  return daysRemaining.value <= 0 
+  return false 
 })
 
 const buttonVariant = computed(() => {
-  if (props.event.hasRegister) return 'destructive'
-  return 'default'
+  return 'default' as const
 })
 
 const handleButtonClick = () => {
-  if (props.event.hasRegister) {
-    emit('unregister', {
-      id: props.event.id,
-      role: props.event.hasRegister
-    })
-  } else {
-    emit('register', {
-      id: props.event.id,
-      canRegisterAtStaff: props.event.canRegisterAtStaff,
-      canRegisterAtParticipant: props.event.canRegisterAtParticipant
-    })
-  }
+  emit('click', props.event.id)
 }
 </script>
 

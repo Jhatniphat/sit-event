@@ -9,8 +9,9 @@ export class ScopesService {
 
   constructor(private prisma: PrismaService) {}
 
-  async getAllScopes() {
+  async getAllScopes(eventId?: string) {
     return this.prisma.eventStaffScope.findMany({
+      where: eventId ? { staff: { eventId } } : undefined,
       include: {
         staff: {
           include: {

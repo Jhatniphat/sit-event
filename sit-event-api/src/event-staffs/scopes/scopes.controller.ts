@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Query } from '@nestjs/common';
 import { ScopesService } from './scopes.service';
 import { UpdateStaffScopeDto } from '../dto/update-staff-scope.dto';
 import { Roles, UserRole } from '../../common';
@@ -9,8 +9,8 @@ export class ScopesController {
   constructor(private readonly scopesService: ScopesService) {}
 
   @Get('scopes')
-  async getAllScopes() {
-    return this.scopesService.getAllScopes();
+  async getAllScopes(@Query('eventId') eventId?: string) {
+    return this.scopesService.getAllScopes(eventId);
   }
 
   @Get(':staffId/scopes')
