@@ -104,7 +104,18 @@ const clearFilters = () => {
 
 // ใช้ Computed เพื่อ Map ข้อมูลใหม่ทุกครั้งที่ store.events หรือ registerStore เปลี่ยนแปลง
 const eventsForEventCards = computed<EventItem[]>(() => {
-  return events.value.map((evt) =>
+  let filtered = events.value
+
+  const role = userRole.value?.toUpperCase()
+  if (authStore.isAuthenticated && role) {
+    if (role === 'INTERNAL_STUDENT') {
+      filtered = filtered.filter((evt) => evt.targetAudience?.includes('INTERNAL_STUDENT'))
+    } else if (role === 'EXTERNAL_STUDENT') {
+      filtered = filtered.filter((evt) => evt.targetAudience?.includes('EXTERNAL_STUDENT'))
+    }
+  }
+
+  return filtered.map((evt) =>
     mapEventToEventItem(
       evt,
       userRole.value,
@@ -122,7 +133,18 @@ const fetchHeroSlides = async () => {
     const activeSuggestions = await suggestionService.getActiveSuggestions();
     
     if (activeSuggestions.length > 0) {
-      heroSlides.value = activeSuggestions.map(s => {
+      let filteredSuggestions = activeSuggestions
+
+      const role = userRole.value?.toUpperCase()
+      if (authStore.isAuthenticated && role) {
+        if (role === 'INTERNAL_STUDENT') {
+          filteredSuggestions = filteredSuggestions.filter((s) => !s.event || s.event.targetAudience?.includes('INTERNAL_STUDENT'))
+        } else if (role === 'EXTERNAL_STUDENT') {
+          filteredSuggestions = filteredSuggestions.filter((s) => !s.event || s.event.targetAudience?.includes('EXTERNAL_STUDENT'))
+        }
+      }
+
+      heroSlides.value = filteredSuggestions.map(s => {
         let buttonLink = undefined;
         if (s.link) buttonLink = s.link;
         else if (s.eventId) buttonLink = `/events/detail/${s.eventId}`;

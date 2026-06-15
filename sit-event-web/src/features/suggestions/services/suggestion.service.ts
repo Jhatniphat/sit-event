@@ -6,6 +6,7 @@ export interface Suggestion {
   description: string;
   link?: string;
   eventId?: string;
+  event?: any;
   backgroundType: 'PARTICLE' | 'IMAGE';
   backgroundImage?: string;
   icons: string[];
