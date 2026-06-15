@@ -44,6 +44,17 @@ onMounted(async () => {
       throw new Error(eventStore.error || 'ไม่พบข้อมูลกิจกรรม')
     }
 
+    // Check target audience permissions
+    const currentUserRole = authStore.user?.userRole?.toUpperCase()
+    const targetAudience = eventStore.currentEvent.targetAudience || []
+    if (authStore.isAuthenticated && currentUserRole) {
+      if (currentUserRole === 'INTERNAL_STUDENT' && !targetAudience.includes('INTERNAL_STUDENT')) {
+        throw new Error('คุณไม่มีสิทธิ์ในการเข้าถึงกิจกรรมนี้')
+      } else if (currentUserRole === 'EXTERNAL_STUDENT' && !targetAudience.includes('EXTERNAL_STUDENT')) {
+        throw new Error('คุณไม่มีสิทธิ์ในการเข้าถึงกิจกรรมนี้')
+      }
+    }
+
     // 2. โหลดข้อมูล Sub-Sessions
     await eventStore.fetchEventSessions(eventId)
 
