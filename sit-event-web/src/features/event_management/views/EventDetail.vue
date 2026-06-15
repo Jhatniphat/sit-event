@@ -48,9 +48,7 @@ onMounted(async () => {
     const currentUserRole = authStore.user?.userRole?.toUpperCase()
     const targetAudience = eventStore.currentEvent.targetAudience || []
     if (authStore.isAuthenticated && currentUserRole) {
-      if (currentUserRole === 'INTERNAL_STUDENT' && !targetAudience.includes('INTERNAL_STUDENT')) {
-        throw new Error('คุณไม่มีสิทธิ์ในการเข้าถึงกิจกรรมนี้')
-      } else if (currentUserRole === 'EXTERNAL_STUDENT' && !targetAudience.includes('EXTERNAL_STUDENT')) {
+      if (currentUserRole === 'EXTERNAL_STUDENT' && !targetAudience.includes('EXTERNAL_STUDENT')) {
         throw new Error('คุณไม่มีสิทธิ์ในการเข้าถึงกิจกรรมนี้')
       }
     }

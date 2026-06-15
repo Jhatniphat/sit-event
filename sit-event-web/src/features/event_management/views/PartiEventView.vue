@@ -108,9 +108,7 @@ const eventsForEventCards = computed<EventItem[]>(() => {
 
   const role = userRole.value?.toUpperCase()
   if (authStore.isAuthenticated && role) {
-    if (role === 'INTERNAL_STUDENT') {
-      filtered = filtered.filter((evt) => evt.targetAudience?.includes('INTERNAL_STUDENT'))
-    } else if (role === 'EXTERNAL_STUDENT') {
+    if (role === 'EXTERNAL_STUDENT') {
       filtered = filtered.filter((evt) => evt.targetAudience?.includes('EXTERNAL_STUDENT'))
     }
   }
